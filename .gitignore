@@ -1,0 +1,111 @@
+# ──────────────────────────────────────────────
+# EduSystem — .gitignore
+# Monorepo: NestJS + Next.js + React Native
+# ──────────────────────────────────────────────
+
+# ── Variables de entorno ─────────────────────
+# NUNCA commitear archivos .env con valores reales
+.env
+.env.local
+.env.*.local
+.env.development
+.env.production
+.env.test
+
+# Sí se commitean (solo ejemplos sin valores reales)
+!.env.example
+!.env.local.example
+
+# ── Dependencias ─────────────────────────────
+node_modules/
+.pnp
+.pnp.js
+.yarn/install-state.gz
+
+# ── Builds ───────────────────────────────────
+dist/
+build/
+.next/
+out/
+.expo/
+.expo-shared/
+
+# ── Prisma ───────────────────────────────────
+# Las migraciones SÍ se commitean
+# El cliente generado NO (se regenera con prisma generate)
+backend/node_modules/.prisma/
+backend/src/generated/
+
+# ── Logs ─────────────────────────────────────
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+logs/
+
+# ── Testing ──────────────────────────────────
+coverage/
+*.lcov
+.nyc_output/
+
+# ── Cache ────────────────────────────────────
+.npm/
+.eslintcache
+.stylelintcache
+.cache/
+.parcel-cache/
+.turbo/
+
+# ── IDEs y editores ──────────────────────────
+.vscode/
+!.vscode/extensions.json    # este sí se comparte (recomendaciones del equipo)
+!.vscode/settings.json      # opcional: si el equipo acuerda configuración común
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ── Docker ───────────────────────────────────
+# Los volúmenes locales no van al repo
+docker/volumes/
+
+# ── TypeScript ───────────────────────────────
+*.tsbuildinfo
+
+# ── React Native / Expo ──────────────────────
+.expo/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+web-build/
+android/
+ios/
+
+# ── Certificados y claves ────────────────────
+*.pem
+*.crt
+*.p12
+*.pfx
+*.key
+!*.key.example
+
+# ── Archivos de sistema ──────────────────────
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# ── Temporales ───────────────────────────────
+tmp/
+temp/
+*.tmp
+*.temp

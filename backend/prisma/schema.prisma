@@ -1,0 +1,594 @@
+// EduSystem — Prisma Schema
+// PostgreSQL 16
+// v2.0 — SaaS Ready (Multi-tenant + ABAC + Event-driven + Audit)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ──────────────────────────────────────────────
+// ENUMS
+// ──────────────────────────────────────────────
+
+enum Role {
+  SUPER_ADMIN  // Nuevo: administrador de la plataforma SaaS
+  ADMIN
+  TEACHER
+  GUARDIAN
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum Level {
+  INICIAL
+  PRIMARIA
+  SECUNDARIA
+}
+
+enum EnrollmentStatus {
+  ACTIVE
+  GRADUATED
+  TRANSFERRED
+  SUSPENDED
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  JUSTIFIED
+}
+
+enum GradeType {
+  EXAM
+  ASSIGNMENT
+  ORAL
+  PROJECT
+  PARTICIPATION
+}
+
+enum AnnouncementScope {
+  INSTITUTION
+  COURSE
+}
+
+enum ChatRoomType {
+  DIRECT
+  GROUP
+}
+
+enum MessageType {
+  TEXT
+  FILE
+  IMAGE
+}
+
+enum NotificationType {
+  GRADE
+  ATTENDANCE
+  CHAT
+  ANNOUNCEMENT
+  SYSTEM
+}
+
+enum Platform {
+  IOS
+  ANDROID
+  WEB
+}
+
+enum PeriodType {
+  BIMESTRE
+  TRIMESTRE
+  SEMESTRE
+  ANUAL
+}
+
+enum Relationship {
+  PADRE
+  MADRE
+  TUTOR
+  ABUELO
+  HERMANO
+  OTRO
+}
+
+// Nuevo: estado del plan de la institución
+enum PlanType {
+  FREE
+  STARTER
+  PRO
+  ENTERPRISE
+}
+
+enum InstitutionStatus {
+  ACTIVE
+  SUSPENDED
+  TRIAL
+}
+
+// Nuevo: tipos de acción para auditoría
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+  EXPORT
+}
+
+// ──────────────────────────────────────────────
+// MULTI-TENANCY — INSTITUCIÓN
+// ──────────────────────────────────────────────
+
+model Institution {
+  id        String            @id @default(uuid())
+  name      String            @db.VarChar(200)
+  domain    String?           @unique @db.VarChar(100) // ej: colegio.edu.ar
+  logoUrl   String?           @map("logo_url")
+  address   String?           @db.VarChar(300)
+  phone     String?           @db.VarChar(20)
+  plan      PlanType          @default(FREE)
+  status    InstitutionStatus @default(TRIAL)
+  trialEndsAt DateTime?       @map("trial_ends_at")
+  settings  Json?             // configuraciones propias por institución (colores, idioma, etc.)
+  createdAt DateTime          @default(now()) @map("created_at")
+  updatedAt DateTime          @updatedAt @map("updated_at")
+  deletedAt DateTime?         @map("deleted_at")
+
+  users         User[]
+  students      Student[]
+  courses       Course[]
+  subjects      Subject[]
+  schoolYears   SchoolYear[]
+  announcements Announcement[]
+  chatRooms     ChatRoom[]
+  auditLogs     AuditLog[]
+  invitations   Invitation[]
+
+  @@index([domain])
+  @@index([status])
+  @@map("institutions")
+}
+
+// Nuevo: invitaciones para onboarding de nuevos usuarios
+model Invitation {
+  id            String   @id @default(uuid())
+  institutionId String   @map("institution_id")
+  email         String   @db.VarChar(200)
+  role          Role
+  token         String   @unique @db.VarChar(512)
+  expiresAt     DateTime @map("expires_at")
+  acceptedAt    DateTime? @map("accepted_at")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  institution Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([email])
+  @@map("invitations")
+}
+
+// ──────────────────────────────────────────────
+// IDENTITY & ACCESS
+// ──────────────────────────────────────────────
+
+model User {
+  id            String     @id @default(uuid())
+  institutionId String?    @map("institution_id") // null solo para SUPER_ADMIN
+  email         String     @@unique([email, institutionId])
+  passwordHash  String     @map("password_hash")
+  role          Role
+  status        UserStatus @default(ACTIVE)
+  firstName     String     @map("first_name") @db.VarChar(100)
+  lastName      String     @map("last_name") @db.VarChar(100)
+  phone         String?    @db.VarChar(20)
+  avatarUrl     String?    @map("avatar_url")
+  lastLoginAt   DateTime?  @map("last_login_at")
+  createdAt     DateTime   @default(now()) @map("created_at")
+  updatedAt     DateTime   @updatedAt @map("updated_at")
+  deletedAt     DateTime?  @map("deleted_at")
+
+  institution         Institution?    @relation(fields: [institutionId], references: [id])
+  refreshTokens       RefreshToken[]
+  pushTokens          PushToken[]
+  teacherSubjects     CourseSubject[] @relation("TeacherSubjects")
+  announcements       Announcement[]
+  sentMessages        ChatMessage[]
+  chatRoomMembers     ChatRoomMember[]
+  notifications       Notification[]
+  guardianLinks       Guardian[]
+  attendancesRecorded Attendance[]    @relation("RecordedBy")
+  auditLogs           AuditLog[]
+
+  @@index([role])
+  @@index([email])
+  @@index([institutionId])
+  @@map("users")
+}
+
+model RefreshToken {
+  id         String    @id @default(uuid())
+  userId     String    @map("user_id")
+  tokenHash  String    @map("token_hash") @db.VarChar(512)
+  deviceInfo Json?     @map("device_info")
+  expiresAt  DateTime  @map("expires_at")
+  revokedAt  DateTime? @map("revoked_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tokenHash])
+  @@map("refresh_tokens")
+}
+
+model PushToken {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  token     String
+  platform  Platform
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("push_tokens")
+}
+
+// ──────────────────────────────────────────────
+// ABAC — PERMISOS GRANULARES
+// ──────────────────────────────────────────────
+// Permite definir permisos específicos por rol y recurso.
+// La condición (condition) permite ABAC real: ej. { "ownerId": "{{userId}}" }
+// Esto complementa la lógica en NestJS (guards + CASL).
+
+model Permission {
+  id        String  @id @default(uuid())
+  role      Role
+  action    String  @db.VarChar(50)  // CREATE, READ, UPDATE, DELETE, EXPORT
+  resource  String  @db.VarChar(50)  // Grade, Attendance, Course, Student, etc.
+  condition Json?   // condición dinámica: { "teacherId": "{{userId}}" }
+
+  @@unique([role, action, resource])
+  @@index([role])
+  @@map("permissions")
+}
+
+// ──────────────────────────────────────────────
+// ACADEMIC CORE
+// ──────────────────────────────────────────────
+
+model SchoolYear {
+  id            String   @id @default(uuid())
+  institutionId String   @map("institution_id")
+  year          Int      @db.SmallInt
+  startDate     DateTime @map("start_date") @db.Date
+  endDate       DateTime @map("end_date") @db.Date
+  isActive      Boolean  @default(false) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  institution Institution @relation(fields: [institutionId], references: [id])
+  courses     Course[]
+  periods     Period[]
+
+  @@unique([institutionId, year]) // cada institución tiene su propio ciclo lectivo
+  @@index([institutionId])
+  @@map("school_years")
+}
+
+model Course {
+  id            String   @id @default(uuid())
+  institutionId String   @map("institution_id")
+  schoolYearId  String   @map("school_year_id")
+  name          String   @db.VarChar(100)
+  grade         Int      @db.SmallInt
+  division      String   @db.VarChar(10)
+  level         Level
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  institution    Institution     @relation(fields: [institutionId], references: [id])
+  schoolYear     SchoolYear      @relation(fields: [schoolYearId], references: [id])
+  courseStudents CourseStudent[]
+  courseSubjects CourseSubject[]
+  announcements  Announcement[]
+  attendances    Attendance[]
+  chatRooms      ChatRoom[]
+
+  @@index([institutionId])
+  @@index([schoolYearId])
+  @@index([level])
+  @@map("courses")
+}
+
+model Subject {
+  id            String   @id @default(uuid())
+  institutionId String   @map("institution_id")
+  name          String   @db.VarChar(100)
+  code          String   @db.VarChar(20)
+  description   String?
+  color         String?  @db.VarChar(7)
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  institution    Institution    @relation(fields: [institutionId], references: [id])
+  courseSubjects CourseSubject[]
+
+  @@unique([institutionId, code]) // código único por institución (antes era global)
+  @@index([institutionId])
+  @@map("subjects")
+}
+
+model CourseSubject {
+  id           String   @id @default(uuid())
+  courseId     String   @map("course_id")
+  subjectId    String   @map("subject_id")
+  teacherId    String   @map("teacher_id")
+  hoursPerWeek Int?     @map("hours_per_week") @db.SmallInt
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  course   Course  @relation(fields: [courseId], references: [id])
+  subject  Subject @relation(fields: [subjectId], references: [id])
+  teacher  User    @relation("TeacherSubjects", fields: [teacherId], references: [id])
+  grades   Grade[]
+
+  @@unique([courseId, subjectId])
+  @@index([teacherId]) // índice clave para ABAC: filtrar materias del docente
+  @@map("course_subjects")
+}
+
+// ──────────────────────────────────────────────
+// STUDENTS
+// ──────────────────────────────────────────────
+
+model Student {
+  id             String    @id @default(uuid())
+  institutionId  String    @map("institution_id")
+  firstName      String    @map("first_name") @db.VarChar(100)
+  lastName       String    @map("last_name") @db.VarChar(100)
+  documentNumber String    @map("document_number") @db.VarChar(20)
+  birthDate      DateTime  @map("birth_date") @db.Date
+  bloodType      String?   @map("blood_type") @db.VarChar(5)
+  photoUrl       String?   @map("photo_url")
+  medicalNotes   String?   @map("medical_notes")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  deletedAt      DateTime? @map("deleted_at")
+
+  institution    Institution     @relation(fields: [institutionId], references: [id])
+  courseStudents CourseStudent[]
+  grades         Grade[]
+  attendances    Attendance[]
+  guardians      Guardian[]
+
+  @@unique([institutionId, documentNumber]) // DNI único por institución (no global)
+  @@index([institutionId])
+  @@map("students")
+}
+
+model CourseStudent {
+  id             String           @id @default(uuid())
+  courseId       String           @map("course_id")
+  studentId      String           @map("student_id")
+  enrollmentDate DateTime         @default(now()) @map("enrollment_date") @db.Date
+  status         EnrollmentStatus @default(ACTIVE)
+  createdAt      DateTime         @default(now()) @map("created_at")
+
+  course  Course  @relation(fields: [courseId], references: [id])
+  student Student @relation(fields: [studentId], references: [id])
+
+  @@unique([courseId, studentId])
+  @@map("course_students")
+}
+
+model Guardian {
+  id           String       @id @default(uuid())
+  userId       String       @map("user_id")
+  studentId    String       @map("student_id")
+  relationship Relationship
+  isPrimary    Boolean      @default(false) @map("is_primary")
+  canPickup    Boolean      @default(true) @map("can_pickup")
+  createdAt    DateTime     @default(now()) @map("created_at")
+
+  user    User    @relation(fields: [userId], references: [id])
+  student Student @relation(fields: [studentId], references: [id])
+
+  @@unique([userId, studentId])
+  @@index([studentId]) // índice clave para ABAC: filtrar hijos del padre
+  @@map("guardians")
+}
+
+// ──────────────────────────────────────────────
+// GRADES & ATTENDANCE
+// ──────────────────────────────────────────────
+
+model Period {
+  id           String     @id @default(uuid())
+  schoolYearId String     @map("school_year_id")
+  name         String     @db.VarChar(50)
+  type         PeriodType
+  order        Int        @db.SmallInt
+  startDate    DateTime   @map("start_date") @db.Date
+  endDate      DateTime   @map("end_date") @db.Date
+  createdAt    DateTime   @default(now()) @map("created_at")
+
+  schoolYear SchoolYear @relation(fields: [schoolYearId], references: [id])
+  grades     Grade[]
+
+  @@map("periods")
+}
+
+model Grade {
+  id              String    @id @default(uuid())
+  studentId       String    @map("student_id")
+  courseSubjectId String    @map("course_subject_id")
+  periodId        String    @map("period_id")
+  score           Decimal   @db.Decimal(5, 2)
+  type            GradeType @default(EXAM)
+  description     String?   @db.VarChar(200)
+  date            DateTime  @db.Date
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  student       Student       @relation(fields: [studentId], references: [id])
+  courseSubject CourseSubject @relation(fields: [courseSubjectId], references: [id])
+  period        Period        @relation(fields: [periodId], references: [id])
+
+  @@index([studentId])
+  @@index([periodId])
+  @@index([courseSubjectId]) // clave para que el docente filtre sus propias notas
+  @@map("grades")
+}
+
+model Attendance {
+  id            String           @id @default(uuid())
+  studentId     String           @map("student_id")
+  courseId      String           @map("course_id")
+  date          DateTime         @db.Date
+  status        AttendanceStatus
+  arrivalTime   DateTime?        @map("arrival_time") @db.Time
+  justification String?
+  recordedById  String           @map("recorded_by_id")
+  createdAt     DateTime         @default(now()) @map("created_at")
+
+  student    Student @relation(fields: [studentId], references: [id])
+  course     Course  @relation(fields: [courseId], references: [id])
+  recordedBy User    @relation("RecordedBy", fields: [recordedById], references: [id])
+
+  @@unique([studentId, courseId, date])
+  @@index([date])
+  @@index([studentId])
+  @@map("attendances")
+}
+
+// ──────────────────────────────────────────────
+// COMMUNICATION
+// ──────────────────────────────────────────────
+
+model Announcement {
+  id            String            @id @default(uuid())
+  institutionId String            @map("institution_id")
+  authorId      String            @map("author_id")
+  courseId      String?           @map("course_id")
+  title         String            @db.VarChar(200)
+  content       String
+  scope         AnnouncementScope @default(COURSE)
+  attachments   Json?
+  publishedAt   DateTime?         @map("published_at")
+  createdAt     DateTime          @default(now()) @map("created_at")
+  updatedAt     DateTime          @updatedAt @map("updated_at")
+  deletedAt     DateTime?         @map("deleted_at")
+
+  institution Institution @relation(fields: [institutionId], references: [id])
+  author      User        @relation(fields: [authorId], references: [id])
+  course      Course?     @relation(fields: [courseId], references: [id])
+
+  @@index([institutionId])
+  @@index([scope])
+  @@map("announcements")
+}
+
+model ChatRoom {
+  id            String       @id @default(uuid())
+  institutionId String       @map("institution_id")
+  type          ChatRoomType
+  name          String?      @db.VarChar(100)
+  courseId      String?      @map("course_id")
+  lastMessageAt DateTime?    @map("last_message_at")
+  createdAt     DateTime     @default(now()) @map("created_at")
+
+  institution Institution      @relation(fields: [institutionId], references: [id])
+  course      Course?          @relation(fields: [courseId], references: [id])
+  members     ChatRoomMember[]
+  messages    ChatMessage[]
+
+  @@index([institutionId])
+  @@index([lastMessageAt])
+  @@map("chat_rooms")
+}
+
+model ChatRoomMember {
+  id       String   @id @default(uuid())
+  roomId   String   @map("room_id")
+  userId   String   @map("user_id")
+  joinedAt DateTime @default(now()) @map("joined_at")
+
+  room ChatRoom @relation(fields: [roomId], references: [id])
+  user User     @relation(fields: [userId], references: [id])
+
+  @@unique([roomId, userId])
+  @@map("chat_room_members")
+}
+
+model ChatMessage {
+  id            String      @id @default(uuid())
+  roomId        String      @map("room_id")
+  senderId      String      @map("sender_id")
+  content       String?
+  type          MessageType @default(TEXT)
+  attachmentUrl String?     @map("attachment_url")
+  readBy        String[]    @map("read_by")
+  sentAt        DateTime    @default(now()) @map("sent_at")
+
+  room   ChatRoom @relation(fields: [roomId], references: [id])
+  sender User     @relation(fields: [senderId], references: [id])
+
+  @@index([roomId, sentAt])
+  @@map("chat_messages")
+}
+
+model Notification {
+  id     String           @id @default(uuid())
+  userId String           @map("user_id")
+  type   NotificationType
+  title  String           @db.VarChar(200)
+  body   String
+  data   Json?
+  isRead Boolean          @default(false) @map("is_read")
+  sentAt DateTime         @default(now()) @map("sent_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, isRead])
+  @@map("notifications")
+}
+
+// ──────────────────────────────────────────────
+// AUDITORÍA — BONUS PRO
+// ──────────────────────────────────────────────
+// Registra toda acción sensible del sistema.
+// Se llena vía workers (event-driven), no de forma síncrona.
+// Ejemplo: "docente cambió nota de 7 → 9 en Matemáticas 3°A"
+
+model AuditLog {
+  id            String      @id @default(uuid())
+  institutionId String      @map("institution_id")
+  userId        String      @map("user_id")
+  action        AuditAction
+  resource      String      @db.VarChar(50)  // "Grade", "Attendance", "User", etc.
+  resourceId    String      @map("resource_id")
+  before        Json?       // estado anterior (para UPDATE/DELETE)
+  after         Json?       // estado nuevo (para CREATE/UPDATE)
+  ipAddress     String?     @map("ip_address") @db.VarChar(45)
+  userAgent     String?     @map("user_agent") @db.VarChar(500)
+  createdAt     DateTime    @default(now()) @map("created_at")
+
+  institution Institution @relation(fields: [institutionId], references: [id])
+  user        User        @relation(fields: [userId], references: [id])
+
+  @@index([institutionId, createdAt])
+  @@index([userId])
+  @@index([resource, resourceId])
+  @@map("audit_logs")
+}
