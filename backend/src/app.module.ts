@@ -17,6 +17,8 @@ import { UsersModule } from './modules/users/users.module';
 import { StudentsModule } from './modules/students/students.module';
 import { CoursesModule } from './modules/courses/courses.module';
 import { SubjectsModule } from './modules/subjects/subjects.module';
+import { GradesModule } from './modules/grades/grades.module';
+import { AttendanceModule } from './modules/attendance/attendance.module';
 import { TenantMiddleware } from './common/middleware/tenant.middleware';
 import { EnvConfig } from './config/env.schema';
 
@@ -37,12 +39,13 @@ import { EnvConfig } from './config/env.schema';
     AuthModule,           // Fase 2
     InstitutionsModule,   // Fase 2
     CaslModule,           // Fase 3
-    UsersModule,          // Fase 4 ← nuevo
-    StudentsModule,       // Fase 4 ← nuevo
-    CoursesModule,        // Fase 4 ← nuevo
-    SubjectsModule,       // Fase 4 ← nuevo
+    UsersModule,          // Fase 4
+    StudentsModule,       // Fase 4
+    CoursesModule,        // Fase 4
+    SubjectsModule,       // Fase 4
+    GradesModule,         // Fase 5 ← nuevo
+    AttendanceModule,     // Fase 5 ← nuevo
 
-    // Fase 5 → GradesModule, AttendanceModule
     // Fase 6 → QueuesModule, NotificationsModule, ChatModule, ReportsModule
   ],
 })
