@@ -9,7 +9,7 @@ import { EnvConfig } from '../../config/env.schema';
 // ──────────────────────────────────────────────
 type ServiceStatus = 'up' | 'down';
 
-interface HealthResult {
+export interface HealthResult {
   status: 'ok' | 'degraded';
   timestamp: string;
   uptime: number;

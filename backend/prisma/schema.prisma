@@ -185,7 +185,7 @@ model Invitation {
 model User {
   id            String     @id @default(uuid())
   institutionId String?    @map("institution_id") // null solo para SUPER_ADMIN
-  email         String     @@unique([email, institutionId])
+  email         String     
   passwordHash  String     @map("password_hash")
   role          Role
   status        UserStatus @default(ACTIVE)
@@ -209,6 +209,8 @@ model User {
   guardianLinks       Guardian[]
   attendancesRecorded Attendance[]    @relation("RecordedBy")
   auditLogs           AuditLog[]
+
+  @@unique([email, institutionId])
 
   @@index([role])
   @@index([email])
