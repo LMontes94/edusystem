@@ -18,7 +18,7 @@ export class AttendanceService {
 
   // ── Listar asistencias ───────────────────────
   async findAll(institutionId: string, user: RequestUser, query: AttendanceQueryDto) {
-    const where: any = { institutionId };
+    const where: any = { course: { institutionId } };
 
     if (query.studentId) where.studentId = query.studentId;
     if (query.courseId)  where.courseId  = query.courseId;
@@ -105,10 +105,11 @@ export class AttendanceService {
           create: {
             studentId:     record.studentId,
             courseId:      dto.courseId,
-            institutionId,
             date,
             status:        record.status,
-            arrivalTime:   record.arrivalTime ? new Date(`1970-01-01T${record.arrivalTime}:00Z`) : undefined,
+            arrivalTime:   record.arrivalTime
+              ? new Date(`1970-01-01T${record.arrivalTime}:00Z`)
+              : undefined,
             justification: record.justification,
             recordedById:  user.id,
           } as any,
