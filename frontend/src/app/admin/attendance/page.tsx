@@ -52,19 +52,28 @@ export default function AttendancePage() {
     courseId: selectedCourse || undefined,
     date:     viewMode === 'history' ? selectedDate : undefined,
   });
+  
+  const { data: existingAttendance } = useAttendance({
+    courseId: selectedCourse || undefined,
+    date:     selectedDate,
+  });
 
   // Inicializar todos como PRESENT cuando carga el curso
   useEffect(() => {
-    if (courseDetail?.courseStudents) {
-      const initial: Record<string, AttendanceStatus> = {};
-      courseDetail.courseStudents
-        .filter((cs: any) => cs.status === 'ACTIVE')
-        .forEach((cs: any) => {
-          initial[cs.student.id] = 'PRESENT';
-        });
-      setRecords(initial);
-    }
-  }, [courseDetail]);
+  if (courseDetail?.courseStudents) {
+    const initial: Record<string, AttendanceStatus> = {};
+    courseDetail.courseStudents
+      .filter((cs: any) => cs.status === 'ACTIVE')
+      .forEach((cs: any) => {
+        // Buscar si ya hay un registro para este alumno hoy
+        const existing = existingAttendance?.find(
+          (a) => a.student.id === cs.student.id
+        );
+        initial[cs.student.id] = existing?.status ?? 'PRESENT';
+      });
+    setRecords(initial);
+  }
+}, [courseDetail, existingAttendance]);
 
   function toggleStatus(studentId: string) {
     const order: AttendanceStatus[] = ['PRESENT', 'LATE', 'ABSENT', 'JUSTIFIED'];
