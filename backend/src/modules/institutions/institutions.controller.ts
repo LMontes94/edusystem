@@ -21,6 +21,8 @@ import {
 import { Public } from '../../common/decorators/public.decorator';
 import { CurrentUser, RequestUser } from '../../common/decorators/current-user.decorator';
 import { ZodPipe } from '../../common/pipes/zod.pipe';
+import { CheckAbility } from '../casl/decorators/check-ability.decorator';
+import { Action } from '../casl/casl.types';
 
 @ApiTags('Institutions')
 @ApiBearerAuth('JWT')
@@ -79,8 +81,9 @@ export class InstitutionsController {
 
   // ── GET /institutions/:id/stats ──────────────
   @Get(':id/stats')
-  @ApiOperation({ summary: 'Métricas del tenant' })
-  getStats(@Param('id') id: string, @CurrentUser() user: RequestUser) {
-    return this.institutionsService.getStats(id, user);
+  @CheckAbility({ action: Action.Read, subject: 'Institution' })
+  @ApiOperation({ summary: 'Estadísticas de la institución' })
+  getStats(@Param('id') id: string) {
+    return this.institutionsService.getStats(id);
   }
 }

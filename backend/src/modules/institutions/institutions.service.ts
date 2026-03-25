@@ -209,17 +209,87 @@ export class InstitutionsService {
   }
 
   // ── Stats del tenant ─────────────────────────
-  async getStats(id: string, user: RequestUser) {
-    if (user.role === 'ADMIN' && user.institutionId !== id) {
-      throw new ForbiddenException();
-    }
+  async getStats(institutionId: string) {
+  const now      = new Date();
+  const todayStr = now.toLocaleDateString('en-CA'); // formato YYYY-MM-DD
+  const [y, m, d] = todayStr.split('-').map(Number);
+  const todayUTC    = new Date(Date.UTC(y, m - 1, d, 0,  0, 0));
+  const tomorrowUTC = new Date(Date.UTC(y, m - 1, d, 23, 59, 59));
 
-    const [users, students, courses] = await Promise.all([
-      this.prisma.user.count({ where: { institutionId: id } }),
-      this.prisma.student.count({ where: { institutionId: id } }),
-      this.prisma.course.count({ where: { institutionId: id } }),
+  const [students, users, courses, attendanceToday, recentGrades, recentAnnouncements] =
+    await Promise.all([
+      // Total alumnos activos
+      this.prisma.student.count({
+        where: { institutionId, deletedAt: null },
+      }),
+
+      // Usuarios por rol
+      this.prisma.user.groupBy({
+        by: ['role'],
+        where: { institutionId, deletedAt: null },
+        _count: { id: true },
+      }),
+
+      // Cursos del año lectivo activo
+      this.prisma.course.count({
+        where: { institutionId, schoolYear: { isActive: true } },
+      }),
+
+      // Asistencia de hoy
+      this.prisma.attendance.groupBy({
+        by: ['status'],
+        where: {
+          course: { institutionId },
+          date: { gte: todayUTC, lte: tomorrowUTC },
+        },
+      _count: { id: true },
+      }),
+
+      // Últimas 5 notas
+      this.prisma.grade.findMany({
+        where: { student: { institutionId } },
+        orderBy: { createdAt: 'desc' },
+        take: 5,
+        include: {
+          student:       { select: { firstName: true, lastName: true } },
+          courseSubject: { include: { subject: { select: { name: true } } } },
+          period:        { select: { name: true } },
+        },
+      }),
+
+      // Últimos 3 comunicados publicados
+      this.prisma.announcement.findMany({
+        where: { institutionId, publishedAt: { not: null }, deletedAt: null },
+        orderBy: { publishedAt: 'desc' },
+        take: 3,
+        include: {
+          author: { select: { firstName: true, lastName: true } },
+          course: { select: { name: true } },
+        },
+      }),
     ]);
 
-    return { users, students, courses };
-  }
+  // Calcular porcentaje de asistencia
+  const totalAttendance = attendanceToday.reduce((sum, a) => sum + a._count.id, 0);
+  const presentCount    = attendanceToday.find((a) => a.status === 'PRESENT')?._count.id ?? 0;
+  const attendanceRate  = totalAttendance > 0
+    ? Math.round((presentCount / totalAttendance) * 100)
+    : null;
+
+  // Mapear usuarios por rol
+  const usersByRole = Object.fromEntries(
+    users.map((u) => [u.role, u._count.id]),
+  );
+
+  return {
+    students,
+    courses,
+    users:          usersByRole,
+    totalUsers:     users.reduce((sum, u) => sum + u._count.id, 0),
+    attendanceRate,
+    attendanceTotal: totalAttendance,
+    recentGrades,
+    recentAnnouncements,
+  };
+}
 }

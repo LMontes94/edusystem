@@ -86,11 +86,11 @@ export class AttendanceService {
   }
 
   // ── Carga masiva por curso ───────────────────
-  // El flujo más común: el docente toma lista de todo el curso en un día
   async bulkCreate(dto: BulkAttendanceDto, user: RequestUser, institutionId: string) {
     await this.verifyCourseAccess(dto.courseId, user, institutionId);
 
-    const date = new Date(dto.date);
+    const [year, month, day] = dto.date.split('-').map(Number);
+    const date = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
 
     const results = await this.prisma.$transaction(
       dto.records.map((record) =>
