@@ -16,8 +16,11 @@ datasource db {
 // ──────────────────────────────────────────────
 
 enum Role {
-  SUPER_ADMIN  // Nuevo: administrador de la plataforma SaaS
+  SUPER_ADMIN
   ADMIN
+  DIRECTOR
+  SECRETARY
+  PRECEPTOR
   TEACHER
   GUARDIAN
 }

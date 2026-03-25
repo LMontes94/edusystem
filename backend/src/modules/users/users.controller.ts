@@ -43,8 +43,9 @@ export class UsersController {
   create(
     @Body(new ZodPipe(CreateUserSchema)) dto: CreateUserDto,
     @InstitutionId() institutionId: string,
+    @CurrentUser() user: RequestUser,
   ) {
-    return this.usersService.create(dto, institutionId);
+    return this.usersService.create(dto, institutionId, user);
   }
 
   @Patch(':id')

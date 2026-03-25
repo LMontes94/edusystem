@@ -1,21 +1,13 @@
-// src/middleware.ts
-// ──────────────────────────────────────────────
-// Middleware de Next.js — protege rutas por rol.
-//
-// Rutas públicas: /login
-// Rutas de ADMIN:   /admin/*
-// Rutas de TEACHER: /teacher/*
-// Rutas compartidas: /dashboard (redirige según rol)
-// ──────────────────────────────────────────────
 import { auth } from '@/lib/auth';
 import { NextResponse } from 'next/server';
+
+const ADMIN_ROLES = ['ADMIN', 'DIRECTOR', 'SECRETARY', 'PRECEPTOR', 'SUPER_ADMIN'];
 
 export default auth((req) => {
   const { nextUrl } = req;
   const isLoggedIn  = !!req.auth;
   const pathname    = nextUrl.pathname;
 
-  // Si no está logueado → redirigir a login
   if (!isLoggedIn) {
     if (pathname === '/login') return NextResponse.next();
     return NextResponse.redirect(new URL('/login', nextUrl));
@@ -25,12 +17,19 @@ export default auth((req) => {
 
   // Redirigir / y /dashboard según el rol
   if (pathname === '/' || pathname === '/dashboard') {
-    if (role === 'ADMIN' || role === 'SUPER_ADMIN') {
+    if (ADMIN_ROLES.includes(role)) {
       return NextResponse.redirect(new URL('/admin/dashboard', nextUrl));
     }
     if (role === 'TEACHER') {
       return NextResponse.redirect(new URL('/teacher/dashboard', nextUrl));
     }
+    // GUARDIAN → por ahora al dashboard admin hasta tener la app móvil
+    return NextResponse.redirect(new URL('/admin/dashboard', nextUrl));
+  }
+
+  // Proteger rutas /admin solo para roles con acceso al panel
+  if (pathname.startsWith('/admin') && !ADMIN_ROLES.includes(role) && role !== 'TEACHER') {
+    return NextResponse.redirect(new URL('/login', nextUrl));
   }
 
   return NextResponse.next();

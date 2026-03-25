@@ -13,7 +13,7 @@ export interface RequestUser {
   id: string;
   institutionId: string | null; // null solo para SUPER_ADMIN
   email: string;
-  role: 'SUPER_ADMIN' | 'ADMIN' | 'TEACHER' | 'GUARDIAN';
+  role: 'SUPER_ADMIN' | 'ADMIN' | 'DIRECTOR' | 'SECRETARY' | 'PRECEPTOR' | 'TEACHER' | 'GUARDIAN';
 }
 
 export const CurrentUser = createParamDecorator(

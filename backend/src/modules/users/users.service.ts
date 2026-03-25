@@ -48,7 +48,14 @@ export class UsersService {
     return user;
   }
 
-  async create(dto: CreateUserDto, institutionId: string) {
+  async create(dto: CreateUserDto, institutionId: string, currentUser?: RequestUser) {
+    // SECRETARY solo puede crear TEACHER y PRECEPTOR
+   if (currentUser?.role === 'SECRETARY') {
+    if (!['TEACHER', 'PRECEPTOR'].includes(dto.role)) {
+      throw new ForbiddenException('Solo podés crear docentes y preceptores');
+    }
+   }
+
     // Verificar que el email no esté en uso en esta institución
     const existing = await this.prisma.user.findFirst({
       where: { email: dto.email, institutionId },
