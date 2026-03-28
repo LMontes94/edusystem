@@ -65,60 +65,72 @@ export class GradesService {
   }
 
   async create(dto: CreateGradeDto, user: RequestUser, institutionId: string) {
-    const courseSubject = await this.prisma.courseSubject.findFirst({
-      where: { id: dto.courseSubjectId, course: { institutionId } },
-      include: { course: true },
-    });
-    if (!courseSubject) throw new NotFoundException('Materia/curso no encontrado');
+  const courseSubject = await this.prisma.courseSubject.findFirst({
+    where: { id: dto.courseSubjectId, course: { institutionId } },
+    include: { course: true },
+  });
+  if (!courseSubject) throw new NotFoundException('Materia/curso no encontrado');
 
-    if (user.role === 'TEACHER' && courseSubject.teacherId !== user.id) {
-      throw new ForbiddenException('Solo podés cargar notas en tus propias materias');
-    }
+  if (user.role === 'TEACHER' && courseSubject.teacherId !== user.id) {
+    throw new ForbiddenException('Solo podés cargar notas en tus propias materias');
+  }
 
-    const student = await this.prisma.student.findFirst({
-      where: { id: dto.studentId, institutionId },
-    });
-    if (!student) throw new NotFoundException('Alumno no encontrado');
+  const student = await this.prisma.student.findFirst({
+    where: { id: dto.studentId, institutionId },
+  });
+  if (!student) throw new NotFoundException('Alumno no encontrado');
 
-    const period = await this.prisma.period.findFirst({
-      where: { id: dto.periodId, schoolYear: { institutionId } },
-    });
-    if (!period) throw new NotFoundException('Período no encontrado');
+  const period = await this.prisma.period.findFirst({
+    where: { id: dto.periodId, schoolYear: { institutionId } },
+  });
+  if (!period) throw new NotFoundException('Período no encontrado');
 
-    const grade = await this.prisma.grade.create({
-      data: {
+  const grade = await this.prisma.grade.upsert({
+    where: {
+      studentId_courseSubjectId_periodId_type_date: {
         studentId:       dto.studentId,
         courseSubjectId: dto.courseSubjectId,
         periodId:        dto.periodId,
-        score:           dto.score,
-        type:            dto.type,
-        description:     dto.description,
+        type:            dto.type as any,
         date:            new Date(dto.date),
-      } as any,
-      include: this.gradeIncludes(),
-    });
+      },
+    },
+    create: {
+      studentId:       dto.studentId,
+      courseSubjectId: dto.courseSubjectId,
+      periodId:        dto.periodId,
+      score:           dto.score,
+      type:            dto.type,
+      description:     dto.description,
+      date:            new Date(dto.date),
+    } as any,
+    update: {
+      score:       dto.score,
+      description: dto.description,
+    },
+    include: this.gradeIncludes(),
+  });
 
-    // ⚡ Emitir jobs en paralelo — no bloquean la respuesta
-    await Promise.all([
-      this.notificationQueue.add(
-        JOBS.GRADE_CREATED,
-        { gradeId: grade.id, studentId: dto.studentId, institutionId },
-        JOB_OPTIONS.DEFAULT,
-      ),
-      this.auditQueue.add(
-        JOBS.AUDIT_LOG,
-        { institutionId, userId: user.id, action: 'CREATE', resource: 'Grade', resourceId: grade.id, after: grade },
-        JOB_OPTIONS.CRITICAL,
-      ),
-      this.gradeQueue.add(
-        JOBS.RECALCULATE_AVERAGE,
-        { studentId: dto.studentId, periodId: dto.periodId },
-        JOB_OPTIONS.DEFAULT,
-      ),
-    ]);
+  await Promise.all([
+    this.notificationQueue.add(
+      JOBS.GRADE_CREATED,
+      { gradeId: grade.id, studentId: dto.studentId, institutionId },
+      JOB_OPTIONS.DEFAULT,
+    ),
+    this.auditQueue.add(
+      JOBS.AUDIT_LOG,
+      { institutionId, userId: user.id, action: 'CREATE', resource: 'Grade', resourceId: grade.id, after: grade },
+      JOB_OPTIONS.CRITICAL,
+    ),
+    this.gradeQueue.add(
+      JOBS.RECALCULATE_AVERAGE,
+      { studentId: dto.studentId, periodId: dto.periodId },
+      JOB_OPTIONS.DEFAULT,
+    ),
+  ]);
 
-    return grade;
-  }
+  return grade;
+}
 
   async update(id: string, dto: UpdateGradeDto, user: RequestUser) {
     const grade = await this.prisma.grade.findUnique({

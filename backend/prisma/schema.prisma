@@ -452,7 +452,8 @@ model Grade {
 
   @@index([studentId])
   @@index([periodId])
-  @@index([courseSubjectId]) // clave para que el docente filtre sus propias notas
+  @@index([courseSubjectId])
+  @@unique([studentId, courseSubjectId, periodId, type, date])
   @@map("grades")
 }
 
