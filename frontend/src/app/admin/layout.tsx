@@ -1,11 +1,13 @@
 'use client';
 
+import { useQuery } from '@tanstack/react-query';
+import { api } from '@/lib/api';
 import { useSession } from 'next-auth/react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { signOut } from 'next-auth/react';
 import { cn } from '@/lib/utils';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -51,6 +53,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     .slice(0, 2)
     .join('')
     .toUpperCase() ?? 'AD';
+
+  const { data: avatarData } = useQuery({
+  queryKey: ['avatar', session?.user?.id],
+  queryFn:  async () => {
+    const res = await api.get(`/users/${session?.user?.id}/avatar-url`);
+    return res.data;
+  },
+  enabled: !!session?.user?.id,
+});
 
   return (
     <div className="flex h-screen bg-muted/30">
@@ -104,8 +115,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="flex items-center gap-2 px-2">
                 <Avatar className="h-7 w-7">
-                  <AvatarFallback className="text-xs">{initials}</AvatarFallback>
-                </Avatar>
+  {avatarData?.url && (
+    <AvatarImage src={avatarData.url} alt={session?.user?.name ?? ''} />
+  )}
+  <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+</Avatar>
                 <span className="hidden sm:block text-sm font-medium">
                   {session?.user?.name}
                 </span>

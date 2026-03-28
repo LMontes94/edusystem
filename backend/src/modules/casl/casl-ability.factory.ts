@@ -136,6 +136,7 @@ export class AbilityFactory {
       case 'TEACHER': {
         const inst = { institutionId: user.institutionId } as any;
 
+        can(Action.Update, 'User', { id: user.id } as any);
         // Puede leer entidades de su institución
         can(Action.Read, 'all', inst);
 

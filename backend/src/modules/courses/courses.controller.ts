@@ -92,6 +92,16 @@ export class CoursesController {
   findMyCourses(@CurrentUser() user: RequestUser) {
     return this.coursesService.findByTeacher(user.id, user.institutionId!);
   }
+  
+  @Get('my-subjects')
+    @CheckAbility({ action: Action.Read, subject: 'Course' })
+    @ApiOperation({ summary: 'Materias asignadas al docente autenticado' })
+    getMySubjects(
+    @CurrentUser() user: RequestUser,
+    @InstitutionId() institutionId: string,
+  ) {
+    return this.coursesService.getTeacherSubjects(user.id, institutionId);
+  }
 
   @Get(':id')
   @CheckAbility({ action: Action.Read, subject: 'Course' })
@@ -140,13 +150,4 @@ export class CoursesController {
     return this.coursesService.assignTeacher(courseId, dto, institutionId);
   }
 
-  @Get('my-subjects')
-    @CheckAbility({ action: Action.Read, subject: 'Course' })
-    @ApiOperation({ summary: 'Materias asignadas al docente autenticado' })
-    getMySubjects(
-    @CurrentUser() user: RequestUser,
-    @InstitutionId() institutionId: string,
-  ) {
-    return this.coursesService.getTeacherSubjects(user.id, institutionId);
-  }
 }

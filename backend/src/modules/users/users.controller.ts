@@ -18,6 +18,7 @@ import { Action } from '../casl/casl.types';
 import { UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 
 @ApiTags('Users')
 @ApiBearerAuth('JWT')
@@ -82,7 +83,7 @@ export class UsersController {
   }
 
   @Post(':id/avatar')
-  @CheckAbility({ action: Action.Update, subject: 'User' })
+  @UseGuards(JwtAuthGuard)
   @UseInterceptors(FileInterceptor('file', {
     storage: memoryStorage(),
     limits:  { fileSize: 2 * 1024 * 1024 },

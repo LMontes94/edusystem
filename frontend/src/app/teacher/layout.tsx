@@ -1,11 +1,13 @@
 'use client';
 
+import { useQuery } from '@tanstack/react-query';
+import { api } from '@/lib/api';
 import { useSession } from 'next-auth/react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { signOut } from 'next-auth/react';
 import { cn } from '@/lib/utils';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -22,6 +24,7 @@ import {
   LogOut,
   Menu,
   X,
+  User
 } from 'lucide-react';
 import { useState } from 'react';
 import { Session } from 'next-auth';
@@ -107,6 +110,15 @@ export default function TeacherLayout({ children }: { children: React.ReactNode 
       .slice(0, 2)
       .join('')
       .toUpperCase() ?? 'DO';
+  
+    const { data: avatarData } = useQuery({
+  queryKey: ['avatar', session?.user?.id],
+  queryFn:  async () => {
+    const res = await api.get(`/users/${session?.user?.id}/avatar-url`);
+    return res.data;
+  },
+  enabled: !!session?.user?.id,
+});
 
   return (
     <div className="flex h-screen bg-muted/30">
@@ -149,8 +161,11 @@ export default function TeacherLayout({ children }: { children: React.ReactNode 
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="flex items-center gap-2 px-2">
                 <Avatar className="h-7 w-7">
-                  <AvatarFallback className="text-xs">{initials}</AvatarFallback>
-                </Avatar>
+  {avatarData?.url && (
+    <AvatarImage src={avatarData.url} alt={session?.user?.name ?? ''} />
+  )}
+  <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+</Avatar>
                 <span className="hidden sm:block text-sm font-medium">
                   {session?.user?.name}
                 </span>
@@ -162,6 +177,13 @@ export default function TeacherLayout({ children }: { children: React.ReactNode 
                 <p className="text-xs text-muted-foreground">{session?.user?.email}</p>
               </div>
               <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+  <Link href="/profile" className="cursor-pointer">
+    <User className="mr-2 h-4 w-4" />
+    Mi perfil
+  </Link>
+</DropdownMenuItem>
+<DropdownMenuSeparator />
               <DropdownMenuItem
                 className="text-destructive cursor-pointer"
                 onClick={() => signOut({ callbackUrl: '/login' })}

@@ -1,5 +1,6 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useQuery } from '@tanstack/react-query';
@@ -19,7 +20,7 @@ import {
 import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
 } from '@/components/ui/form';
-import { User, BookOpen, GraduationCap, Shield, Clock, Phone, Mail } from 'lucide-react';
+import { User, BookOpen, GraduationCap, Shield, Clock, Phone, Mail, ArrowLeft } from 'lucide-react';
 
 const roleLabels: Record<string, string> = {
   SUPER_ADMIN: 'Super Administrador',
@@ -63,6 +64,7 @@ interface CourseSubject {
 }
 
 export default function ProfilePage() {
+  const router = useRouter();
   const { data: session }       = useSession();
   const [passwordDialog, setPasswordDialog] = useState(false);
   const [saving,         setSaving]         = useState(false);
@@ -173,11 +175,20 @@ export default function ProfilePage() {
     <div className="space-y-6 max-w-3xl">
 
       {/* Header */}
+      <div className="flex items-center gap-3">
+  <Button
+    variant="ghost"
+    size="icon"
+    onClick={() => router.back()}
+  >
+    <ArrowLeft className="h-4 w-4" />
+  </Button>
       <div>
         <h1 className="text-xl font-semibold">Mi perfil</h1>
         <p className="text-sm text-muted-foreground">
           Información de tu cuenta y configuración
         </p>
+      </div>
       </div>
 
       {/* Avatar y datos principales */}
