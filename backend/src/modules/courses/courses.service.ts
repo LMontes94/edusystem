@@ -193,4 +193,41 @@ export class CoursesService {
       orderBy: { order: 'asc' },
     });
   }
+
+ async getTeacherSubjects(teacherId: string, institutionId: string) {
+  const courseSubjects = await this.prisma.courseSubject.findMany({
+    where: {
+      teacherId,
+      course: { institutionId },
+    },
+    include: {
+      subject: true,
+      course:  {
+        select: {
+          id:       true,
+          name:     true,
+          grade:    true,
+          division: true,
+          courseStudents: {
+            where:  { status: 'ACTIVE' },
+            select: { id: true },
+          },
+        },
+      },
+    },
+  });
+
+  return courseSubjects.map((cs) => ({
+      ...cs,
+      _count: {
+        courseStudents: cs.course.courseStudents?.length ?? 0,
+      },
+      course: {
+        id:       cs.course.id,
+        name:     cs.course.name,
+        grade:    cs.course.grade,
+        division: cs.course.division,
+      },
+    }));
+  }
 }

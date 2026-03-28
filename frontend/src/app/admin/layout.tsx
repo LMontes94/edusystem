@@ -25,6 +25,7 @@ import {
   LogOut,
   Menu,
   X,
+  User
 } from 'lucide-react';
 import { useState } from 'react';
 import { Session } from 'next-auth';
@@ -115,6 +116,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 <p className="text-sm font-medium">{session?.user?.name}</p>
                 <p className="text-xs text-muted-foreground">{session?.user?.email}</p>
               </div>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link href="/profile" className="cursor-pointer">
+                    <User className="mr-2 h-4 w-4" />
+                      Mi perfil
+                </Link>
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 className="text-destructive cursor-pointer"

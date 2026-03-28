@@ -9,6 +9,7 @@ import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RequestUser } from '../../common/decorators/current-user.decorator';
 import { CreateUserDto, UpdateUserDto, ChangePasswordDto } from './dto/user.dto';
+import { StorageService } from '../storage/storage.service';
 
 // Campos que nunca se devuelven al cliente
 const USER_SELECT = {
@@ -28,7 +29,10 @@ const USER_SELECT = {
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly storage: StorageService,
+  ) {}
 
   async findAll(institutionId: string) {
     return this.prisma.user.findMany({
@@ -123,4 +127,39 @@ export class UsersService {
       data: { deletedAt: new Date(), status: 'INACTIVE' },
     });
   }
+
+async updateAvatar(
+  id: string,
+  file: Express.Multer.File,
+  institutionId: string,
+  currentUser: RequestUser,
+) {
+  if (currentUser.id !== id && !['ADMIN', 'DIRECTOR', 'SUPER_ADMIN'].includes(currentUser.role)) {
+    throw new ForbiddenException();
+  }
+
+  const user = await this.findOne(id, institutionId);
+
+  if (user.avatarUrl) {
+    await this.storage.deleteFile(user.avatarUrl);
+  }
+
+  const filename   = this.storage.generateFilename(file.originalname);
+  const objectName = await this.storage.uploadFile('avatars', filename, file.buffer, file.mimetype);
+  const avatarUrl  = await this.storage.getFileUrl(objectName);
+
+  await this.prisma.user.update({
+    where: { id },
+    data:  { avatarUrl: objectName },
+  });
+
+  return { avatarUrl };
+}
+
+async getAvatarUrl(id: string, institutionId: string) {
+  const user = await this.findOne(id, institutionId);
+  if (!user.avatarUrl) return { url: null };
+  const url = await this.storage.getFileUrl(user.avatarUrl);
+  return { url };
+}
 }

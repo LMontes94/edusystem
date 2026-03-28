@@ -32,9 +32,12 @@ export default auth((req) => {
     return NextResponse.redirect(new URL('/login', nextUrl));
   }
 
+  if (pathname === '/profile') {
+    return NextResponse.next();
+  }
   return NextResponse.next();
 });
 
 export const config = {
-  matcher: ['/', '/dashboard', '/admin/:path*', '/teacher/:path*'],
+  matcher: ['/', '/dashboard', '/admin/:path*', '/teacher/:path*', '/profile'],
 };

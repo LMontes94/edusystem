@@ -22,12 +22,13 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { AnnouncementsModule } from './modules/announcements/announcements.module';
 import { TenantMiddleware } from './common/middleware/tenant.middleware';
 import { EnvConfig } from './config/env.schema';
+import { StorageModule } from './modules/storage/storage.module';
 
 @Module({
   imports: [
     AppConfigModule,
     PrismaModule,
-    QueuesModule,           // Fase 6 ← colas disponibles en toda la app
+    QueuesModule,        
 
     JwtModule.registerAsync({
       global: true,
@@ -48,8 +49,9 @@ import { EnvConfig } from './config/env.schema';
     SubjectsModule,         // Fase 4
     GradesModule,           // Fase 5
     AttendanceModule,       // Fase 5
-    NotificationsModule,    // Fase 6 ← nuevo
-    AnnouncementsModule,    // Fase 6 ← nuevo
+    NotificationsModule,    // Fase 6
+    AnnouncementsModule,    // Fase 6
+    StorageModule,
   ],
 })
 export class AppModule implements NestModule {

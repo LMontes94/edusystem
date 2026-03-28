@@ -15,6 +15,9 @@ import { ZodPipe } from '../../common/pipes/zod.pipe';
 import { CaslGuard } from '../casl/guards/casl.guard';
 import { CheckAbility } from '../casl/decorators/check-ability.decorator';
 import { Action } from '../casl/casl.types';
+import { UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 
 @ApiTags('Users')
 @ApiBearerAuth('JWT')
@@ -47,7 +50,7 @@ export class UsersController {
   ) {
     return this.usersService.create(dto, institutionId, user);
   }
-
+  
   @Patch(':id')
   @CheckAbility({ action: Action.Update, subject: 'User' })
   @ApiOperation({ summary: 'Actualizar usuario' })
@@ -77,4 +80,36 @@ export class UsersController {
   remove(@Param('id') id: string, @InstitutionId() institutionId: string) {
     return this.usersService.remove(id, institutionId);
   }
+
+  @Post(':id/avatar')
+  @CheckAbility({ action: Action.Update, subject: 'User' })
+  @UseInterceptors(FileInterceptor('file', {
+    storage: memoryStorage(),
+    limits:  { fileSize: 2 * 1024 * 1024 },
+    fileFilter: (_req, file, cb) => {
+      if (!file.mimetype.startsWith('image/')) {
+        return cb(new BadRequestException('Solo se permiten imágenes'), false);
+      }
+      cb(null, true);
+    },
+  }))
+  @ApiOperation({ summary: 'Subir avatar de usuario' })
+  async uploadAvatar(
+    @Param('id') id: string,
+    @UploadedFile() file: Express.Multer.File,
+    @InstitutionId() institutionId: string,
+    @CurrentUser() currentUser: RequestUser,
+  ) {
+    if (!file) throw new BadRequestException('No se recibió ningún archivo');
+      return this.usersService.updateAvatar(id, file, institutionId, currentUser);
+  }
+
+  @Get(':id/avatar-url')
+@CheckAbility({ action: Action.Read, subject: 'User' })
+async getAvatarUrl(
+  @Param('id') id: string,
+  @InstitutionId() institutionId: string,
+) {
+  return this.usersService.getAvatarUrl(id, institutionId);
+}
 }
