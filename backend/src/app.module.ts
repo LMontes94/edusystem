@@ -23,6 +23,8 @@ import { AnnouncementsModule } from './modules/announcements/announcements.modul
 import { TenantMiddleware } from './common/middleware/tenant.middleware';
 import { EnvConfig } from './config/env.schema';
 import { StorageModule } from './modules/storage/storage.module';
+import { ReportsModule } from './modules/reports/reports.module';
+import { IndicatorsModule } from './modules/indicators/indicators.module';
 
 @Module({
   imports: [
@@ -52,6 +54,8 @@ import { StorageModule } from './modules/storage/storage.module';
     NotificationsModule,    // Fase 6
     AnnouncementsModule,    // Fase 6
     StorageModule,
+    ReportsModule,
+    IndicatorsModule,
   ],
 })
 export class AppModule implements NestModule {

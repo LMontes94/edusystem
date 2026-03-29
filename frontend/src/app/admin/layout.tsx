@@ -27,7 +27,10 @@ import {
   LogOut,
   Menu,
   X,
-  User
+  User,
+  FileText,
+  ClipboardCheck,
+  ListChecks,
 } from 'lucide-react';
 import { useState } from 'react';
 import { Session } from 'next-auth';
@@ -40,6 +43,9 @@ const navigation = [
   { name: 'Asistencia',  href: '/admin/attendance',   icon: ClipboardList   },
   { name: 'Notas',       href: '/admin/grades',        icon: Star            },
   { name: 'Comunicados', href: '/admin/announcements', icon: Megaphone       },
+  { name: 'Indicadores',  href: '/admin/indicators',  icon: ListChecks     },
+  { name: 'Evaluaciones', href: '/admin/evaluations',  icon: ClipboardCheck },
+  { name: 'Reportes', href: '/admin/reports', icon: FileText },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

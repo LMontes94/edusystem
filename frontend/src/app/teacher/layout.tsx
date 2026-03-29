@@ -24,7 +24,8 @@ import {
   LogOut,
   Menu,
   X,
-  User
+  User,
+  ClipboardCheck
 } from 'lucide-react';
 import { useState } from 'react';
 import { Session } from 'next-auth';
@@ -40,6 +41,7 @@ const navigation: NavItem[] = [
   { name: 'Asistencia',  href: '/teacher/attendance',   icon: ClipboardList   },
   { name: 'Notas',       href: '/teacher/grades',        icon: Star            },
   { name: 'Comunicados', href: '/teacher/announcements', icon: Megaphone       },
+  { name: 'Evaluaciones', href: '/teacher/evaluations', icon: ClipboardCheck },
 ];
 
 function SidebarContent({
