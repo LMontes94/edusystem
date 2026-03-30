@@ -79,7 +79,7 @@ export default function EvaluationsPage() {
       const initial: Record<string, EvalValue> = {};
       grid.grid.forEach((row: any) => {
         Object.entries(row.valuesByStudent).forEach(([studentId, value]) => {
-          initial[`${row.indicator.id}-${studentId}`] = value as EvalValue;
+          initial[`${row.indicator.id}|${studentId}`] = value as EvalValue;
         });
       });
       setLocalValues(initial);
@@ -88,7 +88,7 @@ export default function EvaluationsPage() {
   }, [grid]);
 
   function toggleValue(indicatorId: string, studentId: string) {
-    const key     = `${indicatorId}-${studentId}`;
+    const key = `${indicatorId}|${studentId}`;
     const current = localValues[key] ?? null;
     const next    = valueOrder[(valueOrder.indexOf(current) + 1) % valueOrder.length];
     setLocalValues((prev) => ({ ...prev, [key]: next }));
@@ -96,16 +96,17 @@ export default function EvaluationsPage() {
   }
 
   const saveMutation = useMutation({
-    mutationFn: async () => {
-      const evaluations = Object.entries(localValues)
-        .filter(([, value]) => value !== null)
-        .map(([key, value]) => {
-          const [indicatorId, studentId] = key.split('-');
-          return { indicatorId, studentId, periodId: selectedPeriod, value: value! };
-        });
+  mutationFn: async () => {
+    const evaluations = Object.entries(localValues)
+      .filter(([, value]) => value !== null)
+      .map(([key, value]) => {
+        // La key es "indicatorId|studentId" — usar | como separador
+        const [indicatorId, studentId] = key.split('|');
+        return { indicatorId, studentId, periodId: selectedPeriod, value: value! };
+      });
 
-      await api.post('/indicators/evaluations/bulk', { evaluations });
-    },
+    await api.post('/indicators/evaluations/bulk', { evaluations });
+  },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['evaluations-grid'] });
       setHasChanges(false);
@@ -227,65 +228,68 @@ export default function EvaluationsPage() {
         </div>
       ) : (
         <div className="rounded-lg border bg-background overflow-auto">
-          <table className="text-sm" style={{ minWidth: '100%' }}>
-            <thead>
-              <tr className="border-b bg-muted/50">
-                <th className="text-left px-4 py-2.5 font-medium text-muted-foreground sticky left-0 bg-muted/50 min-w-64">
-                  Indicador
-                </th>
-                {grid.students.map((student: any) => (
-                  <th key={student.id} className="px-3 py-2.5 font-medium text-muted-foreground text-center min-w-28">
-                    <div className="text-xs">{student.lastName},</div>
-                    <div className="text-xs">{student.firstName}</div>
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {grid.grid.map((row: any, rowIndex: number) => (
-                <tr
-                  key={row.indicator.id}
-                  className={`border-b last:border-0 ${rowIndex % 2 === 1 ? 'bg-muted/20' : ''}`}
-                >
-                  <td className="px-4 py-2.5 sticky left-0 bg-background font-medium text-xs leading-relaxed max-w-64">
-                    <span className="text-muted-foreground mr-1.5">{rowIndex + 1}.</span>
-                    {row.indicator.description}
-                  </td>
-                  {grid.students.map((student: any) => {
-                    const key   = `${row.indicator.id}-${student.id}`;
-                    const value = localValues[key] ?? null;
-                    const config = value ? valueConfig[value] : null;
-                    const Icon   = config?.icon;
+  <table className="text-sm w-full">
+    <thead>
+      <tr className="border-b bg-muted/50">
+        <th className="text-left px-4 py-2.5 font-medium text-muted-foreground sticky left-0 bg-muted/50 min-w-48">
+          Alumno
+        </th>
+        {grid.grid.map((row: any, index: number) => (
+          <th key={row.indicator.id} className="px-3 py-2.5 font-medium text-muted-foreground text-center min-w-32">
+            <div className="text-xs text-muted-foreground mb-0.5">{index + 1}.</div>
+            <div className="text-xs leading-tight max-w-28 mx-auto">
+              {row.indicator.description.length > 40
+                ? row.indicator.description.substring(0, 40) + '...'
+                : row.indicator.description}
+            </div>
+          </th>
+        ))}
+      </tr>
+    </thead>
+    <tbody>
+      {grid.students.map((student: any, studentIndex: number) => (
+        <tr
+          key={student.id}
+          className={`border-b last:border-0 ${studentIndex % 2 === 1 ? 'bg-muted/20' : ''}`}
+        >
+          <td className="px-4 py-2 sticky left-0 bg-background font-medium text-sm">
+            {student.lastName}, {student.firstName}
+          </td>
+          {grid.grid.map((row: any) => {
+            const key    = `${row.indicator.id}|${student.id}`;
+            const value  = localValues[key] ?? null;
+            const config = value ? valueConfig[value] : null;
+            const Icon   = config?.icon;
 
-                    return (
-                      <td key={student.id} className="px-2 py-1.5 text-center">
-                        <button
-                          onClick={() => toggleValue(row.indicator.id, student.id)}
-                          className={`
-                            w-full rounded-md border py-1.5 px-2 text-xs transition-all
-                            ${config
-                              ? `${config.bg} ${config.color}`
-                              : 'border-dashed border-muted-foreground/30 text-muted-foreground/50 hover:border-muted-foreground/50'
-                            }
-                          `}
-                        >
-                          {Icon && config ? (
-                            <span className="flex items-center justify-center gap-1">
-                              <Icon className="h-3 w-3" />
-                              <span className="hidden sm:inline">{config.label}</span>
-                            </span>
-                          ) : (
-                            <span>—</span>
-                          )}
-                        </button>
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+            return (
+              <td key={row.indicator.id} className="px-2 py-1.5 text-center">
+                <button
+                  onClick={() => toggleValue(row.indicator.id, student.id)}
+                  className={`
+                    w-full rounded-md border py-1.5 px-2 text-xs transition-all
+                    ${config
+                      ? `${config.bg} ${config.color}`
+                      : 'border-dashed border-muted-foreground/30 text-muted-foreground/50 hover:border-muted-foreground/50'
+                    }
+                  `}
+                >
+                  {Icon && config ? (
+                    <span className="flex items-center justify-center gap-1">
+                      <Icon className="h-3 w-3" />
+                      <span className="hidden lg:inline">{config.label}</span>
+                    </span>
+                  ) : (
+                    <span>—</span>
+                  )}
+                </button>
+              </td>
+            );
+          })}
+        </tr>
+      ))}
+    </tbody>
+  </table>
+</div>
       )}
 
       {hasChanges && (
