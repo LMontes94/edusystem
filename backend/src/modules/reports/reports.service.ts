@@ -28,6 +28,18 @@ export class ReportsService {
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
   ) {}
+  
+  private buildFilename(
+  type:      'boletin' | 'informe',
+  student:   { firstName: string; lastName: string },
+  course:    { name: string },
+  schoolYear: number,
+  ): string {
+  return `${schoolYear}_${course.name}_${student.lastName}_${student.firstName}_${type}.pdf`
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, '_');
+  }
 
   // ── Obtener config de la institución ─────────
   private async getReportConfig(institutionId: string): Promise<ReportConfig> {
@@ -96,8 +108,7 @@ export class ReportsService {
     const data    = await this.buildSecondaryData(studentId, institutionId, schoolYearId);
     const html    = secondaryGradesTemplate(data, config);
     const buffer  = await this.generatePdf(html);
-    const filename = `boletin_${data.student.lastName}_${data.student.firstName}_${data.schoolYear}.pdf`
-      .normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '_');
+    const filename = this.buildFilename('boletin', data.student, data.course, data.schoolYear);
 
     return { buffer, filename };
   }
@@ -130,8 +141,8 @@ export class ReportsService {
           const data     = await this.buildSecondaryData(e.studentId, institutionId, schoolYearId);
           const html     = secondaryGradesTemplate(data, config);
           const buffer   = await this.generatePdf(html);
-          const filename = `boletin_${data.student.lastName}_${data.student.firstName}.pdf`
-            .normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '_');
+          const filename = this.buildFilename('boletin', data.student, data.course, data.schoolYear);
+
           return { buffer, filename };
         }),
       );
@@ -152,8 +163,7 @@ export class ReportsService {
     const data    = await this.buildPrimaryData(studentId, institutionId, schoolYearId);
     const html    = primaryQualitativeTemplate(data, config);
     const buffer  = await this.generatePdf(html);
-    const filename = `informe_${data.student.lastName}_${data.student.firstName}_${data.schoolYear}.pdf`
-      .normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '_');
+    const filename = this.buildFilename('boletin', data.student, data.course, data.schoolYear);
 
     return { buffer, filename };
   }
@@ -181,8 +191,7 @@ export class ReportsService {
           const data     = await this.buildPrimaryData(e.studentId, institutionId, schoolYearId);
           const html     = primaryQualitativeTemplate(data, config);
           const buffer   = await this.generatePdf(html);
-          const filename = `informe_${data.student.lastName}_${data.student.firstName}.pdf`
-            .normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '_');
+          const filename = this.buildFilename('boletin', data.student, data.course, data.schoolYear);
           return { buffer, filename };
         }),
       );
@@ -333,78 +342,154 @@ export class ReportsService {
   }
 
   private async buildPrimaryData(
-    studentId:     string,
-    institutionId: string,
-    schoolYearId:  string,
-  ) {
-    const [student, schoolYear, attendance] = await Promise.all([
-      this.prisma.student.findFirst({
-        where:   { id: studentId, institutionId },
-        include: {
-          courseStudents: {
-            where:   { status: 'ACTIVE', course: { schoolYearId } },
-            include: {
-              course: {
-                include: {
-                  courseSubjects: { include: { teacher: { select: { firstName: true, lastName: true } } } },
+  studentId:     string,
+  institutionId: string,
+  schoolYearId:  string,
+) {
+  const [student, schoolYear, attendance, evaluations] = await Promise.all([
+    this.prisma.student.findFirst({
+      where:   { id: studentId, institutionId },
+      include: {
+        courseStudents: {
+          where:   { status: 'ACTIVE', course: { schoolYearId } },
+          include: {
+            course: {
+              include: {
+                courseSubjects: {
+                  include: {
+                    subject: true,
+                    teacher: { select: { firstName: true, lastName: true } },
+                  },
                 },
               },
             },
           },
         },
-      }),
-      this.prisma.schoolYear.findUnique({
-        where:   { id: schoolYearId },
-        include: { periods: { orderBy: { order: 'asc' } } },
-      }),
-      this.prisma.attendance.findMany({
-        where:  { studentId, course: { schoolYearId } },
-        select: { status: true },
-      }),
-    ]);
-
-    if (!student) throw new NotFoundException('Alumno no encontrado');
-
-    const courseStudent = student.courseStudents[0];
-    const teachers = courseStudent?.course.courseSubjects
-      .map((cs: any) => `${cs.teacher.firstName} ${cs.teacher.lastName}`)
-      .filter((v: string, i: number, a: string[]) => a.indexOf(v) === i) ?? [];
-
-    const attendanceSummary = attendance.reduce(
-      (acc, a) => { acc[a.status] = (acc[a.status] ?? 0) + 1; acc.total++; return acc; },
-      { PRESENT: 0, ABSENT: 0, LATE: 0, JUSTIFIED: 0, total: 0 } as any,
-    );
-    const rate = attendanceSummary.total > 0
-      ? Math.round(((attendanceSummary.PRESENT + attendanceSummary.LATE) / attendanceSummary.total) * 100)
-      : 0;
-
-    return {
-      student: {
-        firstName:      student.firstName,
-        lastName:       student.lastName,
-        documentNumber: student.documentNumber,
       },
-      course: courseStudent
-        ? {
-            name:     courseStudent.course.name,
-            grade:    courseStudent.course.grade,
-            division: courseStudent.course.division,
-          }
-        : { name: '—', grade: 0, division: '—' },
-      teachers,
-      schoolYear: schoolYear!.year,
-      periods:    schoolYear!.periods,
-      areas:      [], // Se completa con el sistema de indicadores (próxima iteración)
-      observations: {},
-      attendance: {
-        present:   attendanceSummary.PRESENT,
-        absent:    attendanceSummary.ABSENT,
-        late:      attendanceSummary.LATE,
-        total:     attendanceSummary.total,
-        rate,
+    }),
+    this.prisma.schoolYear.findUnique({
+      where:   { id: schoolYearId },
+      include: { periods: { orderBy: { order: 'asc' } } },
+    }),
+    this.prisma.attendance.findMany({
+      where:  { studentId, course: { schoolYearId } },
+      select: { status: true },
+    }),
+    // Cargar evaluaciones de indicadores del alumno
+    this.prisma.indicatorEvaluation.findMany({
+      where: {
+        studentId,
+        indicator: { schoolYearId },
       },
-    };
+      include: {
+        indicator: {
+          include: { subject: { select: { id: true, name: true } } },
+        },
+        period: { select: { id: true, name: true, order: true } },
+      },
+    }),
+  ]);
+
+  if (!student) throw new NotFoundException('Alumno no encontrado');
+
+  const courseStudent = student.courseStudents[0];
+  const teachers = courseStudent?.course.courseSubjects
+    .map((cs: any) => `${cs.teacher.firstName} ${cs.teacher.lastName}`)
+    .filter((v: string, i: number, a: string[]) => a.indexOf(v) === i) ?? [];
+
+  // Calcular asistencia
+  const attendanceSummary = attendance.reduce(
+    (acc, a) => { acc[a.status] = (acc[a.status] ?? 0) + 1; acc.total++; return acc; },
+    { PRESENT: 0, ABSENT: 0, LATE: 0, JUSTIFIED: 0, total: 0 } as any,
+  );
+  const rate = attendanceSummary.total > 0
+    ? Math.round(((attendanceSummary.PRESENT + attendanceSummary.LATE) / attendanceSummary.total) * 100)
+    : 0;
+
+  // Agrupar indicadores por materia
+  const subjectMap = new Map<string, { name: string; indicators: Map<string, any> }>();
+
+  for (const evaluation of evaluations) {
+    const subjectId   = evaluation.indicator.subject.id;
+    const subjectName = evaluation.indicator.subject.name;
+
+    if (!subjectMap.has(subjectId)) {
+      subjectMap.set(subjectId, { name: subjectName, indicators: new Map() });
+    }
+
+    const subject = subjectMap.get(subjectId)!;
+
+    if (!subject.indicators.has(evaluation.indicatorId)) {
+      subject.indicators.set(evaluation.indicatorId, {
+        description:     evaluation.indicator.description,
+        valuesByPeriod:  {},
+      });
+    }
+
+    subject.indicators.get(evaluation.indicatorId).valuesByPeriod[evaluation.periodId] = evaluation.value;
   }
+
+  // También cargar indicadores sin evaluación para mostrarlos en el PDF
+  const allIndicators = await this.prisma.indicator.findMany({
+    where:   { schoolYearId },
+    include: { subject: { select: { id: true, name: true } } },
+    orderBy: { order: 'asc' },
+  });
+
+  for (const indicator of allIndicators) {
+    const subjectId   = indicator.subject.id;
+    const subjectName = indicator.subject.name;
+
+    if (!subjectMap.has(subjectId)) {
+      subjectMap.set(subjectId, { name: subjectName, indicators: new Map() });
+    }
+
+    const subject = subjectMap.get(subjectId)!;
+
+    if (!subject.indicators.has(indicator.id)) {
+      subject.indicators.set(indicator.id, {
+        description:    indicator.description,
+        valuesByPeriod: {},
+      });
+    }
+  }
+
+  // Convertir a formato del template
+  const areas = Array.from(subjectMap.entries()).map(([, subject]) => ({
+    name:       subject.name,
+    indicators: Array.from(subject.indicators.values()).map((ind) => ({
+      description:     ind.description,
+      valuesByPeriod:  ind.valuesByPeriod,
+    })),
+  }));
+
+  return {
+    student: {
+      firstName:      student.firstName,
+      lastName:       student.lastName,
+      documentNumber: student.documentNumber,
+    },
+    course: courseStudent
+      ? {
+          name:     courseStudent.course.name,
+          grade:    courseStudent.course.grade,
+          division: courseStudent.course.division,
+        }
+      : { name: '—', grade: 0, division: '—' },
+    teachers,
+    schoolYear: schoolYear!.year,
+    periods:    schoolYear!.periods,
+    areas,
+    observations: {},
+    attendance: {
+      present:   attendanceSummary.PRESENT,
+      absent:    attendanceSummary.ABSENT,
+      late:      attendanceSummary.LATE,
+      total:     attendanceSummary.total,
+      rate,
+    },
+  };
+}
 
   // ── Crear ZIP ─────────────────────────────────
   private createZip(files: { buffer: Buffer; filename: string }[]): Promise<Buffer> {

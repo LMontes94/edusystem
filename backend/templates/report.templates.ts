@@ -35,17 +35,17 @@ function renderHeader(config: ReportConfig, subtitle: string): string {
   }
 
   // classic
-  return `
-    <div style="border-bottom:3px solid ${theme.primaryColor};padding-bottom:16px;margin-bottom:16px;">
-      <div style="display:flex;align-items:center;gap:20px;">
-        ${logoPosition === 'left' ? `<div>${logoHtml}</div>` : ''}
-        <div style="flex:1;${logoPosition === 'center' ? 'text-align:center;' : ''}">
-          <div style="font-size:20px;font-weight:700;color:${theme.primaryColor};">${institutionName.toUpperCase()}</div>
-          <div style="font-size:13px;color:${theme.secondaryColor};margin-top:2px;">${subtitle}</div>
-        </div>
-        ${logoPosition === 'center' ? `<div>${logoHtml}</div>` : ''}
+return `
+  <div style="border-bottom:3px solid ${theme.primaryColor};padding-bottom:16px;margin-bottom:16px;">
+    <div style="display:flex;flex-direction:${logoPosition === 'center' ? 'column' : 'row'};align-items:center;gap:${logoPosition === 'center' ? '8px' : '20px'};${logoPosition === 'center' ? 'text-align:center;' : ''}">
+      ${logoPosition === 'left' ? `<div>${logoHtml}</div>` : ''}
+      ${logoPosition === 'center' ? `<div>${logoHtml}</div>` : ''}
+      <div>
+        <div style="font-size:20px;font-weight:700;color:${theme.primaryColor};">${institutionName.toUpperCase()}</div>
+        <div style="font-size:13px;color:${theme.secondaryColor};margin-top:2px;">${subtitle}</div>
       </div>
-    </div>`;
+    </div>
+  </div>`;
 }
 
 // ── CSS base compartido ───────────────────────

@@ -35,6 +35,7 @@ export class ReportsController {
       'Content-Type':        'application/pdf',
       'Content-Disposition': `attachment; filename="${filename}"`,
       'Content-Length':      buffer.length,
+      'Access-Control-Expose-Headers': 'Content-Disposition',
     });
     res.end(buffer);
   }
@@ -57,6 +58,7 @@ export class ReportsController {
       'Content-Type':        'application/zip',
       'Content-Disposition': `attachment; filename="boletines_secundaria.zip"`,
       'Content-Length':      buffer.length,
+      'Access-Control-Expose-Headers': 'Content-Disposition',
     });
     res.end(buffer);
   }
@@ -79,6 +81,7 @@ export class ReportsController {
       'Content-Type':        'application/pdf',
       'Content-Disposition': `attachment; filename="${filename}"`,
       'Content-Length':      buffer.length,
+      'Access-Control-Expose-Headers': 'Content-Disposition',
     });
     res.end(buffer);
   }
@@ -101,6 +104,7 @@ export class ReportsController {
       'Content-Type':        'application/zip',
       'Content-Disposition': `attachment; filename="informes_primaria.zip"`,
       'Content-Length':      buffer.length,
+      'Access-Control-Expose-Headers': 'Content-Disposition',
     });
     res.end(buffer);
   }
