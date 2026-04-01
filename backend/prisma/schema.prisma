@@ -212,6 +212,7 @@ model User {
   guardianLinks       Guardian[]
   attendancesRecorded Attendance[]    @relation("RecordedBy")
   auditLogs           AuditLog[]
+  observations StudentObservation[]
 
   @@unique([email, institutionId])
 
@@ -310,6 +311,7 @@ model Course {
   announcements  Announcement[]
   attendances    Attendance[]
   chatRooms      ChatRoom[]
+  observations StudentObservation[]
 
   @@index([institutionId])
   @@index([schoolYearId])
@@ -379,6 +381,7 @@ model Student {
   attendances    Attendance[]
   guardians      Guardian[]
   indicatorEvaluations IndicatorEvaluation[]
+  observations StudentObservation[]
 
   @@unique([institutionId, documentNumber]) // DNI único por institución (no global)
   @@index([institutionId])
@@ -434,7 +437,8 @@ model Period {
   schoolYear SchoolYear @relation(fields: [schoolYearId], references: [id])
   grades     Grade[]
   indicatorEvaluations IndicatorEvaluation[]
-
+  observations StudentObservation[]
+  
   @@map("periods")
 }
 
@@ -604,6 +608,25 @@ model IndicatorEvaluation {
 
   @@unique([indicatorId, studentId, periodId])
   @@map("indicator_evaluations")
+}
+
+model StudentObservation {
+  id           String   @id @default(uuid())
+  studentId    String   @map("student_id")
+  periodId     String   @map("period_id")
+  courseId     String   @map("course_id")
+  authorId     String   @map("author_id")
+  observation  String
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  student Student @relation(fields: [studentId], references: [id])
+  period  Period  @relation(fields: [periodId], references: [id])
+  course  Course  @relation(fields: [courseId], references: [id])
+  author  User    @relation(fields: [authorId], references: [id])
+
+  @@unique([studentId, periodId, courseId])
+  @@map("student_observations")
 }
 
 // ──────────────────────────────────────────────

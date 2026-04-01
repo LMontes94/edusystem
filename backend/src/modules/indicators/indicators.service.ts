@@ -160,4 +160,38 @@ export class IndicatorsService {
       })),
     };
   }
+
+  // ── Guardar observación ───────────────────────
+async upsertObservation(data: {
+  studentId:   string;
+  periodId:    string;
+  courseId:    string;
+  authorId:    string;
+  observation: string;
+}) {
+  return this.prisma.studentObservation.upsert({
+    where: {
+      studentId_periodId_courseId: {
+        studentId: data.studentId,
+        periodId:  data.periodId,
+        courseId:  data.courseId,
+      },
+    },
+    create: data as any,
+    update: { observation: data.observation, authorId: data.authorId },
+  });
+}
+
+// ── Obtener observaciones de un curso ─────────
+async getCourseObservations(courseId: string, periodId: string) {
+  return this.prisma.studentObservation.findMany({
+    where: { courseId, periodId },
+    select: {
+      studentId:   true,
+      observation: true,
+      updatedAt:   true,
+      author: { select: { firstName: true, lastName: true } },
+    },
+  });
+}
 }

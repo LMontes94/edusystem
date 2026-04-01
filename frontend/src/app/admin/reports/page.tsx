@@ -127,7 +127,6 @@ export default function ReportsPage() {
       const url      = window.URL.createObjectURL(new Blob([res.data]));
       const link     = document.createElement('a');
       link.href      = url;
-      console.log(res.headers);
       const contentDisposition = res.headers['content-disposition'];
       const filenameMatch = contentDisposition?.match(/filename="(.+)"/);
       link.download = filenameMatch?.[1] ?? `reporte_${selectedStudent}.pdf`;

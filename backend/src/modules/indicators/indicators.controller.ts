@@ -8,6 +8,7 @@ import { IndicatorsService } from './indicators.service';
 import { CaslGuard } from '../casl/guards/casl.guard';
 import { CheckAbility } from '../casl/decorators/check-ability.decorator';
 import { Action } from '../casl/casl.types';
+import { CurrentUser, RequestUser } from '../../common/decorators/current-user.decorator';
 
 @ApiTags('Indicators')
 @ApiBearerAuth('JWT')
@@ -104,4 +105,32 @@ export class IndicatorsController {
   ) {
     return this.indicatorsService.bulkUpsertEvaluations(body.evaluations);
   }
+
+  @Post('observations')
+@CheckAbility({ action: Action.Create, subject: 'Grade' })
+@ApiOperation({ summary: 'Guardar observación de un alumno' })
+upsertObservation(
+  @Body() body: {
+    studentId:   string;
+    periodId:    string;
+    courseId:    string;
+    observation: string;
+  },
+  @CurrentUser() user: RequestUser,
+) {
+  return this.indicatorsService.upsertObservation({
+    ...body,
+    authorId: user.id,
+  });
+}
+
+@Get('observations/:courseId')
+@CheckAbility({ action: Action.Read, subject: 'Grade' })
+@ApiOperation({ summary: 'Obtener observaciones de un curso por período' })
+getCourseObservations(
+  @Param('courseId') courseId: string,
+  @Query('periodId') periodId: string,
+) {
+  return this.indicatorsService.getCourseObservations(courseId, periodId);
+}
 }

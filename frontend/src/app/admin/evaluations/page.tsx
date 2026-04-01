@@ -7,8 +7,8 @@ import { useCourses } from '@/lib/api/courses';
 import { usePeriods } from '@/lib/api/grades';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
@@ -33,6 +33,8 @@ export default function EvaluationsPage() {
   const [selectedSchoolYear, setSelectedSchoolYear]  = useState('');
   const [localValues, setLocalValues] = useState<Record<string, EvalValue>>({});
   const [hasChanges,  setHasChanges]  = useState(false);
+  const [observations, setObservations] = useState<Record<string, string>>({});
+  const [obsChanged,   setObsChanged]   = useState(false);
 
   const { data: courses }     = useCourses();
   const { data: schoolYears } = useQuery({
@@ -116,27 +118,62 @@ export default function EvaluationsPage() {
   });
 
   const canRender = selectedCourse && selectedSubject && selectedSchoolYear && selectedPeriod;
+  
+  const { data: existingObservations } = useQuery({
+  queryKey: ['observations', selectedCourse, selectedPeriod],
+  queryFn:  async () => {
+    const res = await api.get(`/indicators/observations/${selectedCourse}`, {
+      params: { periodId: selectedPeriod },
+    });
+    return res.data;
+  },
+  enabled: !!selectedCourse && !!selectedPeriod,
+});
+
+// Inicializar observaciones cuando cargan
+useEffect(() => {
+  if (existingObservations) {
+    const initial: Record<string, string> = {};
+    existingObservations.forEach((obs: any) => {
+      initial[obs.studentId] = obs.observation;
+    });
+    setObservations(initial);
+    setObsChanged(false);
+  }
+}, [existingObservations]);
+
+const saveObsMutation = useMutation({
+  mutationFn: async () => {
+    await Promise.all(
+      Object.entries(observations)
+        .filter(([, obs]) => obs.trim())
+        .map(([studentId, observation]) =>
+          api.post('/indicators/observations', {
+            studentId,
+            periodId:    selectedPeriod,
+            courseId:    selectedCourse,
+            observation: observation.trim(),
+          })
+        )
+    );
+  },
+  onSuccess: () => {
+    queryClient.invalidateQueries({ queryKey: ['observations'] });
+    setObsChanged(false);
+    toast.success('Observaciones guardadas');
+  },
+  onError: () => toast.error('Error al guardar las observaciones'),
+});
 
   return (
     <div className="space-y-6">
 
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold">Evaluación de indicadores</h1>
-          <p className="text-sm text-muted-foreground">
-            Completá la valoración de cada indicador por alumno
-          </p>
-        </div>
-        {hasChanges && (
-          <Button
-            onClick={() => saveMutation.mutate()}
-            disabled={saveMutation.isPending}
-          >
-            <Save className="h-4 w-4 mr-2" />
-            {saveMutation.isPending ? 'Guardando...' : 'Guardar cambios'}
-          </Button>
-        )}
+      <div>
+        <h1 className="text-xl font-semibold">Evaluación de indicadores</h1>
+        <p className="text-sm text-muted-foreground">
+          Completá la valoración de cada indicador por alumno
+        </p>
       </div>
 
       {/* Filtros */}
@@ -193,113 +230,187 @@ export default function EvaluationsPage() {
         </CardContent>
       </Card>
 
-      {/* Leyenda */}
-      {canRender && (
-        <div className="flex items-center gap-4 text-xs text-muted-foreground">
-          <span>Hacé click en cada celda para cambiar la valoración:</span>
-          {Object.entries(valueConfig).map(([key, config]) => {
-            const Icon = config.icon;
-            return (
-              <span key={key} className={`flex items-center gap-1 ${config.color}`}>
-                <Icon className="h-3.5 w-3.5" />
-                {config.label}
-              </span>
-            );
-          })}
-          <span className="text-muted-foreground">· Sin valoración</span>
+      {/* Tabs */}
+      <Tabs defaultValue="evaluations">
+        <div className="flex items-center justify-between">
+          <TabsList>
+            <TabsTrigger value="evaluations">Valoraciones</TabsTrigger>
+            <TabsTrigger value="observations">Observaciones</TabsTrigger>
+          </TabsList>
+          {hasChanges && (
+            <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+              <Save className="h-4 w-4 mr-2" />
+              {saveMutation.isPending ? 'Guardando...' : 'Guardar cambios'}
+            </Button>
+          )}
+          {obsChanged && !hasChanges && (
+            <Button onClick={() => saveObsMutation.mutate()} disabled={saveObsMutation.isPending}>
+              <Save className="h-4 w-4 mr-2" />
+              {saveObsMutation.isPending ? 'Guardando...' : 'Guardar observaciones'}
+            </Button>
+          )}
         </div>
-      )}
 
-      {/* Grilla de evaluación */}
-      {!canRender ? (
-        <div className="flex items-center justify-center h-48 text-muted-foreground text-sm border rounded-lg border-dashed">
-          Seleccioná año, curso, materia y período para ver la grilla
-        </div>
-      ) : isLoading ? (
-        <div className="flex items-center justify-center h-48 text-muted-foreground text-sm">
-          Cargando...
-        </div>
-      ) : !grid?.indicators?.length ? (
-        <div className="flex items-center justify-center h-48 text-muted-foreground text-sm border rounded-lg border-dashed">
-          No hay indicadores cargados para esta materia.{' '}
-          <a href="/admin/indicators" className="text-primary underline ml-1">
-            Agregalos desde Indicadores
-          </a>
-        </div>
-      ) : (
-        <div className="rounded-lg border bg-background overflow-auto">
-  <table className="text-sm w-full">
-    <thead>
-      <tr className="border-b bg-muted/50">
-        <th className="text-left px-4 py-2.5 font-medium text-muted-foreground sticky left-0 bg-muted/50 min-w-48">
-          Alumno
-        </th>
-        {grid.grid.map((row: any, index: number) => (
-          <th key={row.indicator.id} className="px-3 py-2.5 font-medium text-muted-foreground text-center min-w-32">
-            <div className="text-xs text-muted-foreground mb-0.5">{index + 1}.</div>
-            <div className="text-xs leading-tight max-w-28 mx-auto">
-              {row.indicator.description.length > 40
-                ? row.indicator.description.substring(0, 40) + '...'
-                : row.indicator.description}
+        {/* ── Tab: Valoraciones ── */}
+        <TabsContent value="evaluations" className="mt-4">
+
+          {/* Leyenda */}
+          {canRender && (
+            <div className="flex items-center gap-4 text-xs text-muted-foreground mb-4">
+              <span>Hacé click en cada celda para cambiar la valoración:</span>
+              {Object.entries(valueConfig).map(([key, config]) => {
+                const Icon = config.icon;
+                return (
+                  <span key={key} className={`flex items-center gap-1 ${config.color}`}>
+                    <Icon className="h-3.5 w-3.5" />
+                    {config.label}
+                  </span>
+                );
+              })}
+              <span className="text-muted-foreground">· Sin valoración</span>
             </div>
-          </th>
-        ))}
-      </tr>
-    </thead>
-    <tbody>
-      {grid.students.map((student: any, studentIndex: number) => (
-        <tr
-          key={student.id}
-          className={`border-b last:border-0 ${studentIndex % 2 === 1 ? 'bg-muted/20' : ''}`}
-        >
-          <td className="px-4 py-2 sticky left-0 bg-background font-medium text-sm">
-            {student.lastName}, {student.firstName}
-          </td>
-          {grid.grid.map((row: any) => {
-            const key    = `${row.indicator.id}|${student.id}`;
-            const value  = localValues[key] ?? null;
-            const config = value ? valueConfig[value] : null;
-            const Icon   = config?.icon;
+          )}
 
-            return (
-              <td key={row.indicator.id} className="px-2 py-1.5 text-center">
-                <button
-                  onClick={() => toggleValue(row.indicator.id, student.id)}
-                  className={`
-                    w-full rounded-md border py-1.5 px-2 text-xs transition-all
-                    ${config
-                      ? `${config.bg} ${config.color}`
-                      : 'border-dashed border-muted-foreground/30 text-muted-foreground/50 hover:border-muted-foreground/50'
-                    }
-                  `}
+          {!canRender ? (
+            <div className="flex items-center justify-center h-48 text-muted-foreground text-sm border rounded-lg border-dashed">
+              Seleccioná año, curso, materia y período para ver la grilla
+            </div>
+          ) : isLoading ? (
+            <div className="flex items-center justify-center h-48 text-muted-foreground text-sm">
+              Cargando...
+            </div>
+          ) : !grid?.indicators?.length ? (
+            <div className="flex items-center justify-center h-48 text-muted-foreground text-sm border rounded-lg border-dashed">
+              No hay indicadores cargados para esta materia.{' '}
+              <a href="/admin/indicators" className="text-primary underline ml-1">
+                Agregalos desde Indicadores
+              </a>
+            </div>
+          ) : (
+            <>
+              <div className="rounded-lg border bg-background overflow-auto">
+                <table className="text-sm w-full">
+                  <thead>
+                    <tr className="border-b bg-muted/50">
+                      <th className="text-left px-4 py-2.5 font-medium text-muted-foreground sticky left-0 bg-muted/50 min-w-48">
+                        Alumno
+                      </th>
+                      {grid.grid.map((row: any, index: number) => (
+                        <th key={row.indicator.id} className="px-3 py-2.5 font-medium text-muted-foreground text-center min-w-32">
+                          <div className="text-xs text-muted-foreground mb-0.5">{index + 1}.</div>
+                          <div className="text-xs leading-tight max-w-28 mx-auto">
+                            {row.indicator.description.length > 40
+                              ? row.indicator.description.substring(0, 40) + '...'
+                              : row.indicator.description}
+                          </div>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {grid.students.map((student: any, studentIndex: number) => (
+                      <tr
+                        key={student.id}
+                        className={`border-b last:border-0 ${studentIndex % 2 === 1 ? 'bg-muted/20' : ''}`}
+                      >
+                        <td className="px-4 py-2 sticky left-0 bg-background font-medium text-sm">
+                          {student.lastName}, {student.firstName}
+                        </td>
+                        {grid.grid.map((row: any) => {
+                          const key    = `${row.indicator.id}|${student.id}`;
+                          const value  = localValues[key] ?? null;
+                          const config = value ? valueConfig[value] : null;
+                          const Icon   = config?.icon;
+
+                          return (
+                            <td key={row.indicator.id} className="px-2 py-1.5 text-center">
+                              <button
+                                onClick={() => toggleValue(row.indicator.id, student.id)}
+                                className={`
+                                  w-full rounded-md border py-1.5 px-2 text-xs transition-all
+                                  ${config
+                                    ? `${config.bg} ${config.color}`
+                                    : 'border-dashed border-muted-foreground/30 text-muted-foreground/50 hover:border-muted-foreground/50'
+                                  }
+                                `}
+                              >
+                                {Icon && config ? (
+                                  <span className="flex items-center justify-center gap-1">
+                                    <Icon className="h-3 w-3" />
+                                    <span className="hidden lg:inline">{config.label}</span>
+                                  </span>
+                                ) : (
+                                  <span>—</span>
+                                )}
+                              </button>
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {hasChanges && (
+                <div className="flex justify-end mt-3">
+                  <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+                    <Save className="h-4 w-4 mr-2" />
+                    {saveMutation.isPending ? 'Guardando...' : 'Guardar cambios'}
+                  </Button>
+                </div>
+              )}
+            </>
+          )}
+        </TabsContent>
+
+        {/* ── Tab: Observaciones ── */}
+        <TabsContent value="observations" className="mt-4">
+          {!canRender ? (
+            <div className="flex items-center justify-center h-48 text-muted-foreground text-sm border rounded-lg border-dashed">
+              Seleccioná año, curso, materia y período para cargar observaciones
+            </div>
+          ) : !grid?.students?.length ? (
+            <div className="flex items-center justify-center h-48 text-muted-foreground text-sm border rounded-lg border-dashed">
+              No hay alumnos en este curso
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {grid.students.map((student: any) => (
+                <Card key={student.id}>
+                  <CardContent className="pt-4 pb-4">
+                    <div className="flex items-start gap-4">
+                      <div className="min-w-40">
+                        <p className="text-sm font-medium">
+                          {student.lastName}, {student.firstName}
+                        </p>
+                      </div>
+                      <textarea
+                        className="flex-1 min-h-20 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-none"
+                        placeholder="Observación del período..."
+                        value={observations[student.id] ?? ''}
+                        onChange={(e) => {
+                          setObservations((prev) => ({ ...prev, [student.id]: e.target.value }));
+                          setObsChanged(true);
+                        }}
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+              <div className="flex justify-end">
+                <Button
+                  onClick={() => saveObsMutation.mutate()}
+                  disabled={saveObsMutation.isPending || !obsChanged}
                 >
-                  {Icon && config ? (
-                    <span className="flex items-center justify-center gap-1">
-                      <Icon className="h-3 w-3" />
-                      <span className="hidden lg:inline">{config.label}</span>
-                    </span>
-                  ) : (
-                    <span>—</span>
-                  )}
-                </button>
-              </td>
-            );
-          })}
-        </tr>
-      ))}
-    </tbody>
-  </table>
-</div>
-      )}
-
-      {hasChanges && (
-        <div className="flex justify-end">
-          <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
-            <Save className="h-4 w-4 mr-2" />
-            {saveMutation.isPending ? 'Guardando...' : 'Guardar cambios'}
-          </Button>
-        </div>
-      )}
+                  <Save className="h-4 w-4 mr-2" />
+                  {saveObsMutation.isPending ? 'Guardando...' : 'Guardar observaciones'}
+                </Button>
+              </div>
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
