@@ -25,6 +25,7 @@ import { EnvConfig } from './config/env.schema';
 import { StorageModule } from './modules/storage/storage.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { IndicatorsModule } from './modules/indicators/indicators.module';
+import { TeacherModule } from './modules/teacher/teacher.module';
 
 @Module({
   imports: [
@@ -56,6 +57,7 @@ import { IndicatorsModule } from './modules/indicators/indicators.module';
     StorageModule,
     ReportsModule,
     IndicatorsModule,
+    TeacherModule,
   ],
 })
 export class AppModule implements NestModule {

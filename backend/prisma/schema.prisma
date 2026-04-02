@@ -157,6 +157,7 @@ model Institution {
   chatRooms     ChatRoom[]
   auditLogs     AuditLog[]
   invitations   Invitation[]
+  pendingSubjects PendingSubject[]
 
   @@index([domain])
   @@index([status])
@@ -287,6 +288,7 @@ model SchoolYear {
   courses     Course[]
   periods     Period[]
   indicators  Indicator[]
+  pendingSubjects PendingSubject[]
 
   @@unique([institutionId, year]) // cada institución tiene su propio ciclo lectivo
   @@index([institutionId])
@@ -332,6 +334,7 @@ model Subject {
   institution    Institution    @relation(fields: [institutionId], references: [id])
   courseSubjects CourseSubject[]
   indicators  Indicator[]
+  pendingSubjects PendingSubject[]
 
   @@unique([institutionId, code]) // código único por institución (antes era global)
   @@index([institutionId])
@@ -350,6 +353,7 @@ model CourseSubject {
   subject  Subject @relation(fields: [subjectId], references: [id])
   teacher  User    @relation("TeacherSubjects", fields: [teacherId], references: [id])
   grades   Grade[]
+  syllabuses Syllabus[]
 
   @@unique([courseId, subjectId])
   @@index([teacherId]) // índice clave para ABAC: filtrar materias del docente
@@ -382,6 +386,7 @@ model Student {
   guardians      Guardian[]
   indicatorEvaluations IndicatorEvaluation[]
   observations StudentObservation[]
+  pendingSubjects PendingSubject[]
 
   @@unique([institutionId, documentNumber]) // DNI único por institución (no global)
   @@index([institutionId])
@@ -438,6 +443,7 @@ model Period {
   grades     Grade[]
   indicatorEvaluations IndicatorEvaluation[]
   observations StudentObservation[]
+  syllabuses Syllabus[]
   
   @@map("periods")
 }
@@ -656,4 +662,47 @@ model AuditLog {
   @@index([userId])
   @@index([resource, resourceId])
   @@map("audit_logs")
+}
+
+model Syllabus {
+  id           String   @id @default(uuid())
+  courseSubjectId String @map("course_subject_id")
+  periodId     String   @map("period_id")
+  title        String
+  contents     String
+  bibliography String?
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  courseSubject CourseSubject @relation(fields: [courseSubjectId], references: [id])
+  period        Period        @relation(fields: [periodId], references: [id])
+
+  @@unique([courseSubjectId, periodId])
+  @@map("syllabuses")
+}
+
+model PendingSubject {
+  id              String   @id @default(uuid())
+  studentId       String   @map("student_id")
+  subjectId       String   @map("subject_id")
+  institutionId   String   @map("institution_id")
+  schoolYearId    String   @map("school_year_id")
+  initialSabers   String?  @map("initial_sabers")
+  march           String?
+  august          String?
+  november        String?
+  december        String?
+  february        String?
+  finalScore      String?  @map("final_score")
+  closingSabers   String?  @map("closing_sabers")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  student     Student     @relation(fields: [studentId], references: [id])
+  subject     Subject     @relation(fields: [subjectId], references: [id])
+  institution Institution @relation(fields: [institutionId], references: [id])
+  schoolYear  SchoolYear  @relation(fields: [schoolYearId], references: [id])
+
+  @@unique([studentId, subjectId, schoolYearId])
+  @@map("pending_subjects")
 }
