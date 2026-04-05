@@ -24,8 +24,9 @@ export class IndicatorsController {
   findAll(
     @Query('subjectId')    subjectId:    string,
     @Query('schoolYearId') schoolYearId: string,
+    @Query('grade')        grade:        string,
   ) {
-    return this.indicatorsService.findAll(subjectId, schoolYearId);
+    return this.indicatorsService.findAll(subjectId, schoolYearId,Number(grade));
   }
 
   // ── Crear indicador ───────────────────────────
@@ -36,6 +37,7 @@ export class IndicatorsController {
     @Body() body: {
       subjectId:    string;
       schoolYearId: string;
+      grade:        number;
       description:  string;
       order?:       number;
     },

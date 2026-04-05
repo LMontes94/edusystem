@@ -10,9 +10,9 @@ export class IndicatorsService {
   constructor(private readonly prisma: PrismaService) {}
 
   // ── Listar indicadores por materia y año ──────
-  async findAll(subjectId: string, schoolYearId: string) {
+  async findAll(subjectId: string, schoolYearId: string, grade: number) {
     return this.prisma.indicator.findMany({
-      where:   { subjectId, schoolYearId },
+      where:   { subjectId, schoolYearId, grade },
       orderBy: { order: 'asc' },
     });
   }
@@ -21,6 +21,7 @@ export class IndicatorsService {
   async create(data: {
     subjectId:    string;
     schoolYearId: string;
+    grade:        number;
     description:  string;
     order?:       number;
   }) {
@@ -117,9 +118,15 @@ export class IndicatorsService {
     schoolYearId: string,
     periodId:    string,
   ) {
+    // Obtener el grado del curso
+  const course = await this.prisma.course.findUnique({
+    where:  { id: courseId },
+    select: { grade: true },
+  });
+
     // Obtener indicadores de la materia
     const indicators = await this.prisma.indicator.findMany({
-      where:   { subjectId, schoolYearId },
+      where:   { subjectId, schoolYearId, grade: course?.grade },
       orderBy: { order: 'asc' },
     });
 

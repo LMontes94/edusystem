@@ -31,6 +31,7 @@ export default function IndicatorsPage() {
   const [newIndicator,       setNewIndicator]       = useState('');
   const [editingId,          setEditingId]          = useState<string | null>(null);
   const [editingText,        setEditingText]        = useState('');
+  const [selectedGrade, setSelectedGrade] = useState<number | null>(null);
 
   // Solo ADMIN y DIRECTOR pueden gestionar indicadores
   const canManage = ['ADMIN', 'DIRECTOR', 'SUPER_ADMIN'].includes(
@@ -54,22 +55,23 @@ export default function IndicatorsPage() {
   },
 });
 
-  const { data: indicators, isLoading } = useQuery({
-    queryKey: ['indicators', selectedSubject, selectedSchoolYear],
-    queryFn:  async () => {
-      const res = await api.get<Indicator[]>('/indicators', {
-        params: { subjectId: selectedSubject, schoolYearId: selectedSchoolYear },
-      });
-      return res.data;
-    },
-    enabled: !!selectedSubject && !!selectedSchoolYear,
-  });
+  const { data: indicators } = useQuery({
+  queryKey: ['indicators', selectedSubject, selectedSchoolYear, selectedGrade],
+  queryFn:  async () => {
+    const res = await api.get<Indicator[]>('/indicators', {
+      params: { subjectId: selectedSubject, schoolYearId: selectedSchoolYear, grade: selectedGrade },
+    });
+    return res.data;
+  },
+  enabled: !!selectedSubject && !!selectedSchoolYear && selectedGrade !== null,
+});
 
   const createMutation = useMutation({
     mutationFn: async (description: string) => {
       await api.post('/indicators', {
         subjectId:    selectedSubject,
         schoolYearId: selectedSchoolYear,
+        grade:        selectedGrade,
         description,
       });
     },
@@ -150,6 +152,21 @@ export default function IndicatorsPage() {
                 </SelectContent>
               </Select>
             </div>
+            <div className="space-y-1.5">
+  <label className="text-sm font-medium">Grado</label>
+  <Select
+    value={selectedGrade?.toString() ?? ''}
+    onValueChange={(v) => setSelectedGrade(Number(v))}
+    disabled={!selectedSchoolYear}
+  >
+    <SelectTrigger><SelectValue placeholder="Seleccioná un grado..." /></SelectTrigger>
+    <SelectContent>
+      {[1,2,3,4,5,6,7].map((g) => (
+        <SelectItem key={g} value={g.toString()}>{g}° grado</SelectItem>
+      ))}
+    </SelectContent>
+  </Select>
+</div>
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Materia / Área</label>
               <Select value={selectedSubject} onValueChange={setSelectedSubject}>

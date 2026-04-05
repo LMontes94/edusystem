@@ -588,6 +588,7 @@ model Indicator {
   id          String   @id @default(uuid())
   subjectId   String   @map("subject_id")
   schoolYearId String  @map("school_year_id")
+  grade        Int?    @db.SmallInt
   description String
   order       Int      @default(0)
   createdAt   DateTime @default(now()) @map("created_at")
