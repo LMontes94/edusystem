@@ -15,7 +15,7 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
-import { Plus, Trash2, Save, AlertCircle } from 'lucide-react';
+import { Plus, Trash2, Save, AlertCircle, Download } from 'lucide-react';
 
 interface PendingSubject {
   id:             string;
@@ -52,6 +52,8 @@ export default function PendingSubjectsPage() {
   const [selectedStudent,    setSelectedStudent]     = useState('');
   const [selectedSubject,    setSelectedSubject]     = useState('');
   const [localData,          setLocalData]           = useState<Record<string, Partial<PendingSubject>>>({});
+  const [generating, setGenerating] = useState<string | null>(null);
+  const [generatingBulk, setGeneratingBulk] = useState(false);
 
   const { data: courses }     = useCourses();
   const { data: schoolYears } = useQuery({
@@ -150,12 +152,57 @@ export default function PendingSubjectsPage() {
       [id]: { ...prev[id], [field]: value },
     }));
   }
-
+  
   // Agrupar pendientes por alumno
   const pendingByStudent = data?.students?.map((student: any) => ({
     student,
     pendings: data.pendingSubjects.filter((p: PendingSubject) => p.studentId === student.id),
   })).filter((s: any) => s.pendings.length > 0) ?? [];
+  
+  async function handleDownloadPdf(studentId: string) {
+  if (!selectedCourse || !selectedSchoolYear) return;
+  setGenerating(studentId);
+  try {
+    const res = await api.get(`/reports/pending/${studentId}`, {
+      params:       { courseId: selectedCourse, schoolYearId: selectedSchoolYear },
+      responseType: 'blob',
+    });
+    const contentDisposition = res.headers['content-disposition'];
+    const filenameMatch      = contentDisposition?.match(/filename="(.+)"/);
+    const url  = window.URL.createObjectURL(new Blob([res.data]));
+    const link = document.createElement('a');
+    link.href     = url;
+    link.download = filenameMatch?.[1] ?? `pendientes_${studentId}.pdf`;
+    link.click();
+    window.URL.revokeObjectURL(url);
+    toast.success('PDF generado');
+  } catch {
+    toast.error('Error al generar el PDF');
+  } finally {
+    setGenerating(null);
+  }
+}
+
+async function handleDownloadBulk() {
+  setGeneratingBulk(true);
+  try {
+    const res = await api.get(`/reports/pending/bulk/${selectedCourse}`, {
+      params:       { schoolYearId: selectedSchoolYear },
+      responseType: 'blob',
+    });
+    const url  = window.URL.createObjectURL(new Blob([res.data]));
+    const link = document.createElement('a');
+    link.href     = url;
+    link.download = `pendientes_curso.zip`;
+    link.click();
+    window.URL.revokeObjectURL(url);
+    toast.success('ZIP generado');
+  } catch {
+    toast.error('Error al generar el ZIP');
+  } finally {
+    setGeneratingBulk(false);
+  }
+}
 
   return (
     <div className="space-y-6">
@@ -176,6 +223,16 @@ export default function PendingSubjectsPage() {
           <Plus className="h-4 w-4 mr-2" />
           Agregar pendiente
         </Button>
+        <Button
+  size="sm"
+  variant="outline"
+  onClick={handleDownloadBulk}
+  disabled={generatingBulk || !selectedCourse || !selectedSchoolYear || pendingByStudent.length === 0}
+>
+  <Download className="h-4 w-4 mr-2" />
+  {generatingBulk ? 'Generando...' : 'Descargar todos (ZIP)'}
+</Button>
+
       </div>
 
       {/* Filtros */}
@@ -235,9 +292,20 @@ export default function PendingSubjectsPage() {
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-medium">
                   {student.lastName}, {student.firstName}
-                  <Badge variant="secondary" className="ml-2 text-xs">
-                    {pendings.length} pendiente{pendings.length > 1 ? 's' : ''}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+  <Badge variant="secondary" className="text-xs">
+    {pendings.length} pendiente{pendings.length > 1 ? 's' : ''}
+  </Badge>
+  <Button
+    size="sm"
+    variant="outline"
+    onClick={() => handleDownloadPdf(student.id)}
+    disabled={generating === student.id}
+  >
+    <Download className="h-3.5 w-3.5 mr-1.5" />
+    {generating === student.id ? 'Generando...' : 'PDF'}
+  </Button>
+</div>
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">

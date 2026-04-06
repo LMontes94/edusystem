@@ -13,6 +13,7 @@ import {
   secondaryGradesTemplate,
   primaryQualitativeTemplate,
 } from '../../../templates/report.templates';
+import { pendingSubjectsTemplate } from '../../../templates/pending.template';
 import archiver from 'archiver';
 import { Readable } from 'stream';
 
@@ -30,7 +31,7 @@ export class ReportsService {
   ) {}
   
   private buildFilename(
-  type:      'boletin' | 'informe',
+  type:      'boletin' | 'informe' | 'pendientes',
   student:   { firstName: string; lastName: string },
   course:    { name: string },
   schoolYear: number,
@@ -488,6 +489,137 @@ export class ReportsService {
       total:     attendanceSummary.total,
       rate,
     },
+  };
+}
+// ── PDF pendientes — un alumno ────────────────
+async generatePendingReport(
+  studentId:     string,
+  courseId:      string,
+  institutionId: string,
+  schoolYearId:  string,
+): Promise<{ buffer: Buffer; filename: string }> {
+  const config = await this.getReportConfig(institutionId);
+  const data   = await this.buildPendingData(studentId, courseId, institutionId, schoolYearId);
+  const html   = pendingSubjectsTemplate(data, config);
+  const buffer = await this.generatePdf(html);
+  const filename = this.buildFilename('pendientes', data.student, data.course, data.schoolYear);
+  return { buffer, filename };
+}
+ 
+// ── PDF pendientes — curso completo ──────────
+async generatePendingReportBulk(
+  courseId:      string,
+  institutionId: string,
+  schoolYearId:  string,
+): Promise<Buffer> {
+  const config = await this.getReportConfig(institutionId);
+ 
+  // Obtener alumnos del curso que tienen pendientes
+  const pendingSubjects = await this.prisma.pendingSubject.findMany({
+    where: { institutionId, schoolYearId },
+    select: { studentId: true },
+    distinct: ['studentId'],
+  });
+ 
+  const enrollments = await this.prisma.courseStudent.findMany({
+    where: {
+      courseId,
+      status:    'ACTIVE',
+      studentId: { in: pendingSubjects.map((p) => p.studentId) },
+    },
+    include: { student: true },
+    orderBy: { student: { lastName: 'asc' } },
+  });
+ 
+  if (enrollments.length === 0) {
+    throw new Error('No hay alumnos con materias pendientes en este curso');
+  }
+ 
+  const allPdfs: { buffer: Buffer; filename: string }[] = [];
+ 
+  for (let i = 0; i < enrollments.length; i += 5) {
+    const chunk = enrollments.slice(i, i + 5);
+    const pdfs  = await Promise.all(
+      chunk.map(async (e) => {
+        const data     = await this.buildPendingData(e.studentId, courseId, institutionId, schoolYearId);
+        const html     = pendingSubjectsTemplate(data, config);
+        const buffer   = await this.generatePdf(html);
+        const filename = this.buildFilename('pendientes', data.student, data.course, data.schoolYear);
+        return { buffer, filename };
+      }),
+    );
+    allPdfs.push(...pdfs);
+  }
+ 
+  return this.createZip(allPdfs);
+}
+ 
+// ── Builder de datos para pendientes ─────────
+private async buildPendingData(
+  studentId:     string,
+  courseId:      string,
+  institutionId: string,
+  schoolYearId:  string,
+) {
+  const [student, institution, schoolYear, pendings] = await Promise.all([
+    this.prisma.student.findFirst({
+      where:   { id: studentId, institutionId },
+      include: {
+        courseStudents: {
+          where:   { courseId, status: 'ACTIVE' },
+          include: { course: true },
+        },
+      },
+    }),
+    this.prisma.institution.findUnique({
+      where:  { id: institutionId },
+      select: { name: true, settings: true },
+    }),
+    this.prisma.schoolYear.findUnique({
+      where:  { id: schoolYearId },
+      select: { year: true },
+    }),
+    this.prisma.pendingSubject.findMany({
+      where: { studentId, schoolYearId, institutionId },
+      include: { subject: { select: { name: true } } },
+    }),
+  ]);
+ 
+  if (!student) throw new NotFoundException('Alumno no encontrado');
+ 
+  const courseStudent = student.courseStudents[0];
+  const settings      = (institution?.settings as any) ?? {};
+ 
+  return {
+    student: {
+      firstName:      student.firstName,
+      lastName:       student.lastName,
+      documentNumber: student.documentNumber,
+    },
+    course: courseStudent
+      ? {
+          name:     courseStudent.course.name,
+          grade:    courseStudent.course.grade,
+          division: courseStudent.course.division,
+          level:    courseStudent.course.level,
+        }
+      : { name: '—', grade: 0, division: '—', level: '—' },
+    schoolYear: schoolYear!.year,
+    institution: {
+      name:     institution!.name,
+      district: settings.district,
+    },
+    pendings: pendings.map((p) => ({
+      subjectName:    p.subject.name,
+      initialSabers:  p.initialSabers ?? undefined,
+      march:          p.march         ?? undefined,
+      august:         p.august        ?? undefined,
+      november:       p.november      ?? undefined,
+      december:       p.december      ?? undefined,
+      february:       p.february      ?? undefined,
+      finalScore:     p.finalScore    ?? undefined,
+      closingSabers:  p.closingSabers ?? undefined,
+    })),
   };
 }
 

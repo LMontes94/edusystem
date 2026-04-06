@@ -138,4 +138,47 @@ export class ReportsController {
     const settings = (institution?.settings as any) ?? {};
     return settings.report ?? {};
   }
+
+  @Get('pending/:studentId')
+@CheckAbility({ action: Action.Read, subject: 'Grade' })
+@ApiOperation({ summary: 'Generar PDF de pendientes para un alumno' })
+async generatePending(
+  @Param('studentId') studentId: string,
+  @Query('courseId')      courseId:      string,
+  @Query('schoolYearId')  schoolYearId:  string,
+  @InstitutionId()        institutionId: string,
+  @Res() res: Response,
+) {
+  const { buffer, filename } = await this.reportsService.generatePendingReport(
+    studentId, courseId, institutionId, schoolYearId,
+  );
+  res.set({
+    'Content-Type':                  'application/pdf',
+    'Content-Disposition':           `attachment; filename="${filename}"`,
+    'Content-Length':                buffer.length,
+    'Access-Control-Expose-Headers': 'Content-Disposition',
+  });
+  res.end(buffer);
+}
+
+@Get('pending/bulk/:courseId')
+@CheckAbility({ action: Action.Read, subject: 'Grade' })
+@ApiOperation({ summary: 'Generar ZIP de pendientes para todo un curso' })
+async generatePendingBulk(
+  @Param('courseId')     courseId:      string,
+  @Query('schoolYearId') schoolYearId:  string,
+  @InstitutionId()       institutionId: string,
+  @Res() res: Response,
+) {
+  const buffer = await this.reportsService.generatePendingReportBulk(
+    courseId, institutionId, schoolYearId,
+  );
+  res.set({
+    'Content-Type':                  'application/zip',
+    'Content-Disposition':           `attachment; filename="pendientes_curso.zip"`,
+    'Content-Length':                buffer.length,
+    'Access-Control-Expose-Headers': 'Content-Disposition',
+  });
+  res.end(buffer);
+}
 }
