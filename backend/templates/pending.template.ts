@@ -132,23 +132,23 @@ export function pendingSubjectsTemplate(
     <thead>
       <tr>
         <th style="border:1px solid #ccc;background:${theme.primaryColor};color:white;padding:5px;font-size:9px;width:3%;"></th>
-        <th style="border:1px solid #ccc;background:${theme.primaryColor};color:white;padding:5px;font-size:9px;width:15%;text-align:center;">MATERIAS</th>
-        <th style="border:1px solid #ccc;background:${theme.primaryColor};color:white;padding:5px;font-size:9px;width:20%;text-align:center;">SABERES INICIALES PENDIENTES DE APROBACIÓN AL INICIO DEL CICLO LECTIVO</th>
-        <th colspan="5" style="border:1px solid #ccc;background:${theme.secondaryColor};color:white;padding:5px;font-size:9px;text-align:center;">PERÍODOS DE INTENSIFICACIÓN</th>
+        <th style="border:1px solid #ccc;background:${theme.primaryColor};color:white;padding:5px;font-size:9px;width:18%;text-align:center;">MATERIAS</th>
+        <th style="border:1px solid #ccc;background:${theme.primaryColor};color:white;padding:5px;font-size:9px;width:18%;text-align:center;">SABERES INICIALES PENDIENTES DE APROBACIÓN AL INICIO DEL CICLO LECTIVO</th>
+        <th colspan="5" style="border:1px solid #ccc;background:${theme.secondaryColor};color:white;padding:5px;font-size:9px;text-align:center;width:32%;">PERÍODOS DE INTENSIFICACIÓN</th>
         <th style="border:1px solid #ccc;background:${theme.primaryColor};color:white;padding:5px;font-size:9px;width:8%;text-align:center;">CALIFICACIÓN FINAL</th>
-        <th style="border:1px solid #ccc;background:${theme.primaryColor};color:white;padding:5px;font-size:9px;width:20%;text-align:center;">SABERES PENDIENTES DE APROBACIÓN AL CIERRE DEL CICLO LECTIVO</th>
+        <th style="border:1px solid #ccc;background:${theme.primaryColor};color:white;padding:5px;font-size:9px;width:15%;text-align:center;">SABERES PENDIENTES DE APROBACIÓN AL CIERRE DEL CICLO LECTIVO</th>
       </tr>
       <tr>
-        <th style="border:1px solid #ccc;background:#e8e8e8;padding:4px;font-size:8px;"></th>
-        <th style="border:1px solid #ccc;background:#e8e8e8;padding:4px;font-size:8px;"></th>
-        <th style="border:1px solid #ccc;background:#e8e8e8;padding:4px;font-size:8px;"></th>
-        <th style="border:1px solid #ccc;background:#e8e8e8;padding:4px;font-size:8px;text-align:center;writing-mode:vertical-lr;transform:rotate(180deg);height:40px;">MARZO</th>
-        <th style="border:1px solid #ccc;background:#e8e8e8;padding:4px;font-size:8px;text-align:center;writing-mode:vertical-lr;transform:rotate(180deg);height:40px;">AGOSTO</th>
-        <th style="border:1px solid #ccc;background:#e8e8e8;padding:4px;font-size:8px;text-align:center;writing-mode:vertical-lr;transform:rotate(180deg);height:40px;">NOVIEMBRE</th>
-        <th style="border:1px solid #ccc;background:#e8e8e8;padding:4px;font-size:8px;text-align:center;writing-mode:vertical-lr;transform:rotate(180deg);height:40px;">DICIEMBRE</th>
-        <th style="border:1px solid #ccc;background:#e8e8e8;padding:4px;font-size:8px;text-align:center;writing-mode:vertical-lr;transform:rotate(180deg);height:40px;">FEBRERO</th>
-        <th style="border:1px solid #ccc;background:#e8e8e8;padding:4px;font-size:8px;"></th>
-        <th style="border:1px solid #ccc;background:#e8e8e8;padding:4px;font-size:8px;"></th>
+        <th style="border:1px solid #ccc;background:#e8e8e8;padding:2px;font-size:7px;width:3%;"></th>
+        <th style="border:1px solid #ccc;background:#e8e8e8;padding:2px;font-size:7px;width:18%;"></th>
+        <th style="border:1px solid #ccc;background:#e8e8e8;padding:2px;font-size:7px;width:18%;"></th>
+        <th style="border:1px solid #ccc;background:#e8e8e8;padding:2px;font-size:7px;text-align:center;writing-mode:vertical-lr;transform:rotate(180deg);height:50px;width:6%;">MARZO</th>
+        <th style="border:1px solid #ccc;background:#e8e8e8;padding:2px;font-size:7px;text-align:center;writing-mode:vertical-lr;transform:rotate(180deg);height:50px;width:6%;">AGOSTO</th>
+        <th style="border:1px solid #ccc;background:#e8e8e8;padding:2px;font-size:7px;text-align:center;writing-mode:vertical-lr;transform:rotate(180deg);height:50px;width:7%;">NOVIEMBRE</th>
+        <th style="border:1px solid #ccc;background:#e8e8e8;padding:2px;font-size:7px;text-align:center;writing-mode:vertical-lr;transform:rotate(180deg);height:50px;width:7%;">DICIEMBRE</th>
+        <th style="border:1px solid #ccc;background:#e8e8e8;padding:2px;font-size:7px;text-align:center;writing-mode:vertical-lr;transform:rotate(180deg);height:50px;width:6%;">FEBRERO</th>
+        <th style="border:1px solid #ccc;background:#e8e8e8;padding:2px;font-size:7px;width:8%;"></th>
+        <th style="border:1px solid #ccc;background:#e8e8e8;padding:2px;font-size:7px;width:15%;"></th>
       </tr>
     </thead>
     <tbody>

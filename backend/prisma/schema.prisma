@@ -666,19 +666,20 @@ model AuditLog {
 }
 
 model Syllabus {
-  id           String   @id @default(uuid())
-  courseSubjectId String @map("course_subject_id")
-  periodId     String   @map("period_id")
-  title        String
-  contents     String
-  bibliography String?
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  id              String   @id @default(uuid())
+  courseSubjectId String   @map("course_subject_id")
+  periodId        String   @map("period_id")
+  title           String
+  contents        String
+  bibliography    String?
+  status          String   @default("pending") // 'completed' | 'pending' | 'postponed'
+  order           Int      @default(0)
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
 
   courseSubject CourseSubject @relation(fields: [courseSubjectId], references: [id])
   period        Period        @relation(fields: [periodId], references: [id])
 
-  @@unique([courseSubjectId, periodId])
   @@map("syllabuses")
 }
 
