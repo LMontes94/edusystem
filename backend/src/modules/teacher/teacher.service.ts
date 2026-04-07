@@ -8,37 +8,44 @@ export class TeacherService {
 
   // ── TEMARIO ───────────────────────────────────
 
-  async getSyllabus(courseSubjectId: string) {
-    return this.prisma.syllabus.findMany({
-      where:   { courseSubjectId },
-      include: { period: { select: { id: true, name: true, order: true } } },
-      orderBy: { period: { order: 'asc' } },
-    });
-  }
+  async getSyllabuses(courseSubjectId: string, periodId: string) {
+  return this.prisma.syllabus.findMany({
+    where: {
+      courseSubjectId,
+      periodId,
+    },
+    orderBy: {
+      order: 'asc',
+    },
+  });
+}
 
-  async upsertSyllabus(data: {
-    courseSubjectId: string;
-    periodId:        string;
-    title:           string;
-    contents:        string;
-    bibliography?:   string;
-  }) {
-    return this.prisma.syllabus.upsert({
-      where: {
-        courseSubjectId_periodId: {
-          courseSubjectId: data.courseSubjectId,
-          periodId:        data.periodId,
-        },
-      },
-      create: data as any,
-      update: {
-        title:        data.title,
-        contents:     data.contents,
-        bibliography: data.bibliography,
-      },
-      include: { period: { select: { id: true, name: true } } },
-    });
+  async createSyllabus(data: {
+  courseSubjectId: string;
+  periodId:        string;
+  title:           string;
+  contents:        string;
+  bibliography?:   string;
+}) {
+  return this.prisma.syllabus.create({
+    data,
+    include: { period: { select: { id: true, name: true } } },
+  });
+}
+
+async updateSyllabus(
+  id: string,
+  data: {
+    title?: string;
+    contents?: string;
+    bibliography?: string;
   }
+) {
+  return this.prisma.syllabus.update({
+    where: { id },
+    data,
+  });
+}
 
   async deleteSyllabus(id: string) {
     await this.prisma.syllabus.delete({ where: { id } });

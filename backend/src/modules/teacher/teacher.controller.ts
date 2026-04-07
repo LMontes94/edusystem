@@ -1,7 +1,7 @@
 // src/modules/teacher/teacher.controller.ts
 import {
   Body, Controller, Delete, Get, Param,
-  Post, Query, UseGuards,
+  Post, Query, UseGuards, Patch
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { TeacherService } from './teacher.service';
@@ -20,27 +20,39 @@ export class TeacherController {
 
   // ── TEMARIO ───────────────────────────────────
 
-  @Get('syllabus/:courseSubjectId')
-  @CheckAbility({ action: Action.Read, subject: 'Course' })
-  @ApiOperation({ summary: 'Obtener temario de una materia' })
-  getSyllabus(@Param('courseSubjectId') courseSubjectId: string) {
-    return this.teacherService.getSyllabus(courseSubjectId);
-  }
+  @Get('syllabus/:courseSubjectId/:periodId')
+getSyllabuses(
+  @Param('courseSubjectId') courseSubjectId: string,
+  @Param('periodId') periodId: string,
+) {
+  return this.teacherService.getSyllabuses(courseSubjectId, periodId);
+}
 
   @Post('syllabus')
-  @CheckAbility({ action: Action.Create, subject: 'Grade' })
-  @ApiOperation({ summary: 'Guardar temario de un período' })
-  upsertSyllabus(
-    @Body() body: {
-      courseSubjectId: string;
-      periodId:        string;
-      title:           string;
-      contents:        string;
-      bibliography?:   string;
-    },
-  ) {
-    return this.teacherService.upsertSyllabus(body);
-  }
+  @ApiOperation({ summary: 'Crear un tema del temario' })
+createSyllabus(
+  @Body() body: {
+    courseSubjectId: string;
+    periodId:        string;
+    title:           string;
+    contents:        string;
+    bibliography?:   string;
+  },
+) {
+  return this.teacherService.createSyllabus(body);
+}
+
+@Patch('syllabus/:id')
+updateSyllabus(
+  @Param('id') id: string,
+  @Body() body: {
+    title?: string;
+    contents?: string;
+    bibliography?: string;
+  },
+) {
+  return this.teacherService.updateSyllabus(id, body);
+}
 
   @Delete('syllabus/:id')
   @CheckAbility({ action: Action.Delete, subject: 'Grade' })
