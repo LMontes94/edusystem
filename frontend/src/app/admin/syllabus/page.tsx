@@ -36,7 +36,7 @@ const statusConfig = {
 
 const PeriodSection = React.memo(function PeriodSection({
   period,
-  usePeriodSyllabus,
+  selectedSubject,
   expandedPeriods,
   togglePeriod,
   getNewUnit,
@@ -49,7 +49,7 @@ const PeriodSection = React.memo(function PeriodSection({
   changeStatusMutation,
 }: any) {
 
-  const { data: units, isLoading } = usePeriodSyllabus(period.id);
+  const { data: units, isLoading } = usePeriodSyllabus(selectedSubject,period.id);
   const isExpanded = expandedPeriods[period.id] ?? true;
   const nu = getNewUnit(period.id);
 
@@ -199,6 +199,17 @@ const PeriodSection = React.memo(function PeriodSection({
   );
 });
 
+function usePeriodSyllabus(selectedSubject: string, periodId: string) {
+  return useQuery({
+    queryKey: ['syllabus', selectedSubject, periodId],
+    queryFn:  async () => {
+      const res = await api.get(`/teacher/syllabus/${selectedSubject}/${periodId}`);
+      return res.data;
+    },
+    enabled: !!selectedSubject && !!periodId,
+  });
+}
+
 export default function SyllabusPage() {
 
   const { data: session } = useSession();
@@ -297,17 +308,6 @@ export default function SyllabusPage() {
     isTeacher ? cs.teacherId === session?.user?.id : true
   ) ?? [];
 
-  function usePeriodSyllabus(periodId: string) {
-    return useQuery({
-      queryKey: ['syllabus', selectedSubject, periodId],
-      queryFn: async () => {
-        const res = await api.get(`/teacher/syllabus/${selectedSubject}/${periodId}`);
-        return res.data;
-      },
-      enabled: !!selectedSubject && !!periodId,
-    });
-  }
-
   function togglePeriod(id: string) {
     setExpandedPeriods(prev => ({ ...prev, [id]: !prev[id] }));
   }
@@ -400,7 +400,7 @@ export default function SyllabusPage() {
             <PeriodSection
               key={period.id}
               period={period}
-              usePeriodSyllabus={usePeriodSyllabus}
+              selectedSubject={selectedSubject}
               expandedPeriods={expandedPeriods}
               togglePeriod={togglePeriod}
               getNewUnit={getNewUnit}
