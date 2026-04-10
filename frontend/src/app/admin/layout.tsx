@@ -31,7 +31,8 @@ import {
   FileText,
   ClipboardCheck,
   ListChecks,
-  BookText, Clock
+  BookText, Clock,
+  BarChart2
 } from 'lucide-react';
 import { useState } from 'react';
 import { Session } from 'next-auth';
@@ -43,6 +44,7 @@ const navigation = [
   { name: 'Usuarios',    href: '/admin/users',         icon: Users           },
   { name: 'Materias', href: '/admin/subjects', icon: BookOpen },
   { name: 'Asistencia',  href: '/admin/attendance',   icon: ClipboardList   },
+  { name: 'Detalle asistencia', href: '/admin/attendance-detail', icon: BarChart2 },
   { name: 'Notas',       href: '/admin/grades',        icon: Star            },
   { name: 'Comunicados', href: '/admin/announcements', icon: Megaphone       },
   { name: 'Indicadores',  href: '/admin/indicators',  icon: ListChecks     },
