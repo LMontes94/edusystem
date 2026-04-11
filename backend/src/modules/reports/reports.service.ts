@@ -14,6 +14,7 @@ import {
   primaryQualitativeTemplate,
 } from '../../../templates/report.templates';
 import { pendingSubjectsTemplate } from '../../../templates/pending.template';
+import { convivenciasTemplate } from '../../../templates/convivencias.template';
 import archiver from 'archiver';
 import { Readable } from 'stream';
 
@@ -641,4 +642,56 @@ private async buildPendingData(
       archive.finalize();
     });
   }
+
+  async generateConvivenciasReport(
+  studentId:     string,
+  institutionId: string,
+): Promise<{ buffer: Buffer; filename: string }> {
+  const config = await this.getReportConfig(institutionId);
+
+  const [student, convivencias] = await Promise.all([
+    this.prisma.student.findFirst({
+      where:   { id: studentId, institutionId },
+      include: {
+        courseStudents: {
+          where:   { status: 'ACTIVE' },
+          include: { course: true },
+          take:    1,
+        },
+      },
+    }),
+    this.prisma.convivencia.findMany({
+      where:   { studentId, institutionId, deletedAt: null },
+      include: { author: { select: { firstName: true, lastName: true } } },
+      orderBy: { date: 'desc' },
+    }),
+  ]);
+
+  if (!student) throw new NotFoundException('Alumno no encontrado');
+
+  const course = student.courseStudents[0]?.course;
+
+  const html = convivenciasTemplate({
+    student: {
+      firstName:      student.firstName,
+      lastName:       student.lastName,
+      documentNumber: student.documentNumber,
+    },
+    course: course
+      ? { name: course.name, grade: course.grade, division: course.division }
+      : { name: '—', grade: 0, division: '—' },
+    convivencias: convivencias.map((c) => ({
+      date:   c.date.toISOString(),
+      reason: c.reason,
+      type:   c.type,
+      author: `${c.author.firstName} ${c.author.lastName}`,
+    })),
+  }, config);
+
+  const buffer   = await this.generatePdf(html);
+  const filename = `${student.lastName}_${student.firstName}_convivencias.pdf`
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '_');
+
+  return { buffer, filename };
+}
 }

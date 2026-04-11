@@ -181,4 +181,23 @@ async generatePendingBulk(
   });
   res.end(buffer);
 }
+
+@Get('convivencias/:studentId')
+@CheckAbility({ action: Action.Read, subject: 'Convivencia' })
+async generateConvivencias(
+  @Param('studentId') studentId: string,
+  @InstitutionId()    institutionId: string,
+  @Res() res: Response,
+) {
+  const { buffer, filename } = await this.reportsService.generateConvivenciasReport(
+    studentId, institutionId,
+  );
+  res.set({
+    'Content-Type':                  'application/pdf',
+    'Content-Disposition':           `attachment; filename="${filename}"`,
+    'Content-Length':                buffer.length,
+    'Access-Control-Expose-Headers': 'Content-Disposition',
+  });
+  res.end(buffer);
+}
 }

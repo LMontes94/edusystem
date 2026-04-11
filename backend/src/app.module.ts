@@ -26,6 +26,7 @@ import { StorageModule } from './modules/storage/storage.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { IndicatorsModule } from './modules/indicators/indicators.module';
 import { TeacherModule } from './modules/teacher/teacher.module';
+import { ConvivenciasModule } from './modules/convivencias/convivencias.module';
 
 @Module({
   imports: [
@@ -58,6 +59,7 @@ import { TeacherModule } from './modules/teacher/teacher.module';
     ReportsModule,
     IndicatorsModule,
     TeacherModule,
+    ConvivenciasModule,
   ],
 })
 export class AppModule implements NestModule {

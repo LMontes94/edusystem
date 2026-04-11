@@ -18,6 +18,7 @@ export type Subjects =
   | 'Grade'
   | 'Attendance'
   | 'Announcement'
+  | 'Convivencia'
   | 'all';
 
 export type AppAbility = MongoAbility<[Action, Subjects]>;

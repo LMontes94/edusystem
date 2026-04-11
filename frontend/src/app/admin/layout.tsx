@@ -32,7 +32,8 @@ import {
   ClipboardCheck,
   ListChecks,
   BookText, Clock,
-  BarChart2
+  BarChart2,
+  ShieldAlert,
 } from 'lucide-react';
 import { useState } from 'react';
 import { Session } from 'next-auth';
@@ -53,6 +54,8 @@ const navigation = [
   { name: '— Panel del docente —', separator:true },
   { name: 'Temario',     href: '/admin/syllabus',  icon: BookText },
   { name: 'Pendientes',  href: '/admin/pending',   icon: Clock    },
+  { name: 'Convivencia', separator: true },
+  { name: 'Convivencia', href: '/admin/convivencias', icon: ShieldAlert },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

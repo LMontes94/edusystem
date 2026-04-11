@@ -125,6 +125,11 @@ export class AbilityFactory {
         can(Action.Update, 'Announcement', { institutionId: user.institutionId, authorId: user.id } as any);
         can(Action.Delete, 'Announcement', { institutionId: user.institutionId, authorId: user.id } as any);
 
+        can(Action.Create, 'Convivencia');
+        can(Action.Read,   'Convivencia');
+        can(Action.Update, 'Convivencia');
+        can(Action.Delete, 'Convivencia');
+
         // NO puede modificar usuarios, notas ni cursos
         cannot([Action.Create, Action.Update, Action.Delete], 'User');
         cannot([Action.Create, Action.Update, Action.Delete], 'Grade');
