@@ -90,7 +90,6 @@ export class ConvivenciasService {
       where: { id, institutionId: user.institutionId, deletedAt: null },
     });
     if (!conv) throw new NotFoundException('Convivencia no encontrada');
-    console.log(data.date)
     return this.prisma.convivencia.update({
       where: { id },
       data: {

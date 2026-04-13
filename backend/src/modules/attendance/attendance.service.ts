@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { JustificationsService }    from './justifications.service';
 import { RequestUser } from '../../common/decorators/current-user.decorator';
 import {
   CreateAttendanceDto,
@@ -14,7 +15,10 @@ import {
 
 @Injectable()
 export class AttendanceService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma:                PrismaService,
+    private readonly justificationsService: JustificationsService,
+  ) {}
 
   // ── Listar asistencias ───────────────────────
   async findAll(institutionId: string, user: RequestUser, query: AttendanceQueryDto) {
@@ -73,12 +77,10 @@ export class AttendanceService {
         institutionId,
         date:         new Date(dto.date),
         status:       dto.status,
-        justification: dto.justification,
         recordedById: user.id,
       } as any,
       update: {
         status:        dto.status,
-        justification: dto.justification,
         recordedById:  user.id,
       },
       include: this.attendanceIncludes(),
@@ -110,22 +112,32 @@ export class AttendanceService {
             arrivalTime:   record.arrivalTime
               ? new Date(`1970-01-01T${record.arrivalTime}:00Z`)
               : undefined,
-            justification: record.justification,
             recordedById:  user.id,
           } as any,
           update: {
             status:        record.status,
             arrivalTime:   record.arrivalTime ? new Date(`1970-01-01T${record.arrivalTime}:00Z`) : undefined,
-            justification: record.justification,
             recordedById:  user.id,
           },
         }),
       ),
     );
 
-    // TODO Fase 6: emitir evento para notificar ausencias a padres
-    // const absences = dto.records.filter(r => r.status === 'ABSENT')
-    // await this.notificationQueue.add('attendance.recorded', { absences, date, courseId: dto.courseId })
+    // Obtener los registros que se acaban de crear/actualizar
+const createdRecords = await this.prisma.attendance.findMany({
+  where: { courseId: dto.courseId, date: new Date(dto.date) },
+  select: { studentId: true, status: true },
+});
+
+// Verificar actas para cada alumno que faltó
+const absentStudents = createdRecords.filter((r) => r.status === 'ABSENT');
+await Promise.all(
+  absentStudents.map((r) =>
+    this.justificationsService.checkAndGenerateRecord(
+      r.studentId, dto.courseId, institutionId,
+    )
+  )
+);
 
     return {
       total: results.length,

@@ -159,6 +159,8 @@ model Institution {
   invitations   Invitation[]
   pendingSubjects PendingSubject[]
   convivencias Convivencia[]
+  justifications  Justification[]
+  absenceRecords  AbsenceRecord[]
 
   @@index([domain])
   @@index([status])
@@ -216,6 +218,7 @@ model User {
   auditLogs           AuditLog[]
   observations StudentObservation[]
   convivencias Convivencia[]
+  justificationReviews Justification[] @relation("JustificationReviewer")
 
   @@unique([email, institutionId])
 
@@ -317,6 +320,7 @@ model Course {
   chatRooms      ChatRoom[]
   observations StudentObservation[]
   convivencias Convivencia[]
+  absenceRecords  AbsenceRecord[]
 
   @@index([institutionId])
   @@index([schoolYearId])
@@ -391,6 +395,8 @@ model Student {
   observations StudentObservation[]
   pendingSubjects PendingSubject[]
   convivencias Convivencia[]
+  justifications  Justification[]
+  absenceRecords  AbsenceRecord[]
 
   @@unique([institutionId, documentNumber]) // DNI único por institución (no global)
   @@index([institutionId])
@@ -482,13 +488,13 @@ model Attendance {
   date          DateTime         @db.Date
   status        AttendanceStatus
   arrivalTime   DateTime?        @map("arrival_time") @db.Time
-  justification String?
   recordedById  String           @map("recorded_by_id")
   createdAt     DateTime         @default(now()) @map("created_at")
 
-  student    Student @relation(fields: [studentId], references: [id])
-  course     Course  @relation(fields: [courseId], references: [id])
-  recordedBy User    @relation("RecordedBy", fields: [recordedById], references: [id])
+  student             Student        @relation(fields: [studentId], references: [id])
+  course              Course         @relation(fields: [courseId], references: [id])
+  recordedBy          User           @relation("RecordedBy", fields: [recordedById], references: [id])
+  justificationRecord Justification? @relation("AttendanceJustification")
 
   @@unique([studentId, courseId, date])
   @@index([date])
@@ -736,4 +742,44 @@ model Convivencia {
   author      User        @relation(fields: [authorId], references: [id])
 
   @@map("convivencias")
+}
+
+model Justification {
+  id           String   @id @default(uuid())
+  attendanceId String   @unique @map("attendance_id")
+  studentId    String   @map("student_id")
+  institutionId String  @map("institution_id")
+  reason       String
+  fileUrl      String?  @map("file_url")
+  source       String   @default("manual") // 'manual' | 'parent_app'
+  status       String   @default("approved") // 'pending' | 'approved' | 'rejected'
+  reviewedBy   String?  @map("reviewed_by")
+  reviewedAt   DateTime? @map("reviewed_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  attendance   Attendance  @relation("AttendanceJustification", fields: [attendanceId], references: [id])
+  student      Student     @relation(fields: [studentId], references: [id])
+  institution  Institution @relation(fields: [institutionId], references: [id])
+  reviewer     User?       @relation("JustificationReviewer", fields: [reviewedBy], references: [id])
+
+  @@map("justifications")
+}
+
+model AbsenceRecord {
+  id            String   @id @default(uuid())
+  studentId     String   @map("student_id")
+  courseId      String   @map("course_id")
+  institutionId String   @map("institution_id")
+  absenceCount  Int      @map("absence_count")
+  threshold     Int      // umbral que disparó el acta
+  generatedAt   DateTime @default(now()) @map("generated_at")
+  sentToParent  Boolean  @default(false) @map("sent_to_parent")
+  sentAt        DateTime? @map("sent_at")
+  readAt        DateTime? @map("read_at")
+
+  student     Student     @relation(fields: [studentId], references: [id])
+  course      Course      @relation(fields: [courseId], references: [id])
+  institution Institution @relation(fields: [institutionId], references: [id])
+
+  @@map("absence_records")
 }
