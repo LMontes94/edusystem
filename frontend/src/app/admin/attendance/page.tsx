@@ -1,13 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useAttendance, useBulkAttendance } from '@/lib/api/attendance';
 import { useCourses } from '@/lib/api/courses';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -36,6 +36,10 @@ export default function AttendancePage() {
 
   const { data: courses }                 = useCourses();
   const bulkAttendance                    = useBulkAttendance();
+
+  const [justifyDialog, setJustifyDialog]   = useState(false);
+  const [justifyId,     setJustifyId]       = useState('');
+  const [justifyReason, setJustifyReason]   = useState('');
 
   // Alumnos del curso seleccionado
   const { data: courseDetail } = useQuery({
@@ -105,7 +109,23 @@ export default function AttendancePage() {
     (acc, s) => { acc[s] = (acc[s] ?? 0) + 1; return acc; },
     {} as Record<string, number>,
   );
-
+  
+  const justifyMutation = useMutation({
+    mutationFn: async () => {
+      await api.post('/justifications', {
+        attendanceId: justifyId,
+        reason:       justifyReason,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['attendance'] });
+      toast.success('Inasistencia justificada');
+      setJustifyDialog(false);
+      setJustifyId('');
+      setJustifyReason('');
+    },
+    onError: () => toast.error('Error al justificar'),
+  });
   return (
     <div className="space-y-6">
 
@@ -281,6 +301,19 @@ export default function AttendancePage() {
                         {new Date(record.date).toLocaleDateString('es-AR')}
                       </TableCell>
                       <TableCell>
+                      {record.status === 'ABSENT' && (
+                      <Button
+                        size="icon" variant="ghost"
+                        className="h-7 w-7 text-muted-foreground hover:text-emerald-600"
+                        title="Justificar inasistencia"
+                        onClick={() => {
+                          setJustifyId(record.id);
+                          setJustifyDialog(true);
+                        }}
+                      >
+                        <FileCheck className="h-3.5 w-3.5" />
+                      </Button>
+                      )}
                         <span className={`flex items-center gap-1.5 ${config.color}`}>
                           <Icon className="h-3.5 w-3.5" />
                           {config.label}
@@ -304,6 +337,37 @@ export default function AttendancePage() {
           Seleccioná un curso para comenzar
         </div>
       )}
+      <Dialog open={justifyDialog} onOpenChange={(open) => {
+  if (!open) { setJustifyDialog(false); setJustifyReason(''); }
+}}>
+  <DialogContent className="max-w-sm">
+    <DialogHeader>
+      <DialogTitle>Justificar inasistencia</DialogTitle>
+    </DialogHeader>
+    <div className="space-y-4 pt-2">
+      <div className="space-y-1.5">
+        <label className="text-sm font-medium">Motivo de la justificación</label>
+        <textarea
+          className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none min-h-24 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring placeholder:text-muted-foreground"
+          placeholder="Ej: Certificado médico, viaje familiar..."
+          value={justifyReason}
+          onChange={(e) => setJustifyReason(e.target.value)}
+        />
+      </div>
+      <div className="flex justify-end gap-2">
+        <Button variant="outline" onClick={() => setJustifyDialog(false)}>
+          Cancelar
+        </Button>
+        <Button
+          onClick={() => justifyMutation.mutate()}
+          disabled={!justifyReason.trim() || justifyMutation.isPending}
+        >
+          {justifyMutation.isPending ? 'Guardando...' : 'Justificar'}
+        </Button>
+      </div>
     </div>
+  </DialogContent>
+</Dialog>
+    </div>    
   );
 }
