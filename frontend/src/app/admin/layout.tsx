@@ -37,6 +37,7 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 import { Session } from 'next-auth';
+import { NotificationBell } from '@/components/notification-bell';
 
 const navigation = [
   { name: 'Dashboard',   href: '/admin/dashboard',   icon: LayoutDashboard },
@@ -126,7 +127,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </Button>
 
           <div className="flex-1" />
-
+          <NotificationBell />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="flex items-center gap-2 px-2">

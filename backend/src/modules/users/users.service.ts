@@ -4,11 +4,12 @@ import {
   Injectable,
   NotFoundException,
   UnauthorizedException,
+  BadRequestException,
 } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RequestUser } from '../../common/decorators/current-user.decorator';
-import { CreateUserDto, UpdateUserDto, ChangePasswordDto } from './dto/user.dto';
+import { CreateUserDto, UpdateUserDto, ChangePasswordDto, LeaveDto } from './dto/user.dto';
 import { StorageService } from '../storage/storage.service';
 
 // Campos que nunca se devuelven al cliente
@@ -26,6 +27,9 @@ const USER_SELECT = {
   createdAt: true,
   updatedAt: true,
 };
+
+// Roles que pueden otorgar/revocar licencias
+const LEAVE_ALLOWED_ROLES = ['ADMIN', 'DIRECTOR', 'SECRETARY'];
 
 @Injectable()
 export class UsersService {
@@ -128,6 +132,57 @@ export class UsersService {
     });
   }
 
+   // ── Otorgar licencia ──────────────────────────
+   async grantLeave(
+    id:          string,
+    dto:         LeaveDto,
+    currentUser: RequestUser,
+  ) {
+    if (!LEAVE_ALLOWED_ROLES.includes(currentUser.role)) {
+      throw new ForbiddenException('No tenés permisos para otorgar licencias');
+    }
+ 
+    const user = await this.findOne(id, currentUser.institutionId);
+ 
+    if (user.status === 'ON_LEAVE') {
+      throw new BadRequestException('El usuario ya está en licencia');
+    }
+    if (user.status === 'INACTIVE') {
+      throw new BadRequestException('No se puede poner en licencia a un usuario inactivo');
+    }
+ 
+    return this.prisma.user.update({
+      where:  { id },
+      data:   {
+        status:         'ON_LEAVE',
+        leaveStartDate: new Date(dto.startDate + 'T12:00:00'),
+      },
+      select: USER_SELECT,
+    });
+  }
+ 
+  // ── Revocar licencia (volver a ACTIVE) ────────
+  async revokeLeave(id: string, currentUser: RequestUser) {
+    if (!LEAVE_ALLOWED_ROLES.includes(currentUser.role)) {
+      throw new ForbiddenException('No tenés permisos para revocar licencias');
+    }
+ 
+    const user = await this.findOne(id, currentUser.institutionId);
+ 
+    if (user.status !== 'ON_LEAVE') {
+      throw new BadRequestException('El usuario no está en licencia');
+    }
+ 
+    return this.prisma.user.update({
+      where:  { id },
+      data:   {
+        status:         'ACTIVE',
+        leaveStartDate: null,
+      },
+      select: USER_SELECT,
+    });
+  }
+  
 async updateAvatar(
   id: string,
   file: Express.Multer.File,

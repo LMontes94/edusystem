@@ -9,7 +9,7 @@ export interface User {
   firstName:     string;
   lastName:      string;
   role:          'ADMIN' | 'TEACHER' | 'GUARDIAN';
-  status:        'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
+  status:        'ACTIVE' | 'INACTIVE' | 'SUSPENDED' | 'ON_LEAVE';
   phone?:        string;
   avatarUrl?:    string;
   institutionId: string;

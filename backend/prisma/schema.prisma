@@ -29,6 +29,7 @@ enum UserStatus {
   ACTIVE
   INACTIVE
   SUSPENDED
+  ON_LEAVE
 }
 
 enum Level {
@@ -201,6 +202,7 @@ model User {
   phone         String?    @db.VarChar(20)
   avatarUrl     String?    @map("avatar_url")
   lastLoginAt   DateTime?  @map("last_login_at")
+  leaveStartDate DateTime?  @map("leave_start_date")  
   createdAt     DateTime   @default(now()) @map("created_at")
   updatedAt     DateTime   @updatedAt @map("updated_at")
   deletedAt     DateTime?  @map("deleted_at")

@@ -1,11 +1,15 @@
 // src/modules/attendance/justifications.service.ts
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
-import { PrismaService } from '../../prisma/prisma.service';
-import { RequestUser } from '../../common/decorators/current-user.decorator';
+import { PrismaService }              from '../../prisma/prisma.service';
+import { RequestUser }                from '../../common/decorators/current-user.decorator';
+import { NotificationQueueService }   from '../notifications/notification-queue.service';
 
 @Injectable()
 export class JustificationsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifQueue: NotificationQueueService,
+  ) {}
 
   // ── Justificar una inasistencia ───────────────
   async justify(data: {
@@ -14,7 +18,6 @@ export class JustificationsService {
     fileUrl?:     string;
     source?:      string;
   }, user: RequestUser) {
-    // Verificar que la asistencia existe
     const attendance = await this.prisma.attendance.findFirst({
       where: { id: data.attendanceId, course: { institutionId: user.institutionId } },
     });
@@ -23,13 +26,11 @@ export class JustificationsService {
       throw new BadRequestException('Solo se pueden justificar inasistencias');
     }
 
-    // Verificar si ya tiene justificación
     const existing = await this.prisma.justification.findFirst({
       where: { attendanceId: data.attendanceId },
     });
     if (existing) throw new BadRequestException('Esta inasistencia ya tiene justificación');
 
-    // Crear justificación y cambiar estado a JUSTIFIED
     const [justification] = await this.prisma.$transaction([
       this.prisma.justification.create({
         data: {
@@ -84,17 +85,15 @@ export class JustificationsService {
 
   // ── ACTAS DE INASISTENCIA ─────────────────────
 
-  // Obtener umbral configurado por la institución
   private async getThresholds(institutionId: string): Promise<number[]> {
     const institution = await this.prisma.institution.findUnique({
       where:  { id: institutionId },
       select: { settings: true },
     });
-    const settings   = (institution?.settings as any) ?? {};
+    const settings = (institution?.settings as any) ?? {};
     return settings.absenceThresholds ?? [10, 20, 30];
   }
 
-  // Verificar si hay que generar acta después de justificar/registrar falta
   async checkAndGenerateRecord(
     studentId:     string,
     courseId:      string,
@@ -102,16 +101,10 @@ export class JustificationsService {
   ) {
     const thresholds = await this.getThresholds(institutionId);
 
-    // Contar inasistencias injustificadas
     const absenceCount = await this.prisma.attendance.count({
-      where: {
-        studentId,
-        courseId,
-        status: 'ABSENT',
-      },
+      where: { studentId, courseId, status: 'ABSENT' },
     });
 
-    // Ver si algún umbral fue superado y no tiene acta
     for (const threshold of thresholds.sort((a, b) => a - b)) {
       if (absenceCount >= threshold) {
         const existing = await this.prisma.absenceRecord.findFirst({
@@ -119,21 +112,72 @@ export class JustificationsService {
         });
 
         if (!existing) {
-          await this.prisma.absenceRecord.create({
-            data: {
-              studentId,
-              courseId,
-              institutionId,
-              absenceCount,
-              threshold,
-            },
+          // Crear el acta
+          const record = await this.prisma.absenceRecord.create({
+            data: { studentId, courseId, institutionId, absenceCount, threshold },
           });
+
+          // Disparar notificación de forma no bloqueante
+          this.sendAbsenceRecordNotification({
+            studentId,
+            courseId,
+            institutionId,
+            absenceCount,
+            threshold,
+          }).catch(() => {}); // no bloquea si falla
         }
       }
     }
   }
 
-  // Listar actas de una institución
+  private async sendAbsenceRecordNotification(params: {
+    studentId:     string;
+    courseId:      string;
+    institutionId: string;
+    absenceCount:  number;
+    threshold:     number;
+  }) {
+    const { studentId, courseId, institutionId, absenceCount, threshold } = params;
+
+    // Obtener nombre del alumno y curso
+    const [student, course] = await Promise.all([
+      this.prisma.student.findUnique({
+        where:  { id: studentId },
+        select: { firstName: true, lastName: true },
+      }),
+      this.prisma.course.findUnique({
+        where:  { id: courseId },
+        select: { name: true },
+      }),
+    ]);
+
+    if (!student || !course) return;
+
+    const studentName = `${student.firstName} ${student.lastName}`;
+    const title       = '⚠️ Acta de inasistencia generada';
+    const body        = `${studentName} alcanzó ${absenceCount} inasistencias en ${course.name} (umbral: ${threshold})`;
+
+    const userIds = await this.notifQueue.getRecipientsForStudent({
+      studentId,
+      courseId,
+      institutionId,
+    });
+
+    await this.notifQueue.notify({
+      userIds,
+      type:  'ATTENDANCE',
+      title,
+      body,
+      data: {
+        type:      'absence_record',
+        studentId,
+        courseId,
+        threshold: String(threshold),
+      },
+    });
+  }
+
+  // ── Listar actas ──────────────────────────────
   async findRecords(institutionId: string, filters: {
     courseId?:  string;
     studentId?: string;
@@ -152,7 +196,7 @@ export class JustificationsService {
     });
   }
 
-  // Actualizar umbral en settings de la institución
+  // ── Actualizar umbrales ───────────────────────
   async updateThresholds(institutionId: string, thresholds: number[]) {
     const institution = await this.prisma.institution.findUnique({
       where:  { id: institutionId },

@@ -1,6 +1,7 @@
 import {
   Body, Controller, Delete, Get, Param,
   Patch, Post, HttpCode, HttpStatus, UseGuards,
+  UseInterceptors, UploadedFile, BadRequestException,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { UsersService } from './users.service';
@@ -8,6 +9,7 @@ import {
   CreateUserDto, CreateUserSchema,
   UpdateUserDto, UpdateUserSchema,
   ChangePasswordDto, ChangePasswordSchema,
+  LeaveDto,LeaveSchema,
 } from './dto/user.dto';
 import { CurrentUser, RequestUser } from '../../common/decorators/current-user.decorator';
 import { InstitutionId } from '../../common/decorators/institution-id.decorator';
@@ -15,7 +17,6 @@ import { ZodPipe } from '../../common/pipes/zod.pipe';
 import { CaslGuard } from '../casl/guards/casl.guard';
 import { CheckAbility } from '../casl/decorators/check-ability.decorator';
 import { Action } from '../casl/casl.types';
-import { UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -73,6 +74,30 @@ export class UsersController {
   ) {
     return this.usersService.changePassword(id, dto, user);
   }
+
+   // ── Otorgar licencia ──────────────────────────
+   @Patch(':id/leave')
+   @CheckAbility({ action: Action.Update, subject: 'User' })
+   @ApiOperation({ summary: 'Poner usuario en licencia (ADMIN/DIRECTOR/SECRETARY)' })
+   grantLeave(
+     @Param('id')   id:   string,
+     @Body(new ZodPipe(LeaveSchema)) dto: LeaveDto,
+     @CurrentUser() user: RequestUser,
+   ) {
+     return this.usersService.grantLeave(id, dto, user);
+   }
+  
+   // ── Revocar licencia ──────────────────────────
+   @Patch(':id/restore')
+   @CheckAbility({ action: Action.Update, subject: 'User' })
+   @ApiOperation({ summary: 'Revocar licencia y volver a ACTIVE' })
+   @HttpCode(HttpStatus.OK)
+   revokeLeave(
+     @Param('id')   id:   string,
+     @CurrentUser() user: RequestUser,
+   ) {
+     return this.usersService.revokeLeave(id, user);
+   }
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)

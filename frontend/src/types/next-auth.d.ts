@@ -18,6 +18,7 @@ declare module 'next-auth' {
       name:          string;
       role:          string;
       institutionId: string | null;
+      status:        string;
     };
     accessToken:  string;
     refreshToken: string;

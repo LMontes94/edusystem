@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RequestUser } from '../../common/decorators/current-user.decorator';
+import { NotificationQueueService } from '../notifications/notification-queue.service';
 
 const CONVIVENCIA_INCLUDE = {
   student: { select: { id: true, firstName: true, lastName: true, documentNumber: true } },
@@ -20,7 +21,9 @@ function normalizeDate(dateStr: string): Date {
 
 @Injectable()
 export class ConvivenciasService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService,
+    private readonly notifQueue:  NotificationQueueService,
+  ) {}
 
   // ── Listar por institución ────────────────────
   async findAll(institutionId: string, filters: {
@@ -139,5 +142,58 @@ export class ConvivenciasService {
     ]);
 
     return { total, byType, byCourse };
+  }
+
+  private async sendConvivenciaNotification(convivencia: {
+    id:            string;
+    studentId:     string;
+    courseId:      string;
+    institutionId: string;
+    type:          string;
+    reason:        string;
+  }) {
+    const [student, course] = await Promise.all([
+      this.prisma.student.findUnique({
+        where:  { id: convivencia.studentId },
+        select: { firstName: true, lastName: true },
+      }),
+      this.prisma.course.findUnique({
+        where:  { id: convivencia.courseId },
+        select: { name: true },
+      }),
+    ]);
+   
+    if (!student || !course) return;
+   
+    const studentName = `${student.firstName} ${student.lastName}`;
+   
+    const typeLabels: Record<string, { emoji: string; label: string }> = {
+      suspension:     { emoji: '🚫', label: 'Suspensión'        },
+      parent_meeting: { emoji: '📋', label: 'Citación de padres' },
+    };
+   
+    const { emoji, label } = typeLabels[convivencia.type] ?? { emoji: '📢', label: convivencia.type };
+   
+    const title = `${emoji} ${label} — ${studentName}`;
+    const body  = `${course.name}: ${convivencia.reason}`;
+   
+    const userIds = await this.notifQueue.getRecipientsForStudent({
+      studentId:     convivencia.studentId,
+      courseId:      convivencia.courseId,
+      institutionId: convivencia.institutionId,
+    });
+   
+    await this.notifQueue.notify({
+      userIds,
+      type:  'SYSTEM',
+      title,
+      body,
+      data: {
+        type:           'convivencia',
+        convivenciaId:  convivencia.id,
+        convivenciaType: convivencia.type,
+        studentId:      convivencia.studentId,
+      },
+    });
   }
 }

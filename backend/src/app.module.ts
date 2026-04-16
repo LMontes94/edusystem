@@ -4,6 +4,8 @@ import {
 } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { APP_GUARD }     from '@nestjs/core';
+import { OnLeaveGuard }  from './common/guards/on-leave.guard';
 
 import { AppConfigModule } from './config/config.module';
 import { PrismaModule } from './prisma/prisma.module';
@@ -61,7 +63,14 @@ import { ConvivenciasModule } from './modules/convivencias/convivencias.module';
     TeacherModule,
     ConvivenciasModule,
   ],
+  providers:[
+    {
+       provide:  APP_GUARD,
+       useClass: OnLeaveGuard,
+    },
+  ],
 })
+
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     consumer
