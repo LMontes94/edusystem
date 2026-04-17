@@ -24,6 +24,8 @@ export const config: NextAuthConfig = {
             name:          `${user.firstName} ${user.lastName}`,
             role:          user.role,
             institutionId: user.institutionId,
+            status:         user.status,         
+            leaveStartDate: user.leaveStartDate, 
             accessToken,
             refreshToken,
           };
@@ -42,6 +44,8 @@ export const config: NextAuthConfig = {
       session.user.id            = token.id as string;
       session.user.role          = token.role as string;
       session.user.institutionId = token.institutionId as string | null;
+      session.user.status         = token.status        as string;        
+      session.user.leaveStartDate = token.leaveStartDate as string | null; 
       session.accessToken        = token.accessToken as string;
       return session;
     },
