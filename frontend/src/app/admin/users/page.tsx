@@ -75,6 +75,7 @@ const LEAVE_ALLOWED_ROLES = ['ADMIN', 'DIRECTOR', 'SECRETARY'];
 
 // ── Badge de estado ───────────────────────────
 function StatusBadge({ status, leaveStartDate }: { status: string; leaveStartDate?: string | null }) {
+  
   if (status === 'ON_LEAVE') {
     return (
       <div className="flex flex-col gap-0.5">
@@ -136,7 +137,7 @@ export default function UsersPage() {
     const matchesRole = filterRole === 'all' || u.role === filterRole;
     return matchesSearch && matchesRole;
   });
-
+  
   async function onCreateUser(data: CreateUserForm) {
     await createUser.mutateAsync(data);
     setCreateDialog(false);

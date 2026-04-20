@@ -26,5 +26,7 @@ export interface AuthResponse {
     lastName: string;
     role: string;
     institutionId: string | null;
+    status:         string;    
+    leaveStartDate: string | null;
   };
 }

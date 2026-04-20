@@ -27,10 +27,11 @@ import {
   User,
   ClipboardCheck,
   BookText,
-  Clock 
+  Clock,
 } from 'lucide-react';
 import { useState } from 'react';
 import { Session } from 'next-auth';
+import { LeaveBanner } from '@/components/leave-banner';
 
 interface NavItem {
   name: string;
@@ -215,7 +216,7 @@ export default function TeacherLayout({ children }: { children: React.ReactNode 
             </DropdownMenuContent>
           </DropdownMenu>
         </header>
-
+         <LeaveBanner/>
         <main className="flex-1 overflow-y-auto p-6">
           {children}
         </main>

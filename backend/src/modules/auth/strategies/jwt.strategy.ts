@@ -59,14 +59,14 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException('Usuario no encontrado');
     }
 
-    if (user.status !== 'ACTIVE') {
-      throw new UnauthorizedException('Usuario inactivo o suspendido');
+    if (user.status === 'INACTIVE' || user.status === 'SUSPENDED') {
+      throw new UnauthorizedException('Tu cuenta está inactiva o suspendida');
     }
-
+ 
     return {
-      id: user.id,
-      email: user.email,
-      role: user.role,
+      id:            user.id,
+      email:         user.email,
+      role:          user.role,
       institutionId: user.institutionId,
     };
   }

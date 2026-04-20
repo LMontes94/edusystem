@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useBulkAttendance, useAttendance } from '@/lib/api/attendance';
 import { useCourses } from '@/lib/api/courses';
+import { useIsOnLeave } from '@/lib/hooks/use-is-on-leave';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -22,6 +23,7 @@ interface Props {
 export function TakeAttendanceTab({ selectedCourse, selectedDate, courses }: Props) {
   const [records, setRecords] = useState<Record<string, AttendanceStatus>>({});
   const bulkAttendance        = useBulkAttendance();
+  const isOnLeave             = useIsOnLeave();
 
   const { data: courseDetail } = useQuery({
     queryKey: ['courses', selectedCourse],
@@ -37,7 +39,6 @@ export function TakeAttendanceTab({ selectedCourse, selectedDate, courses }: Pro
     date:     selectedDate,
   });
 
-  // Inicializar estados cuando carga el curso o hay registros previos
   useEffect(() => {
     if (!courseDetail?.courseStudents) return;
     const initial: Record<string, AttendanceStatus> = {};
@@ -51,6 +52,7 @@ export function TakeAttendanceTab({ selectedCourse, selectedDate, courses }: Pro
   }, [courseDetail, existingAttendance]);
 
   function toggleStatus(studentId: string) {
+    if (isOnLeave) return; // no permitir cambios si está en licencia
     const order: AttendanceStatus[] = ['PRESENT', 'LATE', 'ABSENT'];
     const current = records[studentId] ?? 'PRESENT';
     const next    = order[(order.indexOf(current) + 1) % order.length];
@@ -111,7 +113,8 @@ export function TakeAttendanceTab({ selectedCourse, selectedDate, courses }: Pro
             <Button
               size="sm"
               onClick={handleSave}
-              disabled={bulkAttendance.isPending || activeStudents.length === 0}
+              disabled={isOnLeave || bulkAttendance.isPending || activeStudents.length === 0}
+              title={isOnLeave ? 'Tu cuenta está en licencia' : undefined}
             >
               <Save className="h-4 w-4 mr-2" />
               {bulkAttendance.isPending ? 'Guardando...' : 'Guardar lista'}
@@ -139,14 +142,17 @@ export function TakeAttendanceTab({ selectedCourse, selectedDate, courses }: Pro
                   return (
                     <TableRow
                       key={cs.student.id}
-                      className="cursor-pointer"
+                      className={isOnLeave ? 'opacity-60' : 'cursor-pointer'}
                       onClick={() => toggleStatus(cs.student.id)}
                     >
                       <TableCell className="font-medium">
                         {cs.student.lastName}, {cs.student.firstName}
                       </TableCell>
                       <TableCell className="text-right">
-                        <button className={`flex items-center gap-1.5 ml-auto ${config.color}`}>
+                        <button
+                          className={`flex items-center gap-1.5 ml-auto ${config.color}`}
+                          disabled={isOnLeave}
+                        >
                           <Icon className="h-4 w-4" />
                           <span className="text-sm">{config.label}</span>
                         </button>
@@ -160,9 +166,15 @@ export function TakeAttendanceTab({ selectedCourse, selectedDate, courses }: Pro
         </CardContent>
       </Card>
 
-      <p className="text-xs text-muted-foreground">
-        Hacé click en el estado de cada alumno para cambiarlo: Presente → Tarde → Ausente
-      </p>
+      {isOnLeave ? (
+        <p className="text-xs text-amber-600">
+          Tu cuenta está en licencia. Solo podés ver la asistencia.
+        </p>
+      ) : (
+        <p className="text-xs text-muted-foreground">
+          Hacé click en el estado de cada alumno para cambiarlo: Presente → Tarde → Ausente
+        </p>
+      )}
     </>
   );
 }

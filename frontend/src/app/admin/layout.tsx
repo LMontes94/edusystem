@@ -38,6 +38,7 @@ import {
 import { useState } from 'react';
 import { Session } from 'next-auth';
 import { NotificationBell } from '@/components/notification-bell';
+import { LeaveBanner } from '@/components/leave-banner';
 
 const navigation = [
   { name: 'Dashboard',   href: '/admin/dashboard',   icon: LayoutDashboard },
@@ -79,7 +80,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   },
   enabled: !!session?.user?.id,
 });
-
+  
   return (
     <div className="flex h-screen bg-muted/30">
 
@@ -165,7 +166,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             </DropdownMenuContent>
           </DropdownMenu>
         </header>
-
+        <LeaveBanner/>
         {/* Page content */}
         <main className="flex-1 overflow-y-auto p-6">
           {children}

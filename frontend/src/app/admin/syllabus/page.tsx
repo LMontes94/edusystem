@@ -6,6 +6,7 @@ import { useSession } from 'next-auth/react';
 import { api } from '@/lib/api';
 import { useCourses } from '@/lib/api/courses';
 import { usePeriods } from '@/lib/api/grades';
+import { useIsOnLeave } from '@/lib/hooks/use-is-on-leave';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,22 +18,33 @@ import {
 import { Plus, Trash2, BookOpen, ChevronDown, ChevronUp, Save } from 'lucide-react';
 
 interface SyllabusUnit {
-  id: string;
+  id:              string;
   courseSubjectId: string;
-  periodId: string;
-  title: string;
-  contents: string;
-  bibliography: string | null;
-  status: 'completed' | 'pending' | 'postponed';
-  order: number;
-  period: { id: string; name: string };
+  periodId:        string;
+  title:           string;
+  contents:        string;
+  bibliography:    string | null;
+  status:          'completed' | 'pending' | 'postponed';
+  order:           number;
+  period:          { id: string; name: string };
 }
 
 const statusConfig = {
   completed: { label: 'Completado', color: 'bg-emerald-50 text-emerald-700 border-emerald-300' },
-  pending:   { label: 'Pendiente',  color: 'bg-amber-50 text-amber-700 border-amber-300' },
-  postponed: { label: 'Postergado', color: 'bg-red-50 text-red-700 border-red-300' },
+  pending:   { label: 'Pendiente',  color: 'bg-amber-50 text-amber-700 border-amber-300'       },
+  postponed: { label: 'Postergado', color: 'bg-red-50 text-red-700 border-red-300'             },
 };
+
+function usePeriodSyllabus(selectedSubject: string, periodId: string) {
+  return useQuery({
+    queryKey: ['syllabus', selectedSubject, periodId],
+    queryFn:  async () => {
+      const res = await api.get(`/teacher/syllabus/${selectedSubject}/${periodId}`);
+      return res.data;
+    },
+    enabled: !!selectedSubject && !!periodId,
+  });
+}
 
 const PeriodSection = React.memo(function PeriodSection({
   period,
@@ -47,11 +59,11 @@ const PeriodSection = React.memo(function PeriodSection({
   updateMutation,
   deleteMutation,
   changeStatusMutation,
+  isOnLeave,
 }: any) {
-
-  const { data: units, isLoading } = usePeriodSyllabus(selectedSubject,period.id);
+  const { data: units, isLoading } = usePeriodSyllabus(selectedSubject, period.id);
   const isExpanded = expandedPeriods[period.id] ?? true;
-  const nu = getNewUnit(period.id);
+  const nu         = getNewUnit(period.id);
 
   return (
     <Card>
@@ -70,9 +82,8 @@ const PeriodSection = React.memo(function PeriodSection({
             )}
           </CardTitle>
           {isExpanded
-            ? <ChevronUp className="h-4 w-4 text-muted-foreground" />
-            : <ChevronDown className="h-4 w-4 text-muted-foreground" />
-          }
+            ? <ChevronUp   className="h-4 w-4 text-muted-foreground" />
+            : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
         </button>
       </CardHeader>
 
@@ -88,12 +99,11 @@ const PeriodSection = React.memo(function PeriodSection({
             <div className="space-y-3">
               {units.map((unit: SyllabusUnit) => {
                 const isEditing = !!editingUnit[unit.id];
-                const editData = editingUnit[unit.id] ?? unit;
+                const editData  = editingUnit[unit.id] ?? unit;
 
                 return (
                   <div key={unit.id} className="rounded-lg border p-3 space-y-2">
                     <div className="flex items-start justify-between gap-2">
-
                       {isEditing ? (
                         <Input
                           value={editData.title}
@@ -109,11 +119,10 @@ const PeriodSection = React.memo(function PeriodSection({
                       <div className="flex items-center gap-1">
                         <Select
                           value={unit.status}
-                          onValueChange={(v) => changeStatusMutation.mutate({
-                            id: unit.id,
-                            status: v,
-                            periodId: period.id,
+                          onValueChange={(v) => !isOnLeave && changeStatusMutation.mutate({
+                            id: unit.id, status: v, periodId: period.id,
                           })}
+                          disabled={isOnLeave}
                         >
                           <SelectTrigger className={`h-6 text-xs w-28 ${statusConfig[unit.status].color}`}>
                             <SelectValue />
@@ -125,25 +134,28 @@ const PeriodSection = React.memo(function PeriodSection({
                           </SelectContent>
                         </Select>
 
-                        {isEditing ? (
-                          <Button size="icon" onClick={() =>
-                            updateMutation.mutate({ id: unit.id, data: editData })
-                          }>
-                            <Save className="h-4 w-4" />
-                          </Button>
-                        ) : (
-                          <Button size="icon" onClick={() =>
-                            setEditingUnit((prev: any) => ({ ...prev, [unit.id]: { ...unit } }))
-                          }>
-                            ✎
-                          </Button>
+                        {!isOnLeave && (
+                          <>
+                            {isEditing ? (
+                              <Button size="icon" onClick={() =>
+                                updateMutation.mutate({ id: unit.id, data: editData })
+                              }>
+                                <Save className="h-4 w-4" />
+                              </Button>
+                            ) : (
+                              <Button size="icon" onClick={() =>
+                                setEditingUnit((prev: any) => ({ ...prev, [unit.id]: { ...unit } }))
+                              }>
+                                ✎
+                              </Button>
+                            )}
+                            <Button size="icon" onClick={() =>
+                              deleteMutation.mutate({ id: unit.id, periodId: period.id })
+                            }>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </>
                         )}
-
-                        <Button size="icon" onClick={() =>
-                          deleteMutation.mutate({ id: unit.id, periodId: period.id })
-                        }>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
                       </div>
                     </div>
 
@@ -167,67 +179,57 @@ const PeriodSection = React.memo(function PeriodSection({
             </div>
           )}
 
-          <div className="border-t pt-3 space-y-2">
-            <Input
-              placeholder="Título..."
-              value={nu.title}
-              onChange={(e) => updateNewUnit(period.id, 'title', e.target.value)}
-            />
-            <textarea
-              value={nu.contents}
-              onChange={(e) => updateNewUnit(period.id, 'contents', e.target.value)}
-              className="w-full border rounded p-2"
-            />
-            <Input
-              placeholder="Bibliografía..."
-              value={nu.bibliography}
-              onChange={(e) => updateNewUnit(period.id, 'bibliography', e.target.value)}
-            />
-            <Button
-              onClick={() => createMutation.mutate({
-                periodId: period.id,
-                data: nu,
-              })}
-            >
-              <Plus className="h-4 w-4 mr-1" />
-              Agregar unidad
-            </Button>
-          </div>
+          {/* Formulario nuevo — oculto si está en licencia */}
+          {!isOnLeave && (
+            <div className="border-t pt-3 space-y-2">
+              <Input
+                placeholder="Título..."
+                value={nu.title}
+                onChange={(e) => updateNewUnit(period.id, 'title', e.target.value)}
+              />
+              <textarea
+                value={nu.contents}
+                onChange={(e) => updateNewUnit(period.id, 'contents', e.target.value)}
+                className="w-full border rounded p-2"
+              />
+              <Input
+                placeholder="Bibliografía..."
+                value={nu.bibliography}
+                onChange={(e) => updateNewUnit(period.id, 'bibliography', e.target.value)}
+              />
+              <Button
+                onClick={() => createMutation.mutate({ periodId: period.id, data: nu })}
+                disabled={createMutation.isPending}
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                Agregar unidad
+              </Button>
+            </div>
+          )}
         </CardContent>
       )}
     </Card>
   );
 });
 
-function usePeriodSyllabus(selectedSubject: string, periodId: string) {
-  return useQuery({
-    queryKey: ['syllabus', selectedSubject, periodId],
-    queryFn:  async () => {
-      const res = await api.get(`/teacher/syllabus/${selectedSubject}/${periodId}`);
-      return res.data;
-    },
-    enabled: !!selectedSubject && !!periodId,
-  });
-}
-
 export default function SyllabusPage() {
-
   const { data: session } = useSession();
-  const queryClient = useQueryClient();
+  const queryClient       = useQueryClient();
+  const isOnLeave         = useIsOnLeave();
 
-  const [selectedCourse, setSelectedCourse] = useState('');
+  const [selectedCourse,  setSelectedCourse]  = useState('');
   const [selectedSubject, setSelectedSubject] = useState('');
   const [expandedPeriods, setExpandedPeriods] = useState<Record<string, boolean>>({});
-  const [newUnit, setNewUnit] = useState<any>({});
-  const [editingUnit, setEditingUnit] = useState<Record<string, SyllabusUnit>>({});
+  const [newUnit,         setNewUnit]         = useState<any>({});
+  const [editingUnit,     setEditingUnit]     = useState<Record<string, SyllabusUnit>>({});
 
-  const { data: courses } = useCourses();
-  const selectedCourseData = courses?.find((c) => c.id === selectedCourse);
-  const { data: periods } = usePeriods(selectedCourseData?.schoolYearId ?? undefined);
+  const { data: courses }          = useCourses();
+  const selectedCourseData         = courses?.find((c) => c.id === selectedCourse);
+  const { data: periods }          = usePeriods(selectedCourseData?.schoolYearId ?? undefined);
 
   const { data: courseDetail } = useQuery({
     queryKey: ['courses', selectedCourse],
-    queryFn: async () => {
+    queryFn:  async () => {
       const res = await api.get(`/courses/${selectedCourse}`);
       return res.data;
     },
@@ -239,77 +241,57 @@ export default function SyllabusPage() {
       periodId: string;
       data: { title: string; contents: string; bibliography?: string };
     }) => {
-      await api.post('/teacher/syllabus', {
-        courseSubjectId: selectedSubject,
-        periodId,
-        ...data,
-      });
+      await api.post('/teacher/syllabus', { courseSubjectId: selectedSubject, periodId, ...data });
     },
     onSuccess: (_, { periodId }) => {
       queryClient.invalidateQueries({ queryKey: ['syllabus', selectedSubject, periodId] });
-      setNewUnit((prev) => ({
-        ...prev,
-        [periodId]: { title: '', contents: '', bibliography: '' }
-      }));
+      setNewUnit((prev) => ({ ...prev, [periodId]: { title: '', contents: '', bibliography: '' } }));
       toast.success('Unidad agregada');
     },
     onError: () => toast.error('Error al agregar la unidad'),
   });
-  
+
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<SyllabusUnit> }) => {
       await api.patch(`/teacher/syllabus/${id}`, data);
     },
     onSuccess: (_, { id }) => {
       const unit = editingUnit[id];
-      if (unit) {
-        queryClient.invalidateQueries({
-          queryKey: ['syllabus', selectedSubject, unit.periodId]
-        });
-      }
-      setEditingUnit((prev) => {
-        const n = { ...prev };
-        delete n[id];
-        return n;
-      });
+      if (unit) queryClient.invalidateQueries({ queryKey: ['syllabus', selectedSubject, unit.periodId] });
+      setEditingUnit((prev) => { const n = { ...prev }; delete n[id]; return n; });
       toast.success('Unidad actualizada');
     },
     onError: () => toast.error('Error al actualizar'),
   });
-  
+
   const deleteMutation = useMutation({
     mutationFn: async ({ id }: { id: string; periodId: string }) => {
       await api.delete(`/teacher/syllabus/${id}`);
     },
     onSuccess: (_, { periodId }) => {
-      queryClient.invalidateQueries({
-        queryKey: ['syllabus', selectedSubject, periodId]
-      });
+      queryClient.invalidateQueries({ queryKey: ['syllabus', selectedSubject, periodId] });
       toast.success('Unidad eliminada');
     },
     onError: () => toast.error('Error al eliminar'),
   });
-  
+
   const changeStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string; periodId: string }) => {
       await api.patch(`/teacher/syllabus/${id}`, { status });
     },
     onSuccess: (_, { periodId }) => {
-      queryClient.invalidateQueries({
-        queryKey: ['syllabus', selectedSubject, periodId]
-      });
+      queryClient.invalidateQueries({ queryKey: ['syllabus', selectedSubject, periodId] });
     },
     onError: () => toast.error('Error al cambiar el estado'),
   });
-  
-  const isTeacher = session?.user?.role === 'TEACHER';
 
-  const subjects = courseDetail?.courseSubjects?.filter((cs: any) =>
+  const isTeacher      = session?.user?.role === 'TEACHER';
+  const subjects       = courseDetail?.courseSubjects?.filter((cs: any) =>
     isTeacher ? cs.teacherId === session?.user?.id : true
   ) ?? [];
 
   function togglePeriod(id: string) {
-    setExpandedPeriods(prev => ({ ...prev, [id]: !prev[id] }));
+    setExpandedPeriods((prev) => ({ ...prev, [id]: !prev[id] }));
   }
 
   function getNewUnit(id: string) {
@@ -317,16 +299,11 @@ export default function SyllabusPage() {
   }
 
   function updateNewUnit(id: string, field: string, value: string) {
-    setNewUnit(prev => ({
-      ...prev,
-      [id]: { ...getNewUnit(id), [field]: value }
-    }));
+    setNewUnit((prev) => ({ ...prev, [id]: { ...getNewUnit(id), [field]: value } }));
   }
 
   return (
     <div className="space-y-6">
-
-      {/* HEADER */}
       <div>
         <h1 className="text-xl font-semibold">Temario</h1>
         <p className="text-sm text-muted-foreground">
@@ -334,58 +311,35 @@ export default function SyllabusPage() {
         </p>
       </div>
 
-      {/* FILTROS (INTACTOS) */}
       <Card>
         <CardContent className="pt-5">
           <div className="grid grid-cols-2 gap-4">
-
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Curso</label>
-              <Select
-                value={selectedCourse}
-                onValueChange={(v) => {
-                  setSelectedCourse(v);
-                  setSelectedSubject('');
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccioná un curso..." />
-                </SelectTrigger>
+              <Select value={selectedCourse} onValueChange={(v) => { setSelectedCourse(v); setSelectedSubject(''); }}>
+                <SelectTrigger><SelectValue placeholder="Seleccioná un curso..." /></SelectTrigger>
                 <SelectContent>
                   {courses?.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.name}
-                    </SelectItem>
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Materia</label>
-              <Select
-                value={selectedSubject}
-                onValueChange={setSelectedSubject}
-                disabled={!selectedCourse}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccioná una materia..." />
-                </SelectTrigger>
+              <Select value={selectedSubject} onValueChange={setSelectedSubject} disabled={!selectedCourse}>
+                <SelectTrigger><SelectValue placeholder="Seleccioná una materia..." /></SelectTrigger>
                 <SelectContent>
                   {subjects.map((cs: any) => (
-                    <SelectItem key={cs.id} value={cs.id}>
-                      {cs.subject.name}
-                    </SelectItem>
+                    <SelectItem key={cs.id} value={cs.id}>{cs.subject.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-
           </div>
         </CardContent>
       </Card>
 
-      {/* PERÍODOS */}
       {!selectedSubject ? (
         <div className="flex items-center justify-center h-48 text-muted-foreground text-sm border rounded-lg border-dashed">
           Seleccioná un curso y una materia para ver el temario
@@ -411,6 +365,7 @@ export default function SyllabusPage() {
               updateMutation={updateMutation}
               deleteMutation={deleteMutation}
               changeStatusMutation={changeStatusMutation}
+              isOnLeave={isOnLeave}
             />
           ))}
         </div>

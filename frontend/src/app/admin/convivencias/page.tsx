@@ -24,6 +24,7 @@ import {
   Plus, Trash2, Pencil, Download, AlertTriangle,
   Star, Eye, Users, MessageSquare, Ban, Phone,
 } from 'lucide-react';
+import { useIsOnLeave } from '@/lib/hooks/use-is-on-leave';
 
 interface Convivencia {
   id:          string;
@@ -67,6 +68,8 @@ export default function ConvivenciasPage() {
   const [formReason,  setFormReason]  = useState('');
 
   const { data: courses } = useCourses();
+
+  const isOnLeave = useIsOnLeave();
 
   const { data: courseDetail } = useQuery({
     queryKey: ['courses', formCourse],
@@ -126,7 +129,7 @@ export default function ConvivenciasPage() {
     },
     onError: () => toast.error('Error al registrar'),
   });
-   console.log(toUTCDate(formDate))
+
   const updateMutation = useMutation({
     
     mutationFn: async () => {
@@ -222,7 +225,7 @@ export default function ConvivenciasPage() {
           </p>
         </div>
         {canManage && (
-          <Button size="sm" onClick={() => setDialog(true)}>
+          <Button size="sm" onClick={() => setDialog(true) } disabled={isOnLeave || bulkAttendance.isPending}>
             <Plus className="h-4 w-4 mr-2" />
             Registrar convivencia
           </Button>
