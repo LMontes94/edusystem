@@ -27,31 +27,32 @@ import {
 import { useIsOnLeave } from '@/lib/hooks/use-is-on-leave';
 
 interface Convivencia {
-  id:          string;
-  type:        string;
-  date:        string;
-  reason:      string;
-  savedAt:     string;
+  id:           string;
+  type:         string;
+  date:         string;
+  reason:       string;
+  savedAt:      string;
   sentToParent: boolean;
-  sentAt?:     string;
-  readAt?:     string;
-  student:     { id: string; firstName: string; lastName: string; documentNumber: string };
-  course:      { id: string; name: string; grade: number; division: string };
-  author:      { id: string; firstName: string; lastName: string; role: string };
+  sentAt?:      string;
+  readAt?:      string;
+  student: { id: string; firstName: string; lastName: string; documentNumber: string };
+  course:  { id: string; name: string; grade: number; division: string };
+  author:  { id: string; firstName: string; lastName: string; role: string };
 }
 
 const typeConfig: Record<string, { label: string; color: string; icon: React.ElementType }> = {
-  observation:    { label: 'Observación',       color: 'bg-blue-50 text-blue-700 border-blue-300',    icon: Eye           },
-  warning:        { label: 'Advertencia',        color: 'bg-amber-50 text-amber-700 border-amber-300', icon: AlertTriangle },
+  observation:    { label: 'Observación',       color: 'bg-blue-50 text-blue-700 border-blue-300',       icon: Eye           },
+  warning:        { label: 'Advertencia',        color: 'bg-amber-50 text-amber-700 border-amber-300',    icon: AlertTriangle },
   reprimand:      { label: 'Apercibimiento',     color: 'bg-orange-50 text-orange-700 border-orange-300', icon: MessageSquare },
-  commendation:   { label: 'Felicitación',       color: 'bg-emerald-50 text-emerald-700 border-emerald-300', icon: Star      },
-  suspension:     { label: 'Suspensión',         color: 'bg-red-50 text-red-700 border-red-300',       icon: Ban           },
-  parent_meeting: { label: 'Citación de padres', color: 'bg-purple-50 text-purple-700 border-purple-300', icon: Phone      },
+  commendation:   { label: 'Felicitación',       color: 'bg-emerald-50 text-emerald-700 border-emerald-300', icon: Star       },
+  suspension:     { label: 'Suspensión',         color: 'bg-red-50 text-red-700 border-red-300',          icon: Ban          },
+  parent_meeting: { label: 'Citación de padres', color: 'bg-purple-50 text-purple-700 border-purple-300', icon: Phone        },
 };
 
 export default function ConvivenciasPage() {
-  const { data: session }  = useSession();
-  const queryClient        = useQueryClient();
+  const { data: session } = useSession();
+  const queryClient       = useQueryClient();
+  const isOnLeave         = useIsOnLeave();
 
   const [selectedCourse,  setSelectedCourse]  = useState('all');
   const [selectedStudent, setSelectedStudent] = useState('');
@@ -60,7 +61,6 @@ export default function ConvivenciasPage() {
   const [editingId,       setEditingId]       = useState<string | null>(null);
   const [generating,      setGenerating]      = useState<string | null>(null);
 
-  // Form state
   const [formCourse,  setFormCourse]  = useState('');
   const [formStudent, setFormStudent] = useState('');
   const [formType,    setFormType]    = useState('observation');
@@ -68,8 +68,6 @@ export default function ConvivenciasPage() {
   const [formReason,  setFormReason]  = useState('');
 
   const { data: courses } = useCourses();
-
-  const isOnLeave = useIsOnLeave();
 
   const { data: courseDetail } = useQuery({
     queryKey: ['courses', formCourse],
@@ -105,7 +103,7 @@ export default function ConvivenciasPage() {
       return res.data;
     },
   });
-  
+
   function toUTCDate(dateStr: string): string {
     const [year, month, day] = dateStr.split('-').map(Number);
     return new Date(Date.UTC(year, month - 1, day, 12, 0, 0)).toISOString();
@@ -131,7 +129,6 @@ export default function ConvivenciasPage() {
   });
 
   const updateMutation = useMutation({
-    
     mutationFn: async () => {
       await api.patch(`/convivencias/${editingId}`, {
         type:   formType,
@@ -182,9 +179,7 @@ export default function ConvivenciasPage() {
   async function handleGeneratePdf(studentId: string, studentName: string) {
     setGenerating(studentId);
     try {
-      const res = await api.get(`/reports/convivencias/${studentId}`, {
-        responseType: 'blob',
-      });
+      const res = await api.get(`/reports/convivencias/${studentId}`, { responseType: 'blob' });
       const contentDisposition = res.headers['content-disposition'];
       const filenameMatch      = contentDisposition?.match(/filename="(.+)"/);
       const url  = window.URL.createObjectURL(new Blob([res.data]));
@@ -201,7 +196,6 @@ export default function ConvivenciasPage() {
     }
   }
 
-  // Agrupar por alumno para la vista individual
   const byStudent = convivencias?.reduce((acc: any, conv) => {
     const key = conv.student.id;
     if (!acc[key]) acc[key] = { student: conv.student, items: [] };
@@ -213,6 +207,9 @@ export default function ConvivenciasPage() {
     session?.user?.role as string
   );
 
+  // Puede gestionar solo si tiene el rol Y no está en licencia
+  const canEdit = canManage && !isOnLeave;
+
   return (
     <div className="space-y-6">
 
@@ -220,12 +217,10 @@ export default function ConvivenciasPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold">Convivencia</h1>
-          <p className="text-sm text-muted-foreground">
-            Registro de convivencia escolar
-          </p>
+          <p className="text-sm text-muted-foreground">Registro de convivencia escolar</p>
         </div>
-        {canManage && (
-          <Button size="sm" onClick={() => setDialog(true) } disabled={isOnLeave || bulkAttendance.isPending}>
+        {canEdit && (
+          <Button size="sm" onClick={() => setDialog(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Registrar convivencia
           </Button>
@@ -304,7 +299,7 @@ export default function ConvivenciasPage() {
                   <TableHead>Motivo</TableHead>
                   <TableHead>Registrado por</TableHead>
                   <TableHead>Estado</TableHead>
-                  {canManage && <TableHead className="w-20" />}
+                  {canEdit && <TableHead className="w-20" />}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -356,7 +351,7 @@ export default function ConvivenciasPage() {
                             <Badge variant="outline" className="text-xs">Guardado</Badge>
                           )}
                         </TableCell>
-                        {canManage && (
+                        {canEdit && (
                           <TableCell>
                             <div className="flex items-center gap-1">
                               <Button
@@ -404,8 +399,7 @@ export default function ConvivenciasPage() {
                       </Badge>
                     </CardTitle>
                     <Button
-                      size="sm"
-                      variant="outline"
+                      size="sm" variant="outline"
                       onClick={() => handleGeneratePdf(
                         group.student.id,
                         `${group.student.lastName}_${group.student.firstName}`
@@ -458,95 +452,96 @@ export default function ConvivenciasPage() {
         </TabsContent>
       </Tabs>
 
-      {/* Dialog crear/editar */}
-      <Dialog open={dialog} onOpenChange={(open) => { if (!open) handleClose(); }}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>
-              {editingId ? 'Editar convivencia' : 'Registrar convivencia'}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 pt-2">
-            {!editingId && (
-              <>
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium">Curso</label>
-                  <Select value={formCourse} onValueChange={(v) => { setFormCourse(v); setFormStudent(''); }}>
-                    <SelectTrigger><SelectValue placeholder="Seleccioná un curso..." /></SelectTrigger>
-                    <SelectContent>
-                      {courses?.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium">Alumno</label>
-                  <Select value={formStudent} onValueChange={setFormStudent} disabled={!formCourse}>
-                    <SelectTrigger><SelectValue placeholder="Seleccioná un alumno..." /></SelectTrigger>
-                    <SelectContent>
-                      {activeStudents.map((cs: any) => (
-                        <SelectItem key={cs.student.id} value={cs.student.id}>
-                          {cs.student.lastName}, {cs.student.firstName}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </>
-            )}
+      {/* Dialog crear/editar — solo si puede editar */}
+      {canEdit && (
+        <Dialog open={dialog} onOpenChange={(open) => { if (!open) handleClose(); }}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>
+                {editingId ? 'Editar convivencia' : 'Registrar convivencia'}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 pt-2">
+              {!editingId && (
+                <>
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium">Curso</label>
+                    <Select value={formCourse} onValueChange={(v) => { setFormCourse(v); setFormStudent(''); }}>
+                      <SelectTrigger><SelectValue placeholder="Seleccioná un curso..." /></SelectTrigger>
+                      <SelectContent>
+                        {courses?.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium">Alumno</label>
+                    <Select value={formStudent} onValueChange={setFormStudent} disabled={!formCourse}>
+                      <SelectTrigger><SelectValue placeholder="Seleccioná un alumno..." /></SelectTrigger>
+                      <SelectContent>
+                        {activeStudents.map((cs: any) => (
+                          <SelectItem key={cs.student.id} value={cs.student.id}>
+                            {cs.student.lastName}, {cs.student.firstName}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </>
+              )}
 
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">Tipo</label>
-              <Select value={formType} onValueChange={setFormType}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {Object.entries(typeConfig).map(([key, config]) => (
-                    <SelectItem key={key} value={key}>{config.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Tipo</label>
+                <Select value={formType} onValueChange={setFormType}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(typeConfig).map(([key, config]) => (
+                      <SelectItem key={key} value={key}>{config.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">Fecha</label>
-              <Input
-                type="date"
-                value={formDate}
-                onChange={(e) => setFormDate(e.target.value)}
-              />
-            </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Fecha</label>
+                <Input
+                  type="date"
+                  value={formDate}
+                  onChange={(e) => setFormDate(e.target.value)}
+                />
+              </div>
 
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">Motivo</label>
-              <textarea
-                className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none min-h-24 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring placeholder:text-muted-foreground"
-                placeholder="Describí el motivo de la convivencia..."
-                value={formReason}
-                onChange={(e) => setFormReason(e.target.value)}
-              />
-            </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Motivo</label>
+                <textarea
+                  className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none min-h-24 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring placeholder:text-muted-foreground"
+                  placeholder="Describí el motivo de la convivencia..."
+                  value={formReason}
+                  onChange={(e) => setFormReason(e.target.value)}
+                />
+              </div>
 
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={handleClose}>Cancelar</Button>
-              <Button
-                onClick={() => editingId ? updateMutation.mutate() : createMutation.mutate()}
-                disabled={
-                  (!editingId && (!formCourse || !formStudent)) ||
-                  !formReason ||
-                  createMutation.isPending ||
-                  updateMutation.isPending
-                }
-              >
-                {createMutation.isPending || updateMutation.isPending
-                  ? 'Guardando...'
-                  : editingId ? 'Guardar cambios' : 'Registrar'
-                }
-              </Button>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={handleClose}>Cancelar</Button>
+                <Button
+                  onClick={() => editingId ? updateMutation.mutate() : createMutation.mutate()}
+                  disabled={
+                    (!editingId && (!formCourse || !formStudent)) ||
+                    !formReason ||
+                    createMutation.isPending ||
+                    updateMutation.isPending
+                  }
+                >
+                  {createMutation.isPending || updateMutation.isPending
+                    ? 'Guardando...'
+                    : editingId ? 'Guardar cambios' : 'Registrar'}
+                </Button>
+              </div>
             </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

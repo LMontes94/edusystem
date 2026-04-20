@@ -16,6 +16,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { Plus, Trash2, BookOpen, ChevronDown, ChevronUp, Save } from 'lucide-react';
+import { useBulkAttendance } from '@/lib/api/attendance';
 
 interface SyllabusUnit {
   id:              string;

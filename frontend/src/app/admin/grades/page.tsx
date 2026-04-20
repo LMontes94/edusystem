@@ -7,10 +7,11 @@ import { z } from 'zod';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useGrades, useCreateGrade, useDeleteGrade, usePeriods } from '@/lib/api/grades';
-import { useCourses } from '@/lib/api/courses';
+import { useCourses }   from '@/lib/api/courses';
+import { useIsOnLeave } from '@/lib/hooks/use-is-on-leave';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
+import { Input }  from '@/components/ui/input';
+import { Badge }  from '@/components/ui/badge';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from '@/components/ui/dialog';
@@ -26,7 +27,6 @@ import {
 import { Plus, Trash2, TableIcon, ListIcon } from 'lucide-react';
 import BulkGradesEntry from '@/components/grades/bulk-grades-entry';
 
-// ── Schema ────────────────────────────────────
 const createGradeSchema = z.object({
   studentId:       z.string().min(1, 'Requerido'),
   courseSubjectId: z.string().min(1, 'Requerido'),
@@ -47,18 +47,19 @@ const typeLabels: Record<string, string> = {
 };
 
 export default function GradesPage() {
-  const [view,           setView]           = useState<'list' | 'bulk'>('list');
-  const [dialogOpen,     setDialogOpen]     = useState(false);
-  const [selectedCourse, setSelectedCourse] = useState('');
-  const [selectedPeriod, setSelectedPeriod] = useState('');
+  const [view,            setView]            = useState<'list' | 'bulk'>('list');
+  const [dialogOpen,      setDialogOpen]      = useState(false);
+  const [selectedCourse,  setSelectedCourse]  = useState('');
+  const [selectedPeriod,  setSelectedPeriod]  = useState('');
   const [selectedSubject, setSelectedSubject] = useState('');
 
-  const { data: grades,  isLoading } = useGrades({
+  const { data: grades, isLoading } = useGrades({
     periodId: selectedPeriod && selectedPeriod !== 'all' ? selectedPeriod : undefined,
   });
-  const { data: courses }  = useCourses();
-  const createGrade        = useCreateGrade();
-  const deleteGrade        = useDeleteGrade();
+  const { data: courses } = useCourses();
+  const createGrade       = useCreateGrade();
+  const deleteGrade       = useDeleteGrade();
+  const isOnLeave         = useIsOnLeave();
 
   const selectedCourseData = courses?.find((c) => c.id === selectedCourse);
   const { data: periods }  = usePeriods(selectedCourseData?.schoolYearId ?? undefined);
@@ -91,7 +92,7 @@ export default function GradesPage() {
   const filteredGrades = grades?.filter((g) => {
     const matchesCourse  = !selectedCourse  || selectedCourse  === 'all' ||
       courseDetail?.courseSubjects?.some((cs: any) => cs.id === g.courseSubject.id);
-    const matchesPeriod  = !selectedPeriod  || selectedPeriod  === 'all' || g.period.id  === selectedPeriod;
+    const matchesPeriod  = !selectedPeriod  || selectedPeriod  === 'all' || g.period.id === selectedPeriod;
     const matchesSubject = !selectedSubject || selectedSubject === 'all' || g.courseSubject.subject.id === selectedSubject;
     return matchesCourse && matchesPeriod && matchesSubject;
   });
@@ -133,7 +134,8 @@ export default function GradesPage() {
             </Button>
           </div>
 
-          {view === 'list' && (
+          {/* Botón cargar nota — oculto si está en licencia */}
+          {view === 'list' && !isOnLeave && (
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
               <DialogTrigger asChild>
                 <Button size="sm">
@@ -280,8 +282,8 @@ export default function GradesPage() {
         </div>
       </div>
 
-      {/* ── Vista: Carga masiva ── */}
-      {view === 'bulk' && <BulkGradesEntry />}
+      {/* ── Vista: Carga masiva — disabled si está en licencia ── */}
+      {view === 'bulk' && <BulkGradesEntry disabled={isOnLeave} />}
 
       {/* ── Vista: Lista ── */}
       {view === 'list' && (
@@ -304,7 +306,11 @@ export default function GradesPage() {
               </SelectContent>
             </Select>
 
-            <Select value={selectedPeriod} onValueChange={setSelectedPeriod} disabled={!selectedCourse || selectedCourse === 'all'}>
+            <Select
+              value={selectedPeriod}
+              onValueChange={setSelectedPeriod}
+              disabled={!selectedCourse || selectedCourse === 'all'}
+            >
               <SelectTrigger className="w-48">
                 <SelectValue placeholder="Filtrar por período" />
               </SelectTrigger>
@@ -316,7 +322,11 @@ export default function GradesPage() {
               </SelectContent>
             </Select>
 
-            <Select value={selectedSubject} onValueChange={setSelectedSubject} disabled={!selectedCourse || selectedCourse === 'all'}>
+            <Select
+              value={selectedSubject}
+              onValueChange={setSelectedSubject}
+              disabled={!selectedCourse || selectedCourse === 'all'}
+            >
               <SelectTrigger className="w-48">
                 <SelectValue placeholder="Filtrar por materia" />
               </SelectTrigger>
@@ -340,19 +350,20 @@ export default function GradesPage() {
                   <TableHead>Tipo</TableHead>
                   <TableHead>Nota</TableHead>
                   <TableHead>Fecha</TableHead>
-                  <TableHead className="w-8" />
+                  {/* Columna acciones — oculta si está en licencia */}
+                  {!isOnLeave && <TableHead className="w-8" />}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={isOnLeave ? 6 : 7} className="text-center py-8 text-muted-foreground">
                       Cargando...
                     </TableCell>
                   </TableRow>
                 ) : filteredGrades?.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={isOnLeave ? 6 : 7} className="text-center py-8 text-muted-foreground">
                       No hay notas registradas
                     </TableCell>
                   </TableRow>
@@ -379,16 +390,20 @@ export default function GradesPage() {
                       <TableCell className="text-muted-foreground text-sm">
                         {new Date(grade.date).toLocaleDateString('es-AR')}
                       </TableCell>
-                      <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                          onClick={() => deleteGrade.mutate(grade.id)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </TableCell>
+                      {/* Botón eliminar — oculto si está en licencia */}
+                      {!isOnLeave && (
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                            onClick={() => deleteGrade.mutate(grade.id)}
+                            disabled={deleteGrade.isPending}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))
                 )}
