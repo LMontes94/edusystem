@@ -34,6 +34,7 @@ import {
   BookText, Clock,
   BarChart2,
   ShieldAlert,
+  Settings,
 } from 'lucide-react';
 import { useState } from 'react';
 import { Session } from 'next-auth';
@@ -153,6 +154,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 <Link href="/profile" className="cursor-pointer">
                     <User className="mr-2 h-4 w-4" />
                       Mi perfil
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link href="/admin/settings" className="cursor-pointer">
+                    <Settings className="mr-2 h-4 w-4" />
+                      Configuración
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
