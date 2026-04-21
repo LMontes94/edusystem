@@ -221,7 +221,8 @@ model User {
   observations StudentObservation[]
   convivencias Convivencia[]
   justificationReviews Justification[] @relation("JustificationReviewer")
-
+  levelRoles UserLevelRole[]
+  
   @@unique([email, institutionId])
 
   @@index([role])
@@ -229,6 +230,20 @@ model User {
   @@index([institutionId])
   @@map("users")
 }
+
+ model UserLevelRole {
+   id        String   @id @default(uuid())
+   userId    String   @map("user_id")
+   level     Level    // INICIAL | PRIMARIA | SECUNDARIA
+   role      Role     // TEACHER | PRECEPTOR | etc.
+   createdAt DateTime @default(now()) @map("created_at")
+
+   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+   @@unique([userId, level, role])
+   @@index([userId])
+   @@map("user_level_roles")
+ }
 
 model RefreshToken {
   id         String    @id @default(uuid())

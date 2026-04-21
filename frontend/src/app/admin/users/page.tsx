@@ -7,8 +7,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useUsers, useCreateUser, useToggleUserStatus, useResetPassword } from '@/lib/api/users';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
+import { Input }  from '@/components/ui/input';
+import { Badge }  from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
@@ -30,7 +30,9 @@ import {
   Plus, Search, MoreHorizontal, KeyRound, UserX, UserCheck,
   BriefcaseMedical, RotateCcw,
 } from 'lucide-react';
-import { useGrantLeave, useRevokeLeave } from '@/lib/api/users-leave';
+import { useGrantLeave, useRevokeLeave }  from '@/lib/api/users-leave';
+import { LevelRolesButton, LevelRolesBadges } from '@/components/users/level-roles-manager';
+import { LEVELS, LEVEL_ROLES } from '@/lib/api/user-level-roles';
 
 // ── Schemas ───────────────────────────────────
 const createUserSchema = z.object({
@@ -47,8 +49,7 @@ const resetPasswordSchema = z.object({
   password: z.string().min(8, 'Mínimo 8 caracteres'),
   confirm:  z.string().min(8, 'Requerido'),
 }).refine((d) => d.password === d.confirm, {
-  message: 'Las contraseñas no coinciden',
-  path: ['confirm'],
+  message: 'Las contraseñas no coinciden', path: ['confirm'],
 });
 type ResetPasswordForm = z.infer<typeof resetPasswordSchema>;
 
@@ -73,9 +74,7 @@ const roleVariant: Record<string, 'default' | 'secondary' | 'outline'> = {
 
 const LEAVE_ALLOWED_ROLES = ['ADMIN', 'DIRECTOR', 'SECRETARY'];
 
-// ── Badge de estado ───────────────────────────
 function StatusBadge({ status, leaveStartDate }: { status: string; leaveStartDate?: string | null }) {
-  
   if (status === 'ON_LEAVE') {
     return (
       <div className="flex flex-col gap-0.5">
@@ -97,21 +96,27 @@ function StatusBadge({ status, leaveStartDate }: { status: string; leaveStartDat
   );
 }
 
-// ── Componente principal ──────────────────────
 export default function UsersPage() {
-  const { data: session }                         = useSession();
-  const currentRole                               = (session?.user as any)?.role ?? '';
-  const canManageLeave                            = LEAVE_ALLOWED_ROLES.includes(currentRole);
+  const { data: session }   = useSession();
+  const currentRole         = (session?.user as any)?.role ?? '';
+  const canManageLeave      = LEAVE_ALLOWED_ROLES.includes(currentRole);
 
   const [search,         setSearch]         = useState('');
   const [filterRole,     setFilterRole]     = useState('all');
+  const [filterLevel,    setFilterLevel]    = useState('all');  // ← nuevo
+  const [filterLvlRole,  setFilterLvlRole]  = useState('all'); // ← nuevo
   const [createDialog,   setCreateDialog]   = useState(false);
   const [resetDialog,    setResetDialog]    = useState(false);
   const [leaveDialog,    setLeaveDialog]    = useState(false);
   const [selectedUser,   setSelectedUser]   = useState<{ id: string; name: string } | null>(null);
   const [leaveStartDate, setLeaveStartDate] = useState(new Date().toISOString().split('T')[0]);
 
-  const { data: users, isLoading } = useUsers();
+  // Filtros de nivel/rol se envían al backend
+  const { data: users, isLoading } = useUsers({
+    level: filterLevel !== 'all' ? filterLevel : undefined,
+    role:  filterLvlRole !== 'all' ? filterLvlRole : undefined,
+  });
+
   const createUser       = useCreateUser();
   const toggleUserStatus = useToggleUserStatus();
   const resetPassword    = useResetPassword();
@@ -128,6 +133,7 @@ export default function UsersPage() {
     defaultValues: { password: '', confirm: '' },
   });
 
+  // Filtro client-side por nombre/email y rol principal
   const filtered = users?.filter((u) => {
     const q = search.toLowerCase();
     const matchesSearch =
@@ -137,7 +143,7 @@ export default function UsersPage() {
     const matchesRole = filterRole === 'all' || u.role === filterRole;
     return matchesSearch && matchesRole;
   });
-  
+
   async function onCreateUser(data: CreateUserForm) {
     await createUser.mutateAsync(data);
     setCreateDialog(false);
@@ -150,25 +156,10 @@ export default function UsersPage() {
     resetForm.reset();
   }
 
-  function openResetDialog(userId: string, name: string) {
-    setSelectedUser({ id: userId, name });
-    setResetDialog(true);
-  }
-
-  function openLeaveDialog(userId: string, name: string) {
-    setSelectedUser({ id: userId, name });
-    setLeaveStartDate(new Date().toISOString().split('T')[0]);
-    setLeaveDialog(true);
-  }
-
   async function handleGrantLeave() {
     if (!selectedUser) return;
     await grantLeave.mutateAsync({ userId: selectedUser.id, startDate: leaveStartDate });
     setLeaveDialog(false);
-  }
-
-  async function handleRevokeLeave(userId: string) {
-    await revokeLeave.mutateAsync(userId);
   }
 
   const roleCounts = users?.reduce((acc, u) => {
@@ -186,7 +177,7 @@ export default function UsersPage() {
           <p className="text-sm text-muted-foreground">
             {users?.length ?? 0} usuarios ·{' '}
             {roleCounts?.TEACHER ?? 0} docentes ·{' '}
-            {roleCounts?.GUARDIAN ?? 0} tutores
+            {roleCounts?.PRECEPTOR ?? 0} preceptores
           </p>
         </div>
         <Button size="sm" onClick={() => setCreateDialog(true)}>
@@ -206,9 +197,11 @@ export default function UsersPage() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
+
+        {/* Filtro por rol principal */}
         <Select value={filterRole} onValueChange={setFilterRole}>
           <SelectTrigger className="w-44">
-            <SelectValue placeholder="Filtrar por rol" />
+            <SelectValue placeholder="Rol principal" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos los roles</SelectItem>
@@ -220,6 +213,36 @@ export default function UsersPage() {
             <SelectItem value="GUARDIAN">Tutores</SelectItem>
           </SelectContent>
         </Select>
+
+        {/* Filtro por nivel (UserLevelRole) */}
+        <Select value={filterLevel} onValueChange={(v) => { setFilterLevel(v); setFilterLvlRole('all'); }}>
+          <SelectTrigger className="w-40">
+            <SelectValue placeholder="Nivel" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos los niveles</SelectItem>
+            {LEVELS.map((l) => (
+              <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {/* Filtro por rol en nivel */}
+        <Select
+          value={filterLvlRole}
+          onValueChange={setFilterLvlRole}
+          disabled={filterLevel === 'all'}
+        >
+          <SelectTrigger className="w-40">
+            <SelectValue placeholder="Rol en nivel" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos los roles</SelectItem>
+            {LEVEL_ROLES.map((r) => (
+              <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Tabla */}
@@ -228,7 +251,8 @@ export default function UsersPage() {
           <TableHeader>
             <TableRow>
               <TableHead>Usuario</TableHead>
-              <TableHead>Rol</TableHead>
+              <TableHead>Rol principal</TableHead>
+              <TableHead>Niveles</TableHead>
               <TableHead>Estado</TableHead>
               <TableHead>Último acceso</TableHead>
               <TableHead className="w-8" />
@@ -237,13 +261,13 @@ export default function UsersPage() {
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                   Cargando...
                 </TableCell>
               </TableRow>
             ) : filtered?.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                   No se encontraron usuarios
                 </TableCell>
               </TableRow>
@@ -274,6 +298,12 @@ export default function UsersPage() {
                         {roleLabels[user.role] ?? user.role}
                       </Badge>
                     </TableCell>
+
+                    {/* ── Columna niveles ── */}
+                    <TableCell>
+                      <LevelRolesBadges levelRoles={(user as any).levelRoles ?? []} />
+                    </TableCell>
+
                     <TableCell>
                       <StatusBadge status={user.status} leaveStartDate={(user as any).leaveStartDate} />
                     </TableCell>
@@ -291,15 +321,22 @@ export default function UsersPage() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
 
-                          {/* Cambiar contraseña */}
-                          <DropdownMenuItem onClick={() => openResetDialog(user.id, `${user.firstName} ${user.lastName}`)}>
+                          <DropdownMenuItem onClick={() => {
+                            setSelectedUser({ id: user.id, name: `${user.firstName} ${user.lastName}` });
+                            setResetDialog(true);
+                          }}>
                             <KeyRound className="mr-2 h-4 w-4" />
                             Cambiar contraseña
                           </DropdownMenuItem>
 
+                          {/* Roles por nivel */}
+                          <LevelRolesButton
+                            user={{ ...user, levelRoles: (user as any).levelRoles ?? [] }}
+                            canManage={canManageLeave}
+                          />
+
                           <DropdownMenuSeparator />
 
-                          {/* Activar / Desactivar — solo si no está en licencia */}
                           {!isOnLeave && (
                             user.status === 'ACTIVE' ? (
                               <DropdownMenuItem
@@ -319,14 +356,13 @@ export default function UsersPage() {
                             )
                           )}
 
-                          {/* Licencia — solo roles habilitados y usuarios activos o en licencia */}
                           {canManageLeave && !isInactive && (
                             <>
                               {!isOnLeave && <DropdownMenuSeparator />}
                               {isOnLeave ? (
                                 <DropdownMenuItem
                                   className="text-emerald-600 focus:text-emerald-600"
-                                  onClick={() => handleRevokeLeave(user.id)}
+                                  onClick={() => revokeLeave.mutate(user.id)}
                                   disabled={revokeLeave.isPending}
                                 >
                                   <RotateCcw className="mr-2 h-4 w-4" />
@@ -335,7 +371,11 @@ export default function UsersPage() {
                               ) : (
                                 <DropdownMenuItem
                                   className="text-amber-600 focus:text-amber-600"
-                                  onClick={() => openLeaveDialog(user.id, `${user.firstName} ${user.lastName}`)}
+                                  onClick={() => {
+                                    setSelectedUser({ id: user.id, name: `${user.firstName} ${user.lastName}` });
+                                    setLeaveStartDate(new Date().toISOString().split('T')[0]);
+                                    setLeaveDialog(true);
+                                  }}
                                 >
                                   <BriefcaseMedical className="mr-2 h-4 w-4" />
                                   Otorgar licencia
@@ -343,7 +383,6 @@ export default function UsersPage() {
                               )}
                             </>
                           )}
-
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
@@ -358,16 +397,13 @@ export default function UsersPage() {
       {/* Dialog crear usuario */}
       <Dialog open={createDialog} onOpenChange={setCreateDialog}>
         <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Nuevo usuario</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>Nuevo usuario</DialogTitle></DialogHeader>
           <Form {...createForm}>
             <form onSubmit={createForm.handleSubmit(onCreateUser)} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <FormField control={createForm.control} name="firstName"
                   render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Nombre</FormLabel>
+                    <FormItem><FormLabel>Nombre</FormLabel>
                       <FormControl><Input {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
@@ -375,8 +411,7 @@ export default function UsersPage() {
                 />
                 <FormField control={createForm.control} name="lastName"
                   render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Apellido</FormLabel>
+                    <FormItem><FormLabel>Apellido</FormLabel>
                       <FormControl><Input {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
@@ -385,8 +420,7 @@ export default function UsersPage() {
               </div>
               <FormField control={createForm.control} name="email"
                 render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
+                  <FormItem><FormLabel>Email</FormLabel>
                     <FormControl><Input type="email" {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
@@ -394,8 +428,7 @@ export default function UsersPage() {
               />
               <FormField control={createForm.control} name="password"
                 render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Contraseña</FormLabel>
+                  <FormItem><FormLabel>Contraseña</FormLabel>
                     <FormControl><Input type="password" {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
@@ -403,12 +436,9 @@ export default function UsersPage() {
               />
               <FormField control={createForm.control} name="role"
                 render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Rol</FormLabel>
+                  <FormItem><FormLabel>Rol principal</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                      </FormControl>
+                      <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                       <SelectContent>
                         <SelectItem value="ADMIN">Administrador</SelectItem>
                         <SelectItem value="DIRECTOR">Director</SelectItem>
@@ -424,17 +454,14 @@ export default function UsersPage() {
               />
               <FormField control={createForm.control} name="phone"
                 render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Teléfono (opcional)</FormLabel>
+                  <FormItem><FormLabel>Teléfono (opcional)</FormLabel>
                     <FormControl><Input placeholder="+54 11 1234-5678" {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
               <div className="flex justify-end gap-2 pt-2">
-                <Button type="button" variant="outline" onClick={() => setCreateDialog(false)}>
-                  Cancelar
-                </Button>
+                <Button type="button" variant="outline" onClick={() => setCreateDialog(false)}>Cancelar</Button>
                 <Button type="submit" disabled={createUser.isPending}>
                   {createUser.isPending ? 'Guardando...' : 'Crear usuario'}
                 </Button>
@@ -447,15 +474,12 @@ export default function UsersPage() {
       {/* Dialog reset password */}
       <Dialog open={resetDialog} onOpenChange={setResetDialog}>
         <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Cambiar contraseña</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>Cambiar contraseña</DialogTitle></DialogHeader>
           <Form {...resetForm}>
             <form onSubmit={resetForm.handleSubmit(onResetPassword)} className="space-y-4">
               <FormField control={resetForm.control} name="password"
                 render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Nueva contraseña</FormLabel>
+                  <FormItem><FormLabel>Nueva contraseña</FormLabel>
                     <FormControl><Input type="password" {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
@@ -463,17 +487,14 @@ export default function UsersPage() {
               />
               <FormField control={resetForm.control} name="confirm"
                 render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Confirmar contraseña</FormLabel>
+                  <FormItem><FormLabel>Confirmar contraseña</FormLabel>
                     <FormControl><Input type="password" {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
               <div className="flex justify-end gap-2 pt-2">
-                <Button type="button" variant="outline" onClick={() => setResetDialog(false)}>
-                  Cancelar
-                </Button>
+                <Button type="button" variant="outline" onClick={() => setResetDialog(false)}>Cancelar</Button>
                 <Button type="submit" disabled={resetPassword.isPending}>
                   {resetPassword.isPending ? 'Guardando...' : 'Actualizar'}
                 </Button>
@@ -483,29 +504,22 @@ export default function UsersPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Dialog otorgar licencia */}
+      {/* Dialog licencia */}
       <Dialog open={leaveDialog} onOpenChange={setLeaveDialog}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>Otorgar licencia</DialogTitle>
             <DialogDescription>
-              {selectedUser?.name} quedará en licencia y no podrá realizar cambios
-              hasta que se revoque.
+              {selectedUser?.name} quedará en licencia y no podrá realizar cambios.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 pt-1">
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Fecha de inicio</label>
-              <Input
-                type="date"
-                value={leaveStartDate}
-                onChange={(e) => setLeaveStartDate(e.target.value)}
-              />
+              <Input type="date" value={leaveStartDate} onChange={(e) => setLeaveStartDate(e.target.value)} />
             </div>
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setLeaveDialog(false)}>
-                Cancelar
-              </Button>
+              <Button variant="outline" onClick={() => setLeaveDialog(false)}>Cancelar</Button>
               <Button
                 onClick={handleGrantLeave}
                 disabled={!leaveStartDate || grantLeave.isPending}
