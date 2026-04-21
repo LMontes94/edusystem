@@ -10,12 +10,14 @@ import {
   InviteUserDto, UpdatePlanDto,
 } from './dto/institution.dto';
 import { randomBytes } from 'crypto';
-
+import { StorageService } from '../storage/storage.service';
 @Injectable()
 export class InstitutionsService {
   private readonly logger = new Logger(InstitutionsService.name);
-
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+         private readonly prisma:   PrismaService,
+         private readonly storage:  StorageService,
+     ) {}
 
   // ── Crear institución + primer ADMIN ──────────
   async create(dto: CreateInstitutionDto) {
@@ -327,5 +329,44 @@ export class InstitutionsService {
       recentGrades,
       recentAnnouncements,
     };
+  }
+
+  async uploadLogo(
+    id:          string,
+    file:        Express.Multer.File,
+    user:        RequestUser,
+  ): Promise<{ logoUrl: string }> {
+    if (user.role !== 'SUPER_ADMIN' && user.institutionId !== id) {
+      throw new ForbiddenException();
+    }
+   
+    const institution = await this.prisma.institution.findUnique({ where: { id } });
+    if (!institution) throw new NotFoundException('Institución no encontrada');
+   
+    // Eliminar logo anterior si existe
+    if (institution.logoUrl) {
+      await this.storage.deleteFile(institution.logoUrl);
+    }
+   
+    const filename   = this.storage.generateFilename(file.originalname);
+    const objectName = await this.storage.uploadFile('logos', filename, file.buffer, file.mimetype);
+   
+    await this.prisma.institution.update({
+      where: { id },
+      data:  { logoUrl: objectName },
+    });
+   
+    const url = await this.storage.getFileUrl(objectName);
+    return { logoUrl: url };
+  }
+   
+  async getLogoUrl(id: string): Promise<{ url: string | null }> {
+    const institution = await this.prisma.institution.findUnique({
+      where:  { id },
+      select: { logoUrl: true },
+    });
+    if (!institution?.logoUrl) return { url: null };
+    const url = await this.storage.getFileUrl(institution.logoUrl);
+    return { url };
   }
 }

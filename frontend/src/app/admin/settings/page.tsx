@@ -22,6 +22,7 @@ import {
   Plus, Trash2, Copy, Check, UserPlus, Clock,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { LogoUpload } from '@/components/logo-upload';
 
 const planConfig = {
   FREE:       { label: 'Gratuito',   color: 'bg-gray-100 text-gray-700'     },
@@ -64,8 +65,9 @@ function GeneralTab({ institution, onSave }: { institution: any; onSave: (data: 
     });
   }
 
-  return (
+  return (    
     <div className="space-y-4 max-w-lg">
+      <LogoUpload institutionId={institution.id}/>
       <div className="space-y-1.5">
         <label className="text-sm font-medium">Nombre de la institución</label>
         <Input value={name} onChange={(e) => setName(e.target.value)} />

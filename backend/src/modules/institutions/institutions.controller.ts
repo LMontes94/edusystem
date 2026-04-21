@@ -17,6 +17,10 @@ import { CheckAbility }                         from '../casl/decorators/check-a
 import { Action }                               from '../casl/casl.types';
 import { SkipLeaveCheck }                       from '../../common/guards/on-leave.guard';
 import { z }                                    from 'zod';
+import { UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
+ 
 
 const AcceptInvitationSchema = z.object({
   token:     z.string().min(1),
@@ -136,4 +140,33 @@ export class InstitutionsController {
   getStats(@Param('id') id: string) {
     return this.institutionsService.getStats(id);
   }
+
+  @Post(':id/logo')
+@CheckAbility({ action: Action.Update, subject: 'Institution' })
+@UseInterceptors(FileInterceptor('file', {
+  storage: memoryStorage(),
+  limits:  { fileSize: 2 * 1024 * 1024 }, // 2MB
+  fileFilter: (_req, file, cb) => {
+    if (!file.mimetype.startsWith('image/')) {
+      return cb(new BadRequestException('Solo se permiten imágenes'), false);
+    }
+    cb(null, true);
+  },
+}))
+@ApiOperation({ summary: 'Subir logo de la institución' })
+async uploadLogo(
+  @Param('id')    id:   string,
+  @UploadedFile() file: Express.Multer.File,
+  @CurrentUser()  user: RequestUser,
+) {
+  if (!file) throw new BadRequestException('No se recibió ningún archivo');
+  return this.institutionsService.uploadLogo(id, file, user);
+}
+ 
+@Get(':id/logo-url')
+@CheckAbility({ action: Action.Read, subject: 'Institution' })
+@ApiOperation({ summary: 'Obtener URL del logo' })
+getLogoUrl(@Param('id') id: string) {
+  return this.institutionsService.getLogoUrl(id);
+}
 }
