@@ -1,32 +1,36 @@
 'use client';
 
-import Link            from 'next/link';
-import { signOut }     from 'next-auth/react';
-import { useQuery }    from '@tanstack/react-query';
-import { useSession }  from 'next-auth/react';
-import { api }         from '@/lib/api';
+// src/components/layouts/app-header.tsx
+
+import Link           from 'next/link';
+import { signOut }    from 'next-auth/react';
+import { useQuery }   from '@tanstack/react-query';
+import { api }        from '@/lib/api';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Button } from '@/components/ui/button';
+import { Button }     from '@/components/ui/button';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Menu, User, Settings, LogOut } from 'lucide-react';
+import { Session }          from 'next-auth';
 import { NotificationBell } from '@/components/notification-bell';
 
-interface HeaderProps {
+interface Props {
+  session:          Session | null;
   onMobileMenuOpen: () => void;
 }
 
-export function AdminHeader({ onMobileMenuOpen }: HeaderProps) {
-  const { data: session } = useSession();
+export function AppHeader({ session, onMobileMenuOpen }: Props) {
+  const role    = (session?.user as any)?.role as string | undefined;
+  const isAdmin = ['ADMIN', 'DIRECTOR', 'SECRETARY'].includes(role ?? '');
 
   const initials = session?.user?.name
     ?.split(' ')
     .map((n) => n[0])
     .slice(0, 2)
     .join('')
-    .toUpperCase() ?? 'AD';
+    .toUpperCase() ?? '??';
 
   const { data: avatarData } = useQuery({
     queryKey: ['avatar', session?.user?.id],
@@ -39,22 +43,14 @@ export function AdminHeader({ onMobileMenuOpen }: HeaderProps) {
 
   return (
     <header className="flex h-14 items-center gap-4 border-b bg-background px-4 shrink-0">
-      {/* Botón mobile */}
-      <Button
-        variant="ghost"
-        size="icon"
-        className="md:hidden"
-        onClick={onMobileMenuOpen}
-      >
+      <Button variant="ghost" size="icon" className="md:hidden" onClick={onMobileMenuOpen}>
         <Menu className="h-5 w-5" />
       </Button>
 
       <div className="flex-1" />
 
-      {/* Campana */}
       <NotificationBell />
 
-      {/* Avatar + menú */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" className="flex items-center gap-2 px-2">
@@ -81,13 +77,17 @@ export function AdminHeader({ onMobileMenuOpen }: HeaderProps) {
               Mi perfil
             </Link>
           </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem asChild>
-            <Link href="/admin/settings" className="cursor-pointer">
-              <Settings className="mr-2 h-4 w-4" />
-              Configuración
-            </Link>
-          </DropdownMenuItem>
+          {isAdmin && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link href="/admin/settings" className="cursor-pointer">
+                  <Settings className="mr-2 h-4 w-4" />
+                  Configuración
+                </Link>
+              </DropdownMenuItem>
+            </>
+          )}
           <DropdownMenuSeparator />
           <DropdownMenuItem
             className="text-destructive cursor-pointer"

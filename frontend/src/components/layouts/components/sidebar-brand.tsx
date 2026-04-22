@@ -1,9 +1,8 @@
 'use client';
 
-// src/components/sidebar-brand.tsx
-// Muestra el logo de la institución si existe, sino las iniciales.
+// src/components/layouts/sidebar-brand.tsx
 
-import Image      from 'next/image';
+import Image        from 'next/image';
 import { useQuery } from '@tanstack/react-query';
 import { api }      from '@/lib/api';
 import { Session }  from 'next-auth';
@@ -32,24 +31,31 @@ function useInstitutionName(institutionId: string | null | undefined) {
   });
 }
 
-interface SidebarBrandProps {
-  session:   Session | null;
-  subtitle?: string; // ej: "Panel administrativo" o "Panel del docente"
+const subtitleByRole: Record<string, string> = {
+  ADMIN:     'Panel administrativo',
+  DIRECTOR:  'Panel directivo',
+  SECRETARY: 'Panel secretaría',
+  PRECEPTOR: 'Panel preceptoría',
+  TEACHER:   'Panel del docente',
+};
+
+interface Props {
+  session: Session | null;
 }
 
-export function SidebarBrand({ session, subtitle = 'Panel administrativo' }: SidebarBrandProps) {
+export function SidebarBrand({ session }: Props) {
   const institutionId = (session?.user as any)?.institutionId;
+  const role          = (session?.user as any)?.role as string | undefined;
 
   const { data: logoData } = useInstitutionLogo(institutionId);
   const { data: nameData } = useInstitutionName(institutionId);
 
   const logoUrl  = logoData?.url  ?? null;
   const instName = nameData?.name ?? 'EduSystem';
-  const initials = instName.slice(0, 2).toUpperCase();
+  const subtitle = subtitleByRole[role ?? ''] ?? 'Panel';
 
   return (
     <div className="flex items-center gap-3 px-4 py-3">
-      {/* Escudo / logo */}
       <div className="h-9 w-9 rounded-md border bg-muted/50 flex items-center justify-center shrink-0 overflow-hidden">
         {logoUrl ? (
           <Image
@@ -61,11 +67,11 @@ export function SidebarBrand({ session, subtitle = 'Panel administrativo' }: Sid
             unoptimized
           />
         ) : (
-          <span className="text-xs font-bold text-muted-foreground">{initials}</span>
+          <span className="text-xs font-bold text-muted-foreground">
+            {instName.slice(0, 2).toUpperCase()}
+          </span>
         )}
       </div>
-
-      {/* Nombre + subtítulo */}
       <div className="min-w-0">
         <p className="text-sm font-semibold truncate leading-tight">{instName}</p>
         <p className="text-xs text-muted-foreground leading-tight">{subtitle}</p>
