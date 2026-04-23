@@ -7,8 +7,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
-import { Users, Download } from 'lucide-react';
+import { Users } from 'lucide-react';
 import { useExportCourseStudents } from '@/lib/api/courses';
+import { ExportStudentsDropdown } from './export-students-dropdown';
 
 interface CourseStudent {
   status:  string;
@@ -25,16 +26,16 @@ export function CourseStudentsCard({ courseId, courseName, students }: Props) {
   const exportStudents = useExportCourseStudents();
   const active         = students.filter((cs) => cs.status === 'ACTIVE');
 
-  function handleExport() {
+  function handleExport(format: 'csv' | 'xlsx') {
     exportStudents.mutate({
-      courseId,
       courseName,
       students: active.map((cs) => ({
-        firstName:      cs.student.firstName,
-        lastName:       cs.student.lastName,
+        firstName: cs.student.firstName,
+        lastName: cs.student.lastName,
         documentNumber: cs.student.documentNumber,
-        status:         cs.status,
+        status: cs.status,
       })),
+      format,
     });
   }
 
@@ -47,14 +48,11 @@ export function CourseStudentsCard({ courseId, courseName, students }: Props) {
             Alumnos ({active.length})
           </CardTitle>
           {active.length > 0 && (
-            <Button
-              size="sm" variant="outline"
-              onClick={handleExport}
-              disabled={exportStudents.isPending}
-            >
-              <Download className="h-3.5 w-3.5 mr-1.5" />
-              Exportar Excel
-            </Button>
+            <ExportStudentsDropdown
+            onExportCSV={() => handleExport('csv')}
+            onExportXLSX={() => handleExport('xlsx')}
+            isLoading={exportStudents.isPending}
+          />
           )}
         </div>
       </CardHeader>

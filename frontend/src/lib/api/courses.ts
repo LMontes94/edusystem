@@ -3,6 +3,13 @@ import { api } from '@/lib/api';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { SchoolYear, CreateCourseForm, CreateSchoolYearForm, CreatePeriodForm } from '@/app/admin/courses/_components/courses.types';
+import {
+  mapStudentsForExport,
+} from '@/lib/helpers/export.helpers';
+
+import { exportToCSV } from '@/lib/helpers/export.csv';
+
+type ExportFormat = 'csv' | 'xlsx';
 
 export interface Course {
   id:           string;
@@ -109,6 +116,18 @@ export function useCreateCourse() {
   });
 }
  
+// ── Detalle de un curso ───────────────────────
+export function useCourseDetail(id: string) {
+  return useQuery({
+    queryKey: ['courses', id],
+    queryFn:  async () => {
+      const res = await api.get(`/courses/${id}`);
+      return res.data;
+    },
+    enabled: !!id,
+  });
+}
+
 // ── Asignar materia al curso ──────────────────
 export function useAssignSubject(courseId: string) {
   const queryClient = useQueryClient();
@@ -144,41 +163,40 @@ export function useRemoveSubject(courseId: string) {
 }
  
 // ── Export Excel alumnos del curso ────────────
+
 export function useExportCourseStudents() {
   return useMutation({
     mutationFn: async ({
-      courseId,
       courseName,
       students,
+      format = 'xlsx',
     }: {
-      courseId:   string;
       courseName: string;
-      students:   { firstName: string; lastName: string; documentNumber: string; status: string }[];
+      students: {
+        firstName: string;
+        lastName: string;
+        documentNumber: string;
+        status: string;
+      }[];
+      format?: ExportFormat;
     }) => {
-      // Construir CSV y convertir a Excel-compatible usando blob
-      const headers = ['Apellido', 'Nombre', 'DNI', 'Estado'];
-      const rows    = students.map((s) => [
-        s.lastName,
-        s.firstName,
-        s.documentNumber,
-        s.status === 'ACTIVE' ? 'Activo' : s.status,
-      ]);
- 
-      // BOM para que Excel lo abra con tildes correctamente
-      const bom  = '\uFEFF';
-      const csv  = bom + [headers, ...rows]
-        .map((r) => r.map((cell) => `"${cell}"`).join(','))
-        .join('\n');
- 
-      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-      const url  = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href     = url;
-      link.download = `alumnos_${courseName.replace(/\s+/g, '_')}.csv`;
-      link.click();
-      URL.revokeObjectURL(url);
+      const data = mapStudentsForExport(students);
+      const filename = `alumnos_${courseName.replace(/\s+/g, '_')}`;
+
+      if (data.length === 0) {
+        throw new Error('No hay datos para exportar');
+      }
+
+      if (format === 'csv') {
+        exportToCSV(data, filename);
+      } else {
+        // 🔥 Lazy load XLSX (optimización real)
+        const { exportToXLSX } = await import('@/lib/helpers/export.xlsx');
+        exportToXLSX(data, filename);
+      }
     },
+
     onSuccess: () => toast.success('Archivo descargado'),
-    onError:   () => toast.error('Error al exportar'),
+    onError: () => toast.error('Error al exportar'),
   });
 }
