@@ -15,7 +15,7 @@ import {
 } from '../../../templates/report.templates';
 import { pendingSubjectsTemplate } from '../../../templates/pending.template';
 import { convivenciasTemplate } from '../../../templates/convivencias.template';
-import archiver from 'archiver';
+import * as archiver from 'archiver';
 import { Readable } from 'stream';
 
 // ──────────────────────────────────────────────
@@ -99,7 +99,24 @@ export class ReportsService {
       await browser.close();
     }
   }
-
+  
+  private async generatePdfWithBrowser(
+  html:    string,
+  browser: import('puppeteer').Browser,
+): Promise<Buffer> {
+  const page = await browser.newPage();
+  try {
+    await page.setContent(html, { waitUntil: 'networkidle0', timeout: 60000 });
+    const pdf = await page.pdf({
+      format:          'A4',
+      printBackground: true,
+      margin: { top: '10mm', bottom: '10mm', left: '10mm', right: '10mm' },
+    });
+    return Buffer.from(pdf);
+  } finally {
+    await page.close(); // cerrar la página pero NO el browser
+  }
+}
   // ── Boletín de secundaria — un alumno ────────
   async generateSecondaryReport(
     studentId:     string,
@@ -129,32 +146,29 @@ export class ReportsService {
       orderBy: { student: { lastName: 'asc' } },
     });
 
-    // Generar PDFs en paralelo (máximo 5 a la vez para no sobrecargar)
-    const chunks = [];
-    for (let i = 0; i < enrollments.length; i += 5) {
-      chunks.push(enrollments.slice(i, i + 5));
-    }
+    const puppeteer = await import('puppeteer');
+    const browser   = await puppeteer.default.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    });
 
     const allPdfs: { buffer: Buffer; filename: string }[] = [];
 
-    for (const chunk of chunks) {
-      const pdfs = await Promise.all(
-        chunk.map(async (e) => {
-          const data     = await this.buildSecondaryData(e.studentId, institutionId, schoolYearId);
-          const html     = secondaryGradesTemplate(data, config);
-          const buffer   = await this.generatePdf(html);
-          const filename = this.buildFilename('boletin', data.student, data.course, data.schoolYear);
-
-          return { buffer, filename };
-        }),
-      );
-      allPdfs.push(...pdfs);
+    try{
+      for(const enrollment of enrollments){
+        const data = await this.buildSecondaryData(enrollment.studentId,institutionId,schoolYearId);
+        const html = secondaryGradesTemplate(data,config);
+        const buffer = await this.generatePdfWithBrowser(html,browser);
+        const filename = this.buildFilename('boletin',data.student,data.course,data.schoolYear);
+        allPdfs.push({buffer,filename});
+      }
+    }finally{
+      await browser.close();
     }
-
     // Empaquetar en ZIP
     return this.createZip(allPdfs);
+  
   }
-
   // ── Informe cualitativo — un alumno ──────────
   async generatePrimaryReport(
     studentId:     string,
@@ -183,23 +197,26 @@ export class ReportsService {
       include: { student: true },
       orderBy: { student: { lastName: 'asc' } },
     });
+    
+    const puppeteer = await import('puppeteer');
+    const browser   = await puppeteer.default.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    });
 
     const allPdfs: { buffer: Buffer; filename: string }[] = [];
 
-    for (let i = 0; i < enrollments.length; i += 5) {
-      const chunk = enrollments.slice(i, i + 5);
-      const pdfs  = await Promise.all(
-        chunk.map(async (e) => {
-          const data     = await this.buildPrimaryData(e.studentId, institutionId, schoolYearId);
-          const html     = primaryQualitativeTemplate(data, config);
-          const buffer   = await this.generatePdf(html);
-          const filename = this.buildFilename('boletin', data.student, data.course, data.schoolYear);
-          return { buffer, filename };
-        }),
-      );
-      allPdfs.push(...pdfs);
+    try {    
+      for (const enrollment of enrollments) {
+        const data     = await this.buildPrimaryData(enrollment.studentId, institutionId, schoolYearId);
+        const html     = primaryQualitativeTemplate(data, config);
+        const buffer   = await this.generatePdfWithBrowser(html, browser);
+        const filename = this.buildFilename('boletin', data.student, data.course, data.schoolYear);
+        allPdfs.push({ buffer, filename });
+      }
+    } finally {
+    await browser.close(); 
     }
-
     return this.createZip(allPdfs);
   }
 
