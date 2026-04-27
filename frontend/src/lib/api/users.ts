@@ -26,11 +26,28 @@ export interface CreateUserDto {
   phone?:    string;
 }
 
-export function useUsers() {
-  return useQuery({
-    queryKey: ['users'],
+// ── Usuario individual ────────────────────────
+export function useUser(id: string) {
+  return useQuery<User>({
+    queryKey: ['users', id],
     queryFn:  async () => {
-      const res = await api.get<User[]>('/users');
+      const res = await api.get<User>(`/users/${id}`);
+      return res.data;
+    },
+    enabled: !!id,
+  });
+}
+
+// ── Listar todos ──────────────────────────────
+export function useUsers(filters?: { level?: string; role?: string }) {
+  const params: any = {};
+  if (filters?.level) params.level = filters.level;
+  if (filters?.role)  params.role  = filters.role;
+ 
+  return useQuery<User[]>({
+    queryKey: ['users', filters],
+    queryFn:  async () => {
+      const res = await api.get<User[]>('/users', { params });
       return res.data;
     },
   });
@@ -57,27 +74,53 @@ export function useCreateUser() {
   });
 }
 
+// ── Toggle estado activo/inactivo ─────────────
 export function useToggleUserStatus() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: 'ACTIVE' | 'INACTIVE' }) => {
-      const res = await api.patch<User>(`/users/${id}`, { status });
+    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      const res = await api.patch(`/users/${id}`, { status });
       return res.data;
     },
-    onSuccess: (user) => {
+    onSuccess: (_, { id }) => {
+      queryClient.invalidateQueries({ queryKey: ['users', id] });
       queryClient.invalidateQueries({ queryKey: ['users'] });
-      toast.success(`Usuario ${user.status === 'ACTIVE' ? 'activado' : 'desactivado'}`);
+      toast.success('Estado actualizado');
     },
-    onError: () => toast.error('Error al cambiar el estado del usuario'),
+    onError: () => toast.error('Error al actualizar el estado'),
   });
 }
 
+// ── Reset password ────────────────────────────
 export function useResetPassword() {
   return useMutation({
     mutationFn: async ({ id, password }: { id: string; password: string }) => {
-      await api.patch(`/users/${id}`, { password });
+      await api.patch(`/users/${id}/password`, {
+        currentPassword: password, // admin reset — el backend lo maneja
+        newPassword:     password,
+      });
     },
     onSuccess: () => toast.success('Contraseña actualizada'),
-    onError:   () => toast.error('Error al actualizar la contraseña'),
+    onError:   () => toast.error('Error al cambiar la contraseña'),
+  });
+}
+
+// ── Actualizar usuario ────────────────────────
+export function useUpdateUser() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, data }: {
+      id:   string;
+      data: { firstName?: string; lastName?: string; phone?: string };
+    }) => {
+      const res = await api.patch(`/users/${id}`, data);
+      return res.data;
+    },
+    onSuccess: (_, { id }) => {
+      queryClient.invalidateQueries({ queryKey: ['users', id] });
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      toast.success('Usuario actualizado');
+    },
+    onError: () => toast.error('Error al actualizar el usuario'),
   });
 }

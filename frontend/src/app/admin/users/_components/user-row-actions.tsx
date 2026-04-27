@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useState }  from 'react';
 import { Button }    from '@/components/ui/button';
 import {
@@ -7,7 +8,7 @@ import {
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
-  MoreHorizontal, KeyRound, UserX, UserCheck, BriefcaseMedical, RotateCcw,
+  MoreHorizontal, KeyRound, UserX, UserCheck, BriefcaseMedical, RotateCcw, UserRoundCog
 } from 'lucide-react';
 import { useToggleUserStatus } from '@/lib/api/users';
 import { useRevokeLeave }      from '@/lib/api/users-leave';
@@ -48,6 +49,12 @@ export function UserRowActions({ user, currentRole }: Props) {
             Cambiar contraseña
           </DropdownMenuItem>
 
+          <DropdownMenuItem asChild>
+            <Link href={`/admin/users/${user.id}`}>
+              <UserRoundCog className="mr-2 h-4 w-4" />
+                Ver perfil
+            </Link>
+          </DropdownMenuItem>
           <LevelRolesButton
             user={{ ...user, levelRoles: user.levelRoles ?? [] }}
             canManage={canManageLeave}
