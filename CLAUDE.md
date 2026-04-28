@@ -46,7 +46,7 @@ Monorepo con `backend/` y `frontend/`. Git remote: GitHub (main branch).
 - `announcements` — draft/publish workflow
 - `indicators` — por materia + grado + año lectivo
 - `convivencias` — tipos: observation/warning/reprimand/commendation/suspension/parent_meeting, notificación en suspension y parent_meeting
-- `reports` — PDF con Puppeteer (boletín secundaria, informe primaria, pendientes, convivencias)
+- `reports` — PDF con Puppeteer (boletín secundaria, informe primaria, pendientes, convivencias). Bulk usa browser compartido + serie para evitar timeout
 - `teacher` — temario (múltiples unidades por período), materias pendientes
 - `storage` — MinIO upload/download/delete
 - `casl` — ABAC permissions. Rol efectivo = más alto entre `User.role` y todos sus `UserLevelRole`
@@ -62,6 +62,8 @@ Monorepo con `backend/` y `frontend/`. Git remote: GitHub (main branch).
 - Notificaciones: usar `NotificationQueueService.notify()` — persiste en DB + envía FCM. Nunca llamar a FcmService directamente desde otros módulos.
 - Licencias: `OnLeaveGuard` registrado globalmente bloquea POST/PUT/PATCH/DELETE. Lee el JWT directamente del header (no depende de `request.user`). Rutas exentas: `/auth/*`, `/password`, `/leave`, `/restore`.
 - Jerarquía de roles: `SUPER_ADMIN > ADMIN > DIRECTOR > SECRETARY > PRECEPTOR > TEACHER > GUARDIAN`. Helper: `getHighestRole(roles[])` en `src/common/utils/role-hierarchy.ts`
+- Puppeteer bulk: usar `generatePdfWithBrowser(html, browser)` que reutiliza un browser compartido. Nunca usar `Promise.all` para PDFs en paralelo — procesar en serie con `for...of`.
+- archiver: importar como `import * as archiver from 'archiver'` (CommonJS). Si falla usar `const archiver = require('archiver')`.
 
 ### CASL subjects registrados
 
@@ -84,6 +86,7 @@ Monorepo con `backend/` y `frontend/`. Git remote: GitHub (main branch).
 /admin/courses/[id]           — materias/docentes + alumnos + export CSV
 /admin/subjects
 /admin/users                  — CRUD + licencias + roles por nivel
+/admin/users/[id]             — detalle: avatar, datos personales, roles, estado + acciones
 /admin/grades                 — lista + carga masiva tipo Excel
 /admin/attendance             — tomar lista + historial + justificaciones + actas (tab)
 /admin/attendance-detail      — resumen por alumno + ranking faltas + evolución mensual
@@ -167,7 +170,10 @@ Los hooks van en `src/lib/api/[modulo].ts`.
 - `students/[id]` → cards: datos personales, cursos, tutores
 - `subjects` → dialog único crear/editar
 - `users` → componentes: status badge, crear, reset password, licencia, row actions
+- `users/[id]` → cards: avatar, datos personales, roles por nivel, estado + acciones
+- `grades` → dialog cargar nota + tabla con filtros
 - `indicators` → componentes: filtros, lista con edición inline
+- `reports` → tabs: generar PDF (individual/bulk) + configuración diseño + preview
 
 ---
 
@@ -295,3 +301,5 @@ Se guarda en `Institution.settings`:
 
 - [ ] App móvil para padres (React Native)
 - [ ] Testing end-to-end completo
+- [ ] Módulo de espacios — tabla de espacios físicos (gimnasio, sala de reuniones, laboratorio, etc.) con nombre, capacidad, descripción y disponibilidad
+- [ ] Calendario de reservas de espacios — vista calendario para reservar/gestionar turnos de cada espacio, con control de conflictos y notificaciones
