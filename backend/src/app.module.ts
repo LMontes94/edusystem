@@ -29,6 +29,8 @@ import { ReportsModule } from './modules/reports/reports.module';
 import { IndicatorsModule } from './modules/indicators/indicators.module';
 import { TeacherModule } from './modules/teacher/teacher.module';
 import { ConvivenciasModule } from './modules/convivencias/convivencias.module';
+import { SpacesModule } from './modules/spaces/spaces.module';
+import { SpaceReservationsModule } from './modules/space-reservations/space-reservations.module';
 
 @Module({
   imports: [
@@ -62,6 +64,8 @@ import { ConvivenciasModule } from './modules/convivencias/convivencias.module';
     IndicatorsModule,
     TeacherModule,
     ConvivenciasModule,
+    SpacesModule,
+    SpaceReservationsModule
   ],
   providers:[
     {

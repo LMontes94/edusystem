@@ -57,7 +57,8 @@ export class AbilityFactory {
         can(Action.Create, 'Announcement', inst);
         can(Action.Update, 'Announcement', { institutionId: user.institutionId, authorId: user.id } as any);
         can(Action.Delete, 'Announcement', { institutionId: user.institutionId, authorId: user.id } as any);
-
+        can(Action.Manage,'Space', inst);
+        can(Action.Manage,'SpaceReservation', inst);
         cannot([Action.Create, Action.Update, Action.Delete], 'Grade');
         cannot(Action.Delete, 'User');
         break;
