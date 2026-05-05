@@ -38,6 +38,7 @@ export class SpacesService {
         name: dto.name,
         description: dto.description,
         capacity: dto.capacity,
+        color: dto.color ?? '#6366f1',
         isAvailable: dto.isAvailable ?? true,
       },
     });

@@ -1,7 +1,7 @@
 import {
     LayoutDashboard, Users, GraduationCap, BookOpen,
     ClipboardList, Star, Megaphone, FileText, ClipboardCheck,
-    ListChecks, BookText, Clock, BarChart2, ShieldAlert,
+    ListChecks, BookText, Clock, BarChart2, ShieldAlert,DoorOpenIcon,CalendarIcon 
   } from 'lucide-react';
   
   export interface NavItem {
@@ -20,16 +20,20 @@ import {
     { name: 'Materias',           href: '/admin/subjects',          icon: BookOpen        },
     { name: 'Asistencia',         href: '/admin/attendance',        icon: ClipboardList   },
     { name: 'Detalle asistencia', href: '/admin/attendance-detail', icon: BarChart2       },
-    { name: 'Notas',              href: '/admin/grades',            icon: Star            },
+    
     { name: 'Comunicados',        href: '/admin/announcements',     icon: Megaphone       },
     { name: 'Indicadores',        href: '/admin/indicators',        icon: ListChecks      },
     { name: 'Evaluaciones',       href: '/admin/evaluations',       icon: ClipboardCheck  },
     { name: 'Reportes',           href: '/admin/reports',           icon: FileText        },
     { name: '— Panel del docente —', separator: true },
     { name: 'Temario',            href: '/admin/syllabus',          icon: BookText        },
+    { name: 'Notas',              href: '/admin/grades',            icon: Star            },
     { name: 'Pendientes',         href: '/admin/pending',           icon: Clock           },
     { name: '— Convivencia —',    separator: true },
     { name: 'Convivencia',        href: '/admin/convivencias',      icon: ShieldAlert     },
+    { name: '— —',    separator: true },
+    { name: 'Espacios Institucionales',href:  '/admin/space',      icon: DoorOpenIcon     },
+    { name: 'Calendario',       href:  '/admin/space-reservation',icon: CalendarIcon     },
   ];
   
   // ── Preceptor ─────────────────────────────────

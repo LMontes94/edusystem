@@ -6,6 +6,7 @@ export const CreateSpaceSchema = z.object({
   name: z.string().min(1).max(100),
   description: z.string().max(500).optional(),
   capacity: z.number().int().min(1),
+  color: z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Color debe ser hex válido (ej: #6366f1)').optional().default('#6366f1'),
   isAvailable: z.boolean().optional().default(true),
 });
 

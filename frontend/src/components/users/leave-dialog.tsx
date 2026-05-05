@@ -28,7 +28,6 @@ interface User {
 
 interface Props {
   user: User;
-  /** Roles que pueden ver este control — validar también en backend */
   canManage: boolean;
 }
 
