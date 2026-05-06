@@ -59,6 +59,8 @@ export class AbilityFactory {
         can(Action.Delete, 'Announcement', { institutionId: user.institutionId, authorId: user.id } as any);
         can(Action.Manage,'Space', inst);
         can(Action.Manage,'SpaceReservation', inst);
+        can(Action.Manage, 'Sport');
+        can(Action.Manage, 'SportGroup', inst);
         cannot([Action.Create, Action.Update, Action.Delete], 'Grade');
         cannot(Action.Delete, 'User');
         break;
@@ -79,7 +81,9 @@ export class AbilityFactory {
         can(Action.Update, 'Announcement', { institutionId: user.institutionId, authorId: user.id } as any);
         can(Action.Delete, 'Announcement', { institutionId: user.institutionId, authorId: user.id } as any);
         can(Action.Manage, 'Convivencia');
-
+        can(Action.Read,'Sport', inst);
+        can(Action.Read,'SportGroup', inst);
+        can(Action.Update,'SportGroup', inst);
         cannot([Action.Create, Action.Update, Action.Delete], 'User');
         cannot([Action.Create, Action.Update, Action.Delete], 'Grade');
         cannot([Action.Create, Action.Update, Action.Delete], 'Course');
@@ -98,7 +102,9 @@ export class AbilityFactory {
           institutionId: user.institutionId,
           authorId:      user.id,
         } as any);
-
+        can(Action.Read,'Sport', inst);
+        can(Action.Read,'SportGroup', inst);
+        
         cannot([Action.Create, Action.Update, Action.Delete], 'User');
         cannot([Action.Create, Action.Update, Action.Delete], 'Student');
         cannot(Action.Manage, 'Institution');

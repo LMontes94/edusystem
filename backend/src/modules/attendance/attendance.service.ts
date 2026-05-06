@@ -65,10 +65,11 @@ export class AttendanceService {
 
     return this.prisma.attendance.upsert({
       where: {
-        studentId_courseId_date: {
+        studentId_courseId_date_sportGroupId: {
           studentId: dto.studentId,
           courseId: dto.courseId,
           date: new Date(dto.date),
+          sportGroupId: null,
         },
       },
       create: {
@@ -98,10 +99,11 @@ export class AttendanceService {
       dto.records.map((record) =>
         this.prisma.attendance.upsert({
           where: {
-            studentId_courseId_date: {
+            studentId_courseId_date_sportGroupId: {
               studentId: record.studentId,
               courseId: dto.courseId,
               date,
+              sportGroupId: null,
             },
           },
           create: {

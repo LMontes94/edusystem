@@ -170,6 +170,8 @@ model Institution {
   absenceRecords  AbsenceRecord[]
   spaces       Space[]
   spaceReservations SpaceReservation[]
+  sports      Sport[]
+  sportGroups SportGroup[]
 
   @@index([domain])
   @@index([status])
@@ -231,6 +233,7 @@ model User {
   justificationReviews Justification[] @relation("JustificationReviewer")
   levelRoles UserLevelRole[]
   spaceReservations SpaceReservation[]
+  sportGroupsAsTeacher SportGroupTeacher[]
   
   @@unique([email, institutionId])
 
@@ -320,6 +323,7 @@ model SchoolYear {
   periods     Period[]
   indicators  Indicator[]
   pendingSubjects PendingSubject[]
+  sportGroups SportGroup[]
 
   @@unique([institutionId, year]) // cada institución tiene su propio ciclo lectivo
   @@index([institutionId])
@@ -423,6 +427,7 @@ model Student {
   convivencias Convivencia[]
   justifications  Justification[]
   absenceRecords  AbsenceRecord[]
+  sportGroups SportGroupStudent[]
 
   @@unique([institutionId, documentNumber]) // DNI único por institución (no global)
   @@index([institutionId])
@@ -511,6 +516,7 @@ model Attendance {
   id            String           @id @default(uuid())
   studentId     String           @map("student_id")
   courseId      String           @map("course_id")
+  sportGroupId  String?          @map("sport_group_id")
   date          DateTime         @db.Date
   status        AttendanceStatus
   arrivalTime   DateTime?        @map("arrival_time") @db.Time
@@ -519,12 +525,14 @@ model Attendance {
 
   student             Student        @relation(fields: [studentId], references: [id])
   course              Course         @relation(fields: [courseId], references: [id])
+  sportGroup          SportGroup?    @relation(fields: [sportGroupId], references: [id])
   recordedBy          User           @relation("RecordedBy", fields: [recordedById], references: [id])
   justificationRecord Justification? @relation("AttendanceJustification")
 
-  @@unique([studentId, courseId, date])
+  @@unique([studentId, courseId, date, sportGroupId])
   @@index([date])
   @@index([studentId])
+  @@index([sportGroupId])
   @@map("attendances")
 }
 
@@ -849,4 +857,57 @@ model SpaceReservation {
   user        User        @relation(fields: [userId], references: [id])
 
   @@map("space_reservations")
+}
+
+model Sport {
+  id            String       @id @default(cuid())
+  institutionId String       @map("institution_id")
+  name          String       
+  deletedAt     DateTime?    @map("deleted_at")
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
+
+  institution   Institution  @relation(fields: [institutionId], references: [id])
+  groups        SportGroup[]
+
+  @@map("sports")
+}
+
+model SportGroup {
+  id            String    @id @default(cuid())
+  institutionId String    @map("institution_id")
+  sportId       String    @map("sport_id")
+  schoolYearId  String    @map("school_year_id")
+  name          String    
+
+  institution   Institution         @relation(fields: [institutionId], references: [id])
+  sport         Sport               @relation(fields: [sportId], references: [id])
+  schoolYear    SchoolYear          @relation(fields: [schoolYearId], references: [id])
+  teachers      SportGroupTeacher[]
+  students      SportGroupStudent[]
+  attendances   Attendance[]
+
+  @@map("sport_groups")
+}
+
+model SportGroupTeacher {
+  sportGroupId  String   @map("sport_group_id")
+  userId        String   @map("user_id")
+
+  sportGroup    SportGroup @relation(fields: [sportGroupId], references: [id])
+  user          User       @relation(fields: [userId], references: [id])
+
+  @@id([sportGroupId, userId])
+  @@map("sport_group_teachers")
+}
+
+model SportGroupStudent {
+  sportGroupId  String   @map("sport_group_id")
+  studentId     String   @map("student_id")
+
+  sportGroup    SportGroup @relation(fields: [sportGroupId], references: [id])
+  student       Student    @relation(fields: [studentId], references: [id])
+
+  @@id([sportGroupId, studentId])
+  @@map("sport_group_students")
 }

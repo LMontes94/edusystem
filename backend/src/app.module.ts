@@ -31,6 +31,8 @@ import { TeacherModule } from './modules/teacher/teacher.module';
 import { ConvivenciasModule } from './modules/convivencias/convivencias.module';
 import { SpacesModule } from './modules/spaces/spaces.module';
 import { SpaceReservationsModule } from './modules/space-reservations/space-reservations.module';
+import { SportsModule }      from './modules/sports/sports.module';
+import { SportGroupsModule } from './modules/sport-groups/sport-groups.module';
 
 @Module({
   imports: [
@@ -47,25 +49,27 @@ import { SpaceReservationsModule } from './modules/space-reservations/space-rese
       }),
     }),
 
-    HealthModule,           // Fase 1
-    AuthModule,             // Fase 2
-    InstitutionsModule,     // Fase 2
-    CaslModule,             // Fase 3
-    UsersModule,            // Fase 4
-    StudentsModule,         // Fase 4
-    CoursesModule,          // Fase 4
-    SubjectsModule,         // Fase 4
-    GradesModule,           // Fase 5
-    AttendanceModule,       // Fase 5
-    NotificationsModule,    // Fase 6
-    AnnouncementsModule,    // Fase 6
+    HealthModule,           
+    AuthModule,             
+    InstitutionsModule,     
+    CaslModule,             
+    UsersModule,            
+    StudentsModule,         
+    CoursesModule,          
+    SubjectsModule,         
+    GradesModule,           
+    AttendanceModule,       
+    NotificationsModule,    
+    AnnouncementsModule,    
     StorageModule,
     ReportsModule,
     IndicatorsModule,
     TeacherModule,
     ConvivenciasModule,
     SpacesModule,
-    SpaceReservationsModule
+    SpaceReservationsModule,
+    SportsModule,
+    SportGroupsModule
   ],
   providers:[
     {

@@ -21,6 +21,8 @@ export type Subjects =
   | 'Convivencia'
   | 'Space'           
   | 'SpaceReservation'
+  | 'Sport'
+  | 'SportGroup'
   | 'all';
 
 export type AppAbility = MongoAbility<[Action, Subjects]>;
