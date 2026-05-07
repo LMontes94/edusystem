@@ -30,7 +30,7 @@ export class SportGroupsService {
   private groupIncludes() {
     return {
       sport:      { select: { id: true, name: true } },
-      schoolYear: { select: { id: true, name: true } },
+      schoolYear: { select: { id: true, year: true } },
       teachers: {
         include: {
           user: { select: { id: true, firstName: true, lastName: true, email: true } },
