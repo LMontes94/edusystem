@@ -1,7 +1,7 @@
 'use client';
 
 import { useState }    from 'react';
-import { useSession }  from 'next-auth/react';
+import { useAppSession } from '@/lib/hooks/use-app-session'; 
 import { Input }       from '@/components/ui/input';
 import { Badge }       from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -21,7 +21,7 @@ import { UserStatusBadge }   from './_components/user-status-badge';
 import { roleLabels, roleVariant } from './_components/users.types';
 
 export default function UsersPage() {
-  const { data: session } = useSession();
+  const { data: session } = useAppSession();
   const currentRole       = (session?.user as any)?.role ?? '';
 
   const [search,        setSearch]        = useState('');
@@ -176,3 +176,4 @@ export default function UsersPage() {
     </div>
   );
 }
+

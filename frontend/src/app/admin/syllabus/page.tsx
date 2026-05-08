@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useSession } from 'next-auth/react';
+import { useAppSession } from '@/lib/hooks/use-app-session';
 import { api } from '@/lib/api';
 import { useCourses } from '@/lib/api/courses';
 import { usePeriods } from '@/lib/api/grades';
@@ -214,7 +214,7 @@ const PeriodSection = React.memo(function PeriodSection({
 });
 
 export default function SyllabusPage() {
-  const { data: session } = useSession();
+  const { data: session } = useAppSession();
   const queryClient       = useQueryClient();
   const isOnLeave         = useIsOnLeave();
 
@@ -374,3 +374,4 @@ export default function SyllabusPage() {
     </div>
   );
 }
+

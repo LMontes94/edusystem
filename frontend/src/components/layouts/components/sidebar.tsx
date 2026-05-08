@@ -1,34 +1,30 @@
 'use client';
 
-// src/components/layouts/sidebar.tsx
-
 import Link            from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useAppSession } from '@/lib/hooks/use-app-session';
 import { cn }          from '@/lib/utils';
 import { Button }      from '@/components/ui/button';
 import { X }           from 'lucide-react';
-import { Session }     from 'next-auth';
 import { SidebarBrand }           from './sidebar-brand';
 import { getNavigation, getDashboardHref } from '../navigation';
 
 interface Props {
-  session:  Session | null;
   onClose?: () => void;
 }
 
-export function AppSidebar({ session, onClose }: Props) {
-  const pathname      = usePathname();
-  const role          = (session?.user as any)?.role as string | undefined;
-  const nav           = getNavigation(role);
-  const dashboardHref = getDashboardHref(role);
+export function AppSidebar({ onClose }: Props) {
+  const { data: session } = useAppSession();
+  const pathname          = usePathname();
+  const role              = (session?.user as any)?.role as string | undefined;
+  const nav               = getNavigation(role);
+  const dashboardHref     = getDashboardHref(role);
 
   return (
     <div className="flex h-full flex-col">
-
-      {/* Branding */}
       <div className="border-b">
         <div className="flex items-center justify-between pr-2">
-          <SidebarBrand session={session} />
+          <SidebarBrand />
           {onClose && (
             <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={onClose}>
               <X className="h-4 w-4" />
@@ -37,7 +33,6 @@ export function AppSidebar({ session, onClose }: Props) {
         </div>
       </div>
 
-      {/* Nav */}
       <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-0.5">
         {nav.map((item, i) => {
           if (item.separator) {
@@ -71,7 +66,6 @@ export function AppSidebar({ session, onClose }: Props) {
         })}
       </nav>
 
-      {/* Footer */}
       <div className="border-t px-4 py-3">
         <p className="text-xs text-muted-foreground truncate">{session?.user?.email}</p>
         <p className="text-xs font-medium capitalize">{role?.toLowerCase()}</p>

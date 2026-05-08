@@ -63,7 +63,6 @@ import {
     { name: 'Evaluaciones', href: '/teacher/evaluations',  icon: ClipboardCheck  },
     { name: 'Temario',      href: '/teacher/syllabus',     icon: BookText        },
     { name: 'Pendientes',   href: '/teacher/pending',      icon: Clock           },
-    { name: 'Comunicados',        href: '/teacher/announcements',     icon: Megaphone},
   ];
   
   // ── Mapa por rol ──────────────────────────────

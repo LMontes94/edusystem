@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useSession } from 'next-auth/react';
+import { useAppSession } from '@/lib/hooks/use-app-session';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useGrades } from '@/lib/api/grades';
@@ -37,7 +37,7 @@ const typeLabels: Record<string, string> = {
 };
 
 export default function TeacherDashboardPage() {
-  const { data: session }    = useSession();
+  const { data: session }    = useAppSession();
   const today                = new Date().toISOString().split('T')[0];
   const [selectedCourse, setSelectedCourse] = useState('');
   const [records, setRecords] = useState<Record<string, AttendanceStatus>>({});
@@ -336,3 +336,4 @@ export default function TeacherDashboardPage() {
     </div>
   );
 }
+

@@ -1,10 +1,10 @@
 'use client';
 
-import { useSession } from 'next-auth/react';
+import { useAppSession } from '@/lib/hooks/use-app-session';
 import { BriefcaseMedical } from 'lucide-react';
 
 export function LeaveBanner() {
-  const { data: session } = useSession();
+  const { data: session } = useAppSession();
 
   const status         = (session?.user as any)?.status;
   const leaveStartDate = (session?.user as any)?.leaveStartDate;

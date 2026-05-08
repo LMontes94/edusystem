@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Save, ClipboardPaste, CheckSquare } from 'lucide-react';
-import { useSession } from 'next-auth/react';
+import { useAppSession } from '@/lib/hooks/use-app-session';
 
 // ── Tipos ─────────────────────────────────────
 interface StudentRow {
@@ -61,7 +61,7 @@ function useDebounce<T>(value: T, delay: number): T {
 // ── Componente principal ──────────────────────
 export default function BulkGradesEntry() {
   const queryClient = useQueryClient();
-  const { data: session } = useSession();
+  const { data: session } = useAppSession();
 
   // Filtros
   const [selectedCourse,  setSelectedCourse]  = useState('');
@@ -457,3 +457,4 @@ export default function BulkGradesEntry() {
     </div>
   );
 }
+

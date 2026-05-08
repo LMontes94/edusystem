@@ -1,29 +1,29 @@
 'use client';
 
-// src/components/layouts/app-header.tsx
-
-import Link           from 'next/link';
-import { signOut }    from 'next-auth/react';
-import { useQuery }   from '@tanstack/react-query';
-import { api }        from '@/lib/api';
+import Link                from 'next/link';
+import { signOut }         from 'next-auth/react';
+import { useQuery }        from '@tanstack/react-query';
+import { api }             from '@/lib/api';
+import { useAppSession }   from '@/lib/hooks/use-app-session';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Button }     from '@/components/ui/button';
+import { Button }          from '@/components/ui/button';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Menu, User, Settings, LogOut } from 'lucide-react';
-import { Session }          from 'next-auth';
 import { NotificationBell } from '@/components/notification-bell';
 
 interface Props {
-  session:          Session | null;
   onMobileMenuOpen: () => void;
 }
 
-export function AppHeader({ session, onMobileMenuOpen }: Props) {
+export function AppHeader({ onMobileMenuOpen }: Props) {
+  const { data: session } = useAppSession();
+
   const role    = (session?.user as any)?.role as string | undefined;
   const isAdmin = ['ADMIN', 'DIRECTOR', 'SECRETARY'].includes(role ?? '');
+  const userId  = (session?.user as any)?.id as string | undefined;
 
   const initials = session?.user?.name
     ?.split(' ')
@@ -33,12 +33,13 @@ export function AppHeader({ session, onMobileMenuOpen }: Props) {
     .toUpperCase() ?? '??';
 
   const { data: avatarData } = useQuery({
-    queryKey: ['avatar', session?.user?.id],
+    queryKey: ['avatar', userId],
     queryFn:  async () => {
-      const res = await api.get(`/users/${session?.user?.id}/avatar-url`);
+      const res = await api.get(`/users/${userId}/avatar-url`);
       return res.data;
     },
-    enabled: !!session?.user?.id,
+    enabled:   !!userId,
+    staleTime: 5 * 60 * 1000,
   });
 
   return (

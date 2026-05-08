@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { useSession } from 'next-auth/react';
+import { useAppSession } from '@/lib/hooks/use-app-session';
 import { api } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -49,7 +49,7 @@ const typeLabels: Record<string, string> = {
 };
 
 export default function AdminDashboardPage() {
-  const { data: session }     = useSession();
+  const { data: session }     = useAppSession();
   const institutionId         = session?.user?.institutionId ?? null;
 
   const { data: institution } = useQuery({
@@ -250,3 +250,4 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
+

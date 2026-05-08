@@ -1,7 +1,7 @@
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
-import { useSession }  from 'next-auth/react';
+import { useAppSession } from '@/lib/hooks/use-app-session';  
 import { Button }      from '@/components/ui/button';
 import { Badge }       from '@/components/ui/badge';
 import { ArrowLeft }   from 'lucide-react';
@@ -15,7 +15,7 @@ import { StatusCard }       from './_components/status-card';
 export default function UserDetailPage() {
   const { id }        = useParams<{ id: string }>();
   const router        = useRouter();
-  const { data: session } = useSession();
+  const { data: session } = useAppSession();
 
   const currentRole   = (session?.user as any)?.role ?? '';
   const canManage     = LEAVE_ALLOWED_ROLES.includes(currentRole);

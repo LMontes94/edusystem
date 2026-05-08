@@ -1,7 +1,7 @@
 'use client';
 
 import { useState }    from 'react';
-import { useSession }  from 'next-auth/react';
+import { useAppSession } from '@/lib/hooks/use-app-session';  
 import { useSubjects } from '@/lib/api/subjects';
 import { useSchoolYears } from '@/lib/api/courses';
 import { useIndicators }  from '@/lib/api/indicators';
@@ -11,7 +11,7 @@ import { IndicatorsList }    from './_components/indicators-list';
 const CAN_MANAGE_ROLES = ['ADMIN', 'DIRECTOR', 'SUPER_ADMIN'];
 
 export default function IndicatorsPage() {
-  const { data: session } = useSession();
+  const { data: session } = useAppSession();
   const canManage = CAN_MANAGE_ROLES.includes((session?.user as any)?.role ?? '');
 
   const [selectedSchoolYear, setSelectedSchoolYear] = useState('');
@@ -75,3 +75,4 @@ export default function IndicatorsPage() {
     </div>
   );
 }
+

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState }   from 'react';
-import { useSession }  from 'next-auth/react';
+import { useAppSession } from '@/lib/hooks/use-app-session';  
 import { SpaceReservation } from '@/lib/api/spaces';
 import { ReservationDetailDialog } from './reservation-detail-dialog';
 import { ReservationDialog }       from './reservation-dialog';
@@ -20,7 +20,7 @@ function hexToRgba(hex: string, alpha: number): string {
 }
 
 export function ReservationCard({ reservation }: Props) {
-  const { data: session }           = useSession();
+  const { data: session }           = useAppSession();
   const [detailOpen, setDetailOpen] = useState(false);
   const [editOpen,   setEditOpen]   = useState(false);
 
@@ -68,3 +68,4 @@ export function ReservationCard({ reservation }: Props) {
     </>
   );
 }
+

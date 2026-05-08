@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { useSession } from 'next-auth/react';
+import { useAppSession } from '@/lib/hooks/use-app-session';
 import { useQuery } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -65,7 +65,7 @@ interface CourseSubject {
 
 export default function ProfilePage() {
   const router = useRouter();
-  const { data: session }       = useSession();
+  const { data: session }       = useAppSession();
   const [passwordDialog, setPasswordDialog] = useState(false);
   const [saving,         setSaving]         = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -437,3 +437,4 @@ export default function ProfilePage() {
     </div>
   );
 }
+

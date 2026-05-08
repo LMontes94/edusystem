@@ -1,11 +1,9 @@
 'use client';
 
-// src/components/layouts/sidebar-brand.tsx
-
-import Image        from 'next/image';
-import { useQuery } from '@tanstack/react-query';
-import { api }      from '@/lib/api';
-import { Session }  from 'next-auth';
+import Image          from 'next/image';
+import { useQuery }   from '@tanstack/react-query';
+import { useAppSession } from '@/lib/hooks/use-app-session';
+import { api }        from '@/lib/api';
 
 function useInstitutionLogo(institutionId: string | null | undefined) {
   return useQuery<{ url: string | null }>({
@@ -39,13 +37,10 @@ const subtitleByRole: Record<string, string> = {
   TEACHER:   'Panel del docente',
 };
 
-interface Props {
-  session: Session | null;
-}
-
-export function SidebarBrand({ session }: Props) {
-  const institutionId = (session?.user as any)?.institutionId;
-  const role          = (session?.user as any)?.role as string | undefined;
+export function SidebarBrand() {
+  const { data: session } = useAppSession();
+  const institutionId     = (session?.user as any)?.institutionId;
+  const role              = (session?.user as any)?.role as string | undefined;
 
   const { data: logoData } = useInstitutionLogo(institutionId);
   const { data: nameData } = useInstitutionName(institutionId);

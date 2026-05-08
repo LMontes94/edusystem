@@ -1,11 +1,11 @@
 'use client';
 
-import { useSession } from 'next-auth/react';
+import { useAppSession } from '@/lib/hooks/use-app-session';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 
 export default function ProfileLayout({ children }: { children: React.ReactNode }) {
-  const { data: session, status } = useSession();
+  const { data: session, status } = useAppSession();
   const router = useRouter();
 
   useEffect(() => {
@@ -22,3 +22,4 @@ export default function ProfileLayout({ children }: { children: React.ReactNode 
     </div>
   );
 }
+

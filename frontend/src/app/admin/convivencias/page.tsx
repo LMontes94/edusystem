@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useSession } from 'next-auth/react';
+import { useAppSession } from '@/lib/hooks/use-app-session';
 import { api } from '@/lib/api';
 import { useCourses } from '@/lib/api/courses';
 import { toast } from 'sonner';
@@ -50,7 +50,7 @@ const typeConfig: Record<string, { label: string; color: string; icon: React.Ele
 };
 
 export default function ConvivenciasPage() {
-  const { data: session } = useSession();
+  const { data: session } = useAppSession();
   const queryClient       = useQueryClient();
   const isOnLeave         = useIsOnLeave();
 
@@ -545,3 +545,4 @@ export default function ConvivenciasPage() {
     </div>
   );
 }
+

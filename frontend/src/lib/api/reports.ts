@@ -1,13 +1,13 @@
 // src/lib/api/reports.ts
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useSession } from 'next-auth/react';
-import { toast }      from 'sonner';
-import { api }        from '@/lib/api';
+import { useAppSession } from '@/lib/hooks/use-app-session';
+import { toast }         from 'sonner';
+import { api }           from '@/lib/api';
 import { ReportSettings, DEFAULT_SETTINGS, downloadBlob } from '@/app/admin/reports/_components/reports.types';
 
 // ── Settings ──────────────────────────────────
 export function useReportSettings() {
-  const { data: session } = useSession();
+  const { data: session } = useAppSession();
   const institutionId     = session?.user?.institutionId;
 
   return useQuery<ReportSettings>({
@@ -16,8 +16,8 @@ export function useReportSettings() {
       const res = await api.get('/reports/settings');
       return Object.keys(res.data).length > 0 ? res.data : DEFAULT_SETTINGS;
     },
-    enabled:      !!institutionId,
-    initialData:  DEFAULT_SETTINGS,
+    enabled:     !!institutionId,
+    initialData: DEFAULT_SETTINGS,
   });
 }
 
@@ -86,3 +86,4 @@ export function useGenerateBulkReport() {
     onError:   () => toast.error('Error al generar el ZIP'),
   });
 }
+
