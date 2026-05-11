@@ -136,6 +136,12 @@ enum ReservationStatus {
   CANCELLED
 }
 
+enum StudentSubjectType {
+  REGULAR
+  RECURSE
+  EXEMPT
+}
+
 // ──────────────────────────────────────────────
 // MULTI-TENANCY — INSTITUCIÓN
 // ──────────────────────────────────────────────
@@ -234,6 +240,7 @@ model User {
   levelRoles UserLevelRole[]
   spaceReservations SpaceReservation[]
   sportGroupsAsTeacher SportGroupTeacher[]
+  subjectAssignmentsCreated StudentCourseSubject[] @relation("SubjectAssignedBy")
   
   @@unique([email, institutionId])
 
@@ -324,6 +331,7 @@ model SchoolYear {
   indicators  Indicator[]
   pendingSubjects PendingSubject[]
   sportGroups SportGroup[]
+  studentSubjectAssignments StudentCourseSubject[]
 
   @@unique([institutionId, year]) // cada institución tiene su propio ciclo lectivo
   @@index([institutionId])
@@ -391,6 +399,7 @@ model CourseSubject {
   teacher  User    @relation("TeacherSubjects", fields: [teacherId], references: [id])
   grades   Grade[]
   syllabuses Syllabus[]
+  studentAssignments StudentCourseSubject[]
 
   @@unique([courseId, subjectId])
   @@index([teacherId]) // índice clave para ABAC: filtrar materias del docente
@@ -428,6 +437,7 @@ model Student {
   justifications  Justification[]
   absenceRecords  AbsenceRecord[]
   sportGroups SportGroupStudent[]
+  studentAssignments StudentCourseSubject[]
 
   @@unique([institutionId, documentNumber]) // DNI único por institución (no global)
   @@index([institutionId])
@@ -910,4 +920,22 @@ model SportGroupStudent {
 
   @@id([sportGroupId, studentId])
   @@map("sport_group_students")
+}
+
+model StudentCourseSubject {
+  id              String             @id @default(uuid())
+  studentId       String             @map("student_id")
+  courseSubjectId String             @map("course_subject_id")
+  schoolYearId    String             @map("school_year_id")
+  type            StudentSubjectType @default(REGULAR)
+  createdById     String             @map("created_by_id")
+  createdAt       DateTime           @default(now()) @map("created_at")
+
+  student       Student       @relation(fields: [studentId],       references: [id])
+  courseSubject CourseSubject @relation(fields: [courseSubjectId], references: [id])
+  schoolYear    SchoolYear    @relation(fields: [schoolYearId],    references: [id])
+  createdBy     User          @relation("SubjectAssignedBy", fields: [createdById], references: [id])
+
+  @@unique([studentId, courseSubjectId, schoolYearId])
+  @@map("student_course_subjects")
 }
