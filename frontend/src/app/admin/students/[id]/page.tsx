@@ -8,6 +8,7 @@ import { useStudent } from '@/lib/api/students';
 import { PersonalInfoCard } from './_components/personal-info-card';
 import { CoursesCard }      from './_components/courses-card';
 import { GuardiansCard }    from './_components/guardians-card';
+import { SubjectsCard }     from './_components/subjects-card';
 
 export default function StudentDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -42,10 +43,15 @@ export default function StudentDetailPage() {
       </div>
 
       <PersonalInfoCard student={student} />
+
       <CoursesCard
         studentId={id}
         courseStudents={student.courseStudents ?? []}
       />
+
+      {/* Card de materias — recursadas y eximidas */}
+      <SubjectsCard studentId={id} />
+
       <GuardiansCard guardians={student.guardians ?? []} />
 
     </div>
