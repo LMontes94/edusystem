@@ -33,6 +33,8 @@ import { SpacesModule } from './modules/spaces/spaces.module';
 import { SpaceReservationsModule } from './modules/space-reservations/space-reservations.module';
 import { SportsModule }      from './modules/sports/sports.module';
 import { SportGroupsModule } from './modules/sport-groups/sport-groups.module';
+import { StudentCourseSubjectsModule } from './modules/student-course-subjects/student-course-subjects.module';
+
 
 @Module({
   imports: [
@@ -69,7 +71,8 @@ import { SportGroupsModule } from './modules/sport-groups/sport-groups.module';
     SpacesModule,
     SpaceReservationsModule,
     SportsModule,
-    SportGroupsModule
+    SportGroupsModule,
+    StudentCourseSubjectsModule,
   ],
   providers:[
     {

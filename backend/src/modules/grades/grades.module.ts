@@ -3,6 +3,8 @@ import { BullModule } from '@nestjs/bull';
 import { GradesController } from './grades.controller';
 import { GradesService } from './grades.service';
 import { QUEUES } from '../../queues/queue.constants';
+import { StudentCourseSubjectsModule } from '../student-course-subjects/student-course-subjects.module';
+
 
 @Module({
   imports: [
@@ -10,10 +12,11 @@ import { QUEUES } from '../../queues/queue.constants';
       { name: QUEUES.NOTIFICATIONS },
       { name: QUEUES.AUDIT },
       { name: QUEUES.GRADES },
-    ),
+    ),StudentCourseSubjectsModule,
   ],
   controllers: [GradesController],
   providers: [GradesService],
-  exports: [GradesService],
+  exports: [GradesService], 
+
 })
 export class GradesModule {}

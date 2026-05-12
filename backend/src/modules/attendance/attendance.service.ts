@@ -209,20 +209,34 @@ await Promise.all(
   // ── Helpers privados ─────────────────────────
 
   private async verifyCourseAccess(courseId: string, user: RequestUser, institutionId: string) {
-    const course = await this.prisma.course.findFirst({
-      where: { id: courseId, institutionId },
-      include: { courseSubjects: { select: { teacherId: true } } },
-    });
-    if (!course) throw new NotFoundException('Curso no encontrado');
+  const course = await this.prisma.course.findFirst({
+    where: { id: courseId, institutionId },
+    include: { courseSubjects: { select: { id: true, teacherId: true } } },
+  });
+  if (!course) throw new NotFoundException('Curso no encontrado');
 
-    // TEACHER: solo puede registrar asistencia en sus cursos
-    if (user.role === 'TEACHER') {
-      const isTeacher = course.courseSubjects.some((cs) => cs.teacherId === user.id);
-      if (!isTeacher) {
+  if (user.role === 'TEACHER') {
+    // Verificar si es docente de alguna materia del curso
+    const isTeacherOfCourse = course.courseSubjects.some(cs => cs.teacherId === user.id);
+
+    if (!isTeacherOfCourse) {
+      // Verificar si tiene algún recursante en este curso
+      const courseSubjectIds = course.courseSubjects.map(cs => cs.id);
+
+      const hasRecursingStudents = await this.prisma.studentCourseSubject.findFirst({
+        where: {
+          courseSubjectId: { in: courseSubjectIds },
+          courseSubject:   { teacherId: user.id },
+          type:            'RECURSE',
+        },
+      });
+
+      if (!hasRecursingStudents) {
         throw new ForbiddenException('Solo podés registrar asistencia en tus propios cursos');
       }
     }
   }
+}
 
   private async getGuardianChildrenIds(userId: string, institutionId: string): Promise<string[]> {
     const guardians = await this.prisma.guardian.findMany({

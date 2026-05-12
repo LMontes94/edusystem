@@ -9,11 +9,13 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { RequestUser } from '../../common/decorators/current-user.decorator';
 import { CreateGradeDto, UpdateGradeDto, GradeQueryDto } from './dto/grade.dto';
 import { QUEUES, JOBS, JOB_OPTIONS } from '../../queues/queue.constants';
+import { StudentCourseSubjectsService } from '../student-course-subjects/student-course-subjects.service';
 
 @Injectable()
 export class GradesService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly studentSubjectsService: StudentCourseSubjectsService,
     @InjectQueue(QUEUES.NOTIFICATIONS) private readonly notificationQueue: Queue,
     @InjectQueue(QUEUES.AUDIT)         private readonly auditQueue: Queue,
     @InjectQueue(QUEUES.GRADES)        private readonly gradeQueue: Queue,
@@ -30,18 +32,35 @@ export class GradesService {
     }
 
     if (user.role === 'TEACHER') {
-      return this.prisma.grade.findMany({
-        where: { courseSubject: { teacherId: user.id }, ...query },
-        include: this.gradeIncludes(),
-        orderBy: { date: 'desc' },
-      });
-    }
-
-    return this.prisma.grade.findMany({
-      where: { student: { institutionId }, ...query },
-      include: this.gradeIncludes(),
-      orderBy: { date: 'desc' },
+      const courseSubjects = await this.prisma.courseSubject.findMany({
+        where: { teacherId: user.id },
+        select: { id: true },
     });
+    const courseSubjectIds = courseSubjects.map(cs => cs.id);
+
+    const recursingStudents = await this.prisma.studentCourseSubject.findMany({
+    where: {
+      courseSubjectId: { in: courseSubjectIds },
+      type: 'RECURSE',
+    },
+    select: { studentId: true, courseSubjectId: true },
+  });
+
+  return this.prisma.grade.findMany({
+    where: {
+      OR: [
+        { courseSubject: { teacherId: user.id }, ...query },
+        ...recursingStudents.map(rs => ({
+          studentId:       rs.studentId,
+          courseSubjectId: rs.courseSubjectId,
+          ...query,
+        })),
+      ],
+    },
+    include: this.gradeIncludes(),
+    orderBy: { date: 'desc' },
+  });
+}
   }
 
   async findOne(id: string, user: RequestUser) {
@@ -71,8 +90,13 @@ export class GradesService {
   });
   if (!courseSubject) throw new NotFoundException('Materia/curso no encontrado');
 
-  if (user.role === 'TEACHER' && courseSubject.teacherId !== user.id) {
-    throw new ForbiddenException('Solo podés cargar notas en tus propias materias');
+  if (user.role === 'TEACHER') {
+    const activeIds = await this.studentSubjectsService.getActiveSubjectIds(dto.studentId);
+    if (!activeIds.includes(dto.courseSubjectId)) {
+      throw new ForbiddenException(
+        'El alumno no tiene asignada esta materia (no es de su curso ni la recursa)',
+      );
+    }
   }
 
   const student = await this.prisma.student.findFirst({
