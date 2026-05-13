@@ -71,6 +71,11 @@ export class GradesService {
         orderBy: { date: 'desc' },
       });
     }
+    return this.prisma.grade.findMany({
+      where: query,
+      include: this.gradeIncludes(),
+      orderBy: { date: 'desc' },
+    });
   }
 
   async findOne(id: string, user: RequestUser) {

@@ -89,64 +89,112 @@ export class AttendanceService {
   }
 
   // ── Carga masiva por curso ───────────────────
-  async bulkCreate(dto: BulkAttendanceDto, user: RequestUser, institutionId: string) {
-    await this.verifyCourseAccess(dto.courseId, user, institutionId);
+  // ── Carga masiva por curso ───────────────────
+// ── Carga masiva por curso ───────────────────
+async bulkCreate(
+  dto: BulkAttendanceDto,
+  user: RequestUser,
+  institutionId: string,
+) {
+  await this.verifyCourseAccess(
+    dto.courseId,
+    user,
+    institutionId,
+  );
 
-    const [year, month, day] = dto.date.split('-').map(Number);
-    const date = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+  const [year, month, day] = dto.date
+    .split('-')
+    .map(Number);
 
-    const results = await this.prisma.$transaction(
-      dto.records.map((record) =>
-        this.prisma.attendance.upsert({
+  const date = new Date(
+    Date.UTC(year, month - 1, day, 12, 0, 0),
+  );
+
+  const results = [];
+
+  for (const record of dto.records) {
+    const existing =
+      await this.prisma.attendance.findFirst({
+        where: {
+          studentId: record.studentId,
+          courseId: dto.courseId,
+          date,
+          sportGroupId: null,
+        },
+      });
+
+    const arrivalTime = record.arrivalTime
+      ? new Date(
+          `1970-01-01T${record.arrivalTime}:00Z`,
+        )
+      : undefined;
+
+    if (existing) {
+      const updated =
+        await this.prisma.attendance.update({
           where: {
-            studentId_courseId_date_sportGroupId: {
-              studentId: record.studentId,
-              courseId: dto.courseId,
-              date,
-              sportGroupId: null,
-            },
+            id: existing.id,
           },
-          create: {
-            studentId:     record.studentId,
-            courseId:      dto.courseId,
+          data: {
+            status: record.status,
+            arrivalTime,
+            recordedById: user.id,
+          },
+        });
+
+      results.push(updated);
+    } else {
+      const created =
+        await this.prisma.attendance.create({
+          data: {
+            studentId: record.studentId,
+            courseId: dto.courseId,
+            sportGroupId: null,
             date,
-            status:        record.status,
-            arrivalTime:   record.arrivalTime
-              ? new Date(`1970-01-01T${record.arrivalTime}:00Z`)
-              : undefined,
-            recordedById:  user.id,
-          } as any,
-          update: {
-            status:        record.status,
-            arrivalTime:   record.arrivalTime ? new Date(`1970-01-01T${record.arrivalTime}:00Z`) : undefined,
-            recordedById:  user.id,
+            status: record.status,
+            arrivalTime,
+            recordedById: user.id,
           },
-        }),
-      ),
-    );
+        });
 
-    // Obtener los registros que se acaban de crear/actualizar
-const createdRecords = await this.prisma.attendance.findMany({
-  where: { courseId: dto.courseId, date: new Date(dto.date) },
-  select: { studentId: true, status: true },
-});
-
-// Verificar actas para cada alumno que faltó
-const absentStudents = createdRecords.filter((r) => r.status === 'ABSENT');
-await Promise.all(
-  absentStudents.map((r) =>
-    this.justificationsService.checkAndGenerateRecord(
-      r.studentId, dto.courseId, institutionId,
-    )
-  )
-);
-
-    return {
-      total: results.length,
-      date: dto.date,
-      courseId: dto.courseId,
-    };
+      results.push(created);
+    }
   }
+
+  // Obtener registros creados/actualizados
+  const createdRecords =
+    await this.prisma.attendance.findMany({
+      where: {
+        courseId: dto.courseId,
+        date,
+      },
+      select: {
+        studentId: true,
+        status: true,
+      },
+    });
+
+  // Generar actas automáticas
+  const absentStudents = createdRecords.filter(
+    (r) => r.status === 'ABSENT',
+  );
+
+  await Promise.all(
+    absentStudents.map((r) =>
+      this.justificationsService.checkAndGenerateRecord(
+        r.studentId,
+        dto.courseId,
+        institutionId,
+      ),
+    ),
+  );
+
+  return {
+    total: results.length,
+    date: dto.date,
+    courseId: dto.courseId,
+  };
+}
 
   // ── Actualizar asistencia ────────────────────
   async update(id: string, dto: UpdateAttendanceDto, user: RequestUser) {
