@@ -21,60 +21,132 @@ export class GradesService {
     @InjectQueue(QUEUES.GRADES)        private readonly gradeQueue: Queue,
   ) {}
 
-  async findAll(institutionId: string, user: RequestUser, query: GradeQueryDto) {
+  async findAll(
+    institutionId: string,
+    user: RequestUser,
+    query: GradeQueryDto,
+  ) {
+    const where: any = {};
+  
+    // ── Filtros básicos ─────────────────────────
+    if (query.studentId) {
+      where.studentId = query.studentId;
+    }
+  
+    if (query.periodId) {
+      where.periodId = query.periodId;
+    }
+  
+    if (query.courseSubjectId) {
+      where.courseSubjectId = query.courseSubjectId;
+    }
+  
+    // ── Filtros relacionales ────────────────────
+    if (query.courseId || query.subjectId) {
+      where.courseSubject = {};
+  
+      if (query.courseId) {
+        where.courseSubject.courseId = query.courseId;
+      }
+  
+      if (query.subjectId) {
+        where.courseSubject.subjectId = query.subjectId;
+      }
+    }
+  
+    // ── GUARDIAN ────────────────────────────────
     if (user.role === 'GUARDIAN') {
-      const childrenIds = await this.getGuardianChildrenIds(user.id, institutionId);
+      const childrenIds = await this.getGuardianChildrenIds(
+        user.id,
+        institutionId,
+      );
+  
+      where.studentId = {
+        in: childrenIds,
+      };
+  
       return this.prisma.grade.findMany({
-        where: { studentId: { in: childrenIds }, ...query },
+        where,
         include: this.gradeIncludes(),
-        orderBy: { date: 'desc' },
+        orderBy: {
+          date: 'desc',
+        },
       });
     }
-
+  
+    // ── TEACHER ─────────────────────────────────
     if (user.role === 'TEACHER') {
-      const courseSubjects = await this.prisma.courseSubject.findMany({
-        where:  { teacherId: user.id },
-        select: { id: true },
-      });
-      const courseSubjectIds = courseSubjects.map(cs => cs.id);
- 
-      // Si no tiene materias asignadas, devolver vacío directamente
-      if (courseSubjectIds.length === 0) return [];
- 
-      // Buscar alumnos que recursan materias de este docente
-      const recursingStudents = await this.prisma.studentCourseSubject.findMany({
-        where: {
-          courseSubjectId: { in: courseSubjectIds },
-          type:            'RECURSE',
-        },
-        select: { studentId: true, courseSubjectId: true },
-      });
- 
-      // Construir condiciones OR
+      const courseSubjects =
+        await this.prisma.courseSubject.findMany({
+          where: {
+            teacherId: user.id,
+          },
+          select: {
+            id: true,
+          },
+        });
+  
+      const courseSubjectIds =
+        courseSubjects.map((cs) => cs.id);
+  
+      // Si no tiene materias asignadas
+      if (courseSubjectIds.length === 0) {
+        return [];
+      }
+  
+      // Buscar recursantes
+      const recursingStudents =
+        await this.prisma.studentCourseSubject.findMany({
+          where: {
+            courseSubjectId: {
+              in: courseSubjectIds,
+            },
+            type: 'RECURSE',
+          },
+          select: {
+            studentId: true,
+            courseSubjectId: true,
+          },
+        });
+  
+      // Condiciones OR
       const orConditions: any[] = [
-      // Notas regulares de materias del docente
-      { courseSubject: { teacherId: user.id }, ...query },
+        {
+          ...where,
+          courseSubject: {
+            ...(where.courseSubject || {}),
+            teacherId: user.id,
+          },
+        },
       ];
- 
-      // Agregar recursantes solo si existen
+  
+      // Agregar recursantes
       for (const rs of recursingStudents) {
         orConditions.push({
-          studentId:       rs.studentId,
+          ...where,
+          studentId: rs.studentId,
           courseSubjectId: rs.courseSubjectId,
-          ...query,
         });
       }
- 
+  
       return this.prisma.grade.findMany({
-        where:   { OR: orConditions },
+        where: {
+          OR: orConditions,
+        },
         include: this.gradeIncludes(),
-        orderBy: { date: 'desc' },
+        orderBy: {
+          date: 'desc',
+        },
       });
     }
+  
+    // ── ADMIN / DIRECTIVOS ──────────────────────
     return this.prisma.grade.findMany({
-      where: query,
+      where,
       include: this.gradeIncludes(),
-      orderBy: { date: 'desc' },
+      orderBy: {
+        date: 'desc',
+      },
     });
   }
 

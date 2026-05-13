@@ -37,7 +37,7 @@ export interface CreateGradeDto {
   date:            string;
 }
 
-export function useGrades(filters?: { studentId?: string; courseSubjectId?: string; periodId?: string }) {
+/*export function useGrades(filters?: { studentId?: string; courseSubjectId?: string; periodId?: string }) {
   return useQuery({
     queryKey: ['grades', filters],
     queryFn:  async () => {
@@ -48,6 +48,71 @@ export function useGrades(filters?: { studentId?: string; courseSubjectId?: stri
       const res = await api.get<Grade[]>(`/grades?${params.toString()}`);
       return res.data;
     },
+  });
+}*/
+
+export function useGrades(filters?: {
+  studentId?: string;
+  courseSubjectId?: string;
+  periodId?: string;
+  courseId?: string;
+  subjectId?: string;
+  page?: number;
+  limit?: number;
+}) {
+  return useQuery({
+    queryKey: ['grades', filters],
+
+    queryFn: async () => {
+      const params = new URLSearchParams();
+
+      if (filters?.studentId) {
+        params.set('studentId', filters.studentId);
+      }
+
+      if (filters?.courseSubjectId) {
+        params.set(
+          'courseSubjectId',
+          filters.courseSubjectId,
+        );
+      }
+
+      if (filters?.periodId) {
+        params.set('periodId', filters.periodId);
+      }
+
+      // nuevos filtros
+      if (filters?.courseId) {
+        params.set('courseId', filters.courseId);
+      }
+
+      if (filters?.subjectId) {
+        params.set('subjectId', filters.subjectId);
+      }
+
+      // paginación futura
+      if (filters?.page) {
+        params.set('page', String(filters.page));
+      }
+
+      if (filters?.limit) {
+        params.set('limit', String(filters.limit));
+      }
+
+      const query = params.toString();
+
+      const res = await api.get<Grade[]>(
+        `/grades${query ? `?${query}` : ''}`,
+      );
+
+      return res.data;
+    },
+
+    // evita fetch automático vacío
+    enabled:
+      !!filters?.courseId ||
+      !!filters?.studentId ||
+      !!filters?.courseSubjectId,
   });
 }
 

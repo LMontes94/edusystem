@@ -23,5 +23,13 @@ export const GradeQuerySchema = z.object({
   studentId:       z.string().uuid().optional(),
   courseSubjectId: z.string().uuid().optional(),
   periodId:        z.string().uuid().optional(),
+
+   // nuevos filtros
+   courseId:        z.string().uuid().optional(),
+   subjectId:       z.string().uuid().optional(),
+ 
+   // paginación futura
+   page:            z.coerce.number().min(1).optional(),
+   limit:           z.coerce.number().min(1).max(100).optional(),
 });
 export type GradeQueryDto = z.infer<typeof GradeQuerySchema>;
