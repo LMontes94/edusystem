@@ -33,34 +33,44 @@ export class GradesService {
 
     if (user.role === 'TEACHER') {
       const courseSubjects = await this.prisma.courseSubject.findMany({
-        where: { teacherId: user.id },
+        where:  { teacherId: user.id },
         select: { id: true },
-    });
-    const courseSubjectIds = courseSubjects.map(cs => cs.id);
-
-    const recursingStudents = await this.prisma.studentCourseSubject.findMany({
-    where: {
-      courseSubjectId: { in: courseSubjectIds },
-      type: 'RECURSE',
-    },
-    select: { studentId: true, courseSubjectId: true },
-  });
-
-  return this.prisma.grade.findMany({
-    where: {
-      OR: [
-        { courseSubject: { teacherId: user.id }, ...query },
-        ...recursingStudents.map(rs => ({
+      });
+      const courseSubjectIds = courseSubjects.map(cs => cs.id);
+ 
+      // Si no tiene materias asignadas, devolver vacío directamente
+      if (courseSubjectIds.length === 0) return [];
+ 
+      // Buscar alumnos que recursan materias de este docente
+      const recursingStudents = await this.prisma.studentCourseSubject.findMany({
+        where: {
+          courseSubjectId: { in: courseSubjectIds },
+          type:            'RECURSE',
+        },
+        select: { studentId: true, courseSubjectId: true },
+      });
+ 
+      // Construir condiciones OR
+      const orConditions: any[] = [
+      // Notas regulares de materias del docente
+      { courseSubject: { teacherId: user.id }, ...query },
+      ];
+ 
+      // Agregar recursantes solo si existen
+      for (const rs of recursingStudents) {
+        orConditions.push({
           studentId:       rs.studentId,
           courseSubjectId: rs.courseSubjectId,
           ...query,
-        })),
-      ],
-    },
-    include: this.gradeIncludes(),
-    orderBy: { date: 'desc' },
-  });
-}
+        });
+      }
+ 
+      return this.prisma.grade.findMany({
+        where:   { OR: orConditions },
+        include: this.gradeIncludes(),
+        orderBy: { date: 'desc' },
+      });
+    }
   }
 
   async findOne(id: string, user: RequestUser) {
