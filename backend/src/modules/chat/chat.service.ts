@@ -3,6 +3,8 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
@@ -10,6 +12,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { RequestUser } from '../../common/decorators/current-user.decorator';
 import { CreateRoomDto, SendMessageDto, MarkReadDto, QueryRoomsDto, QueryMessagesDto } from './dto/chat.dto';
 import { QUEUES, JOBS, JOB_OPTIONS } from '../../queues/queue.constants';
+import { ChatGateway } from './chat.gateway';
 
 interface ChatPolicy {
   guardiansCanMessageTeachers: boolean;
@@ -30,6 +33,8 @@ export class ChatService {
     private readonly prisma: PrismaService,
     @InjectQueue(QUEUES.NOTIFICATIONS)
     private readonly notificationQueue: Queue,
+    @Inject(forwardRef(() => ChatGateway))
+    private readonly chatGateway: ChatGateway,
   ) {}
 
   async findAllRooms(dto: QueryRoomsDto, user: RequestUser, institutionId: string) {
@@ -252,6 +257,8 @@ export class ChatService {
       data: { lastMessageAt: message.sentAt },
     });
 
+    this.chatGateway.notifyNewMessage(dto.roomId, message);
+
     const members = await this.prisma.chatRoomMember.findMany({
       where: { roomId: dto.roomId, userId: { not: user.id } },
       select: { userId: true },
@@ -325,6 +332,15 @@ export class ChatService {
 
       await Promise.all(updates);
     }
+
+    const messageIds = dto.messageId
+      ? [dto.messageId]
+      : (await this.prisma.chatMessage.findMany({
+          where: { roomId: dto.roomId },
+          select: { id: true },
+        })).map((m) => m.id);
+
+    this.chatGateway.notifyMessageRead(dto.roomId, user.id, messageIds);
 
     return { success: true };
   }
