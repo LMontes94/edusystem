@@ -34,6 +34,16 @@ interface AnnouncementPublishedPayload {
   institutionId:  string;
 }
 
+interface ChatMessagePayload {
+  roomId: string;
+  messageId: string;
+  senderId: string;
+  senderName: string;
+  content: string;
+  recipientIds: string[];
+  institutionId: string;
+}
+
 @Processor(QUEUES.NOTIFICATIONS)
 export class NotificationProcessor {
   private readonly logger = new Logger(NotificationProcessor.name);
@@ -227,6 +237,55 @@ export class NotificationProcessor {
       this.logger.log(`Comunicado ${announcementId} notificado a ${guardiansMap.size} tutores`);
     } catch (err) {
       this.logger.error(`Error procesando announcement.published`, err);
+      throw err;
+    }
+  }
+
+  // ── Chat message → notificar a los destinatarios ─
+  @Process(JOBS.CHAT_MESSAGE)
+  async handleChatMessage(job: Job<ChatMessagePayload>) {
+    const { roomId, messageId, senderId, senderName, content, recipientIds, institutionId } = job.data;
+    this.logger.log(`Procesando notificación de mensaje de chat: ${messageId}`);
+
+    try {
+      const room = await this.prisma.chatRoom.findUnique({
+        where: { id: roomId },
+        select: { name: true },
+      });
+
+      const title = room?.name ? `${senderName} en ${room.name}` : `Mensaje de ${senderName}`;
+      const body = content.length > 80 ? content.substring(0, 80) + '...' : content;
+
+      await Promise.all(
+        recipientIds.map(async (recipientId) => {
+          const user = await this.prisma.user.findUnique({
+            where: { id: recipientId },
+            include: { pushTokens: { where: { isActive: true } } },
+          });
+
+          if (!user) return;
+
+          await this.prisma.notification.create({
+            data: {
+              userId: recipientId,
+              institutionId,
+              type: 'CHAT',
+              title,
+              body,
+              data: { roomId, messageId, senderId },
+            } as any,
+          });
+
+          const tokens = user.pushTokens.map((t) => t.token);
+          if (tokens.length > 0) {
+            await this.fcm.sendToTokens(tokens, { title, body });
+          }
+        }),
+      );
+
+      this.logger.log(`Mensaje ${messageId} notificado a ${recipientIds.length} usuarios`);
+    } catch (err) {
+      this.logger.error(`Error procesando chat.message`, err);
       throw err;
     }
   }
