@@ -178,10 +178,40 @@ model Institution {
   spaceReservations SpaceReservation[]
   sports      Sport[]
   sportGroups SportGroup[]
+  chatPolicy  InstitutionChatPolicy?
 
   @@index([domain])
   @@index([status])
   @@map("institutions")
+}
+
+model InstitutionChatPolicy {
+  id                                  String   @id @default(uuid())
+  institutionId                       String   @unique @map("institution_id")
+
+  guardiansCanMessageTeachers        Boolean  @default(true) @map("guardians_can_message_teachers")
+  guardiansCanMessageDirectors       Boolean  @default(true) @map("guardians_can_message_directors")
+  guardiansCanMessageSecretariat      Boolean  @default(true) @map("guardians_can_message_secretariat")
+  guardiansCanMessageAdmin            Boolean  @default(true) @map("guardians_can_message_admin")
+
+  teachersCanMessageGuardians         Boolean  @default(true) @map("teachers_can_message_guardians")
+  teachersCanMessageOtherTeachers     Boolean  @default(false) @map("teachers_can_message_other_teachers")
+  teachersCanMessageStudents          Boolean  @default(false) @map("teachers_can_message_students")
+
+  studentsCanMessageTeachers          Boolean  @default(false) @map("students_can_message_teachers")
+  studentsCanMessageOtherStudents     Boolean  @default(false) @map("students_can_message_other_students")
+  studentsCanCreateRooms              Boolean  @default(false) @map("students_can_create_rooms")
+
+  requireModerationForNewRooms        Boolean  @default(false) @map("require_moderation_for_new_rooms")
+  allowAnonymousReporting            Boolean  @default(false) @map("allow_anonymous_reporting")
+
+  createdAt                           DateTime @default(now()) @map("created_at")
+  updatedAt                           DateTime @updatedAt @map("updated_at")
+
+  institution                         Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+
+  @@index([institutionId])
+  @@map("institution_chat_policies")
 }
 
 // Nuevo: invitaciones para onboarding de nuevos usuarios

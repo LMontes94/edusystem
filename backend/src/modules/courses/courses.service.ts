@@ -95,13 +95,12 @@ export class CoursesService {
   }
 
   async create(dto: CreateCourseDto, institutionId: string) {
-    // Verificar que el año lectivo pertenece a la institución
     const schoolYear = await this.prisma.schoolYear.findFirst({
       where: { id: dto.schoolYearId, institutionId },
     });
     if (!schoolYear) throw new NotFoundException('Año lectivo no encontrado');
 
-    return this.prisma.course.create({
+    const course = await this.prisma.course.create({
       data: {
         name: dto.name!,
         grade: dto.grade!,
@@ -111,6 +110,17 @@ export class CoursesService {
         institutionId,
       } as any,
     });
+
+    await this.prisma.chatRoom.create({
+      data: {
+        institutionId,
+        type: 'GROUP',
+        name: `${dto.name} - ${dto.grade}° ${dto.division}`,
+        courseId: course.id,
+      },
+    });
+
+    return course;
   }
 
   async update(id: string, dto: UpdateCourseDto, institutionId: string) {

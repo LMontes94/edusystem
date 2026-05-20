@@ -34,6 +34,7 @@ import { SpaceReservationsModule } from './modules/space-reservations/space-rese
 import { SportsModule }      from './modules/sports/sports.module';
 import { SportGroupsModule } from './modules/sport-groups/sport-groups.module';
 import { StudentCourseSubjectsModule } from './modules/student-course-subjects/student-course-subjects.module';
+import { ChatModule } from './modules/chat/chat.module';
 
 
 @Module({
@@ -73,6 +74,7 @@ import { StudentCourseSubjectsModule } from './modules/student-course-subjects/s
     SportsModule,
     SportGroupsModule,
     StudentCourseSubjectsModule,
+    ChatModule,
   ],
   providers:[
     {

@@ -36,6 +36,8 @@ export class AbilityFactory {
       case 'ADMIN':
       case 'DIRECTOR': {
         can(Action.Manage, 'all', { institutionId: user.institutionId } as any);
+        can(Action.Manage, 'ChatRoom', { institutionId: user.institutionId } as any);
+        can(Action.Manage, 'ChatMessage', { institutionId: user.institutionId } as any);
         cannot(Action.Manage, 'all', { institutionId: { $ne: user.institutionId } } as any);
         break;
       }
@@ -61,6 +63,8 @@ export class AbilityFactory {
         can(Action.Manage,'SpaceReservation', inst);
         can(Action.Manage, 'Sport');
         can(Action.Manage, 'SportGroup', inst);
+        can(Action.Manage, 'ChatRoom', inst);
+        can(Action.Manage, 'ChatMessage', inst);
         cannot([Action.Create, Action.Update, Action.Delete], 'Grade');
         cannot(Action.Delete, 'User');
         break;
@@ -84,6 +88,8 @@ export class AbilityFactory {
         can(Action.Read,'Sport', inst);
         can(Action.Read,'SportGroup', inst);
         can(Action.Update,'SportGroup', inst);
+        can(Action.Manage, 'ChatRoom', inst);
+        can(Action.Manage, 'ChatMessage', inst);
         cannot([Action.Create, Action.Update, Action.Delete], 'User');
         cannot([Action.Create, Action.Update, Action.Delete], 'Grade');
         cannot([Action.Create, Action.Update, Action.Delete], 'Course');
@@ -104,7 +110,11 @@ export class AbilityFactory {
         } as any);
         can(Action.Read,'Sport', inst);
         can(Action.Read,'SportGroup', inst);
-        
+        can(Action.Read, 'ChatRoom', inst);
+        can(Action.Create, 'ChatRoom', inst);
+        can(Action.Read, 'ChatMessage', inst);
+        can(Action.Create, 'ChatMessage', inst);
+
         cannot([Action.Create, Action.Update, Action.Delete], 'User');
         cannot([Action.Create, Action.Update, Action.Delete], 'Student');
         cannot(Action.Manage, 'Institution');
@@ -115,7 +125,9 @@ export class AbilityFactory {
       case 'GUARDIAN': {
         const inst = { institutionId: user.institutionId } as any;
         can(Action.Read, 'all', inst);
-        cannot([Action.Create, Action.Update, Action.Delete], 'all');
+        can(Action.Create, 'ChatRoom', inst);
+        can(Action.Create, 'ChatMessage', inst);
+        cannot([Action.Update, Action.Delete], 'all');
         break;
       }
     }

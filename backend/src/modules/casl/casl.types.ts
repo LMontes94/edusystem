@@ -19,10 +19,12 @@ export type Subjects =
   | 'Attendance'
   | 'Announcement'
   | 'Convivencia'
-  | 'Space'           
+  | 'Space'
   | 'SpaceReservation'
   | 'Sport'
   | 'SportGroup'
+  | 'ChatRoom'
+  | 'ChatMessage'
   | 'all';
 
 export type AppAbility = MongoAbility<[Action, Subjects]>;

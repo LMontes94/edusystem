@@ -17,6 +17,7 @@ export const JOBS = {
   ATTENDANCE_RECORDED:  'attendance.recorded',
   ANNOUNCEMENT_PUBLISHED: 'announcement.published',
   INVITATION_CREATED:   'invitation.created',
+  CHAT_MESSAGE:         'chat.message',
 
   // Audit
   AUDIT_LOG:            'audit.log',

@@ -56,6 +56,11 @@ export class InstitutionsService {
 
       this.logger.log(`Institución creada: ${institution.name} (${institution.id}) — Admin: ${admin.email}`);
 
+      await tx.institutionChatPolicy.create({
+        data: { institutionId: institution.id },
+      });
+      this.logger.log(`Chat policy creado para institución: ${institution.id}`);
+
       return {
         institution,
         admin: {
