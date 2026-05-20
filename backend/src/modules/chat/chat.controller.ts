@@ -1,15 +1,20 @@
 import {
-  Body, Controller, Get, HttpCode, HttpStatus,
-  Param, Post, Query, UseGuards,
+  Body, Controller, Get, Patch, HttpCode, HttpStatus,
+  Param, Post, Query, UseGuards, UseInterceptors, UploadedFile, BadRequestException,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { ChatService } from './chat.service';
+import { ChatPolicyService } from './chat-policy.service';
+import { StorageService } from '../storage/storage.service';
 import {
   CreateRoomDto, CreateRoomSchema,
   SendMessageDto, SendMessageSchema,
   MarkReadDto, MarkReadSchema,
   QueryRoomsDto, QueryRoomsSchema,
   QueryMessagesDto, QueryMessagesSchema,
+  SearchMessagesDto, SearchMessagesSchema,
+  UpdateChatPolicyDto, UpdateChatPolicySchema,
 } from './dto/chat.dto';
 import { CurrentUser, RequestUser } from '../../common/decorators/current-user.decorator';
 import { InstitutionId } from '../../common/decorators/institution-id.decorator';
@@ -23,7 +28,11 @@ import { Action } from '../casl/casl.types';
 @UseGuards(CaslGuard)
 @Controller('chat')
 export class ChatController {
-  constructor(private readonly chatService: ChatService) {}
+  constructor(
+    private readonly chatService: ChatService,
+    private readonly chatPolicyService: ChatPolicyService,
+    private readonly storageService: StorageService,
+  ) {}
 
   @Get('rooms')
   @CheckAbility({ action: Action.Read, subject: 'ChatRoom' })
@@ -102,5 +111,70 @@ export class ChatController {
     @InstitutionId() institutionId: string,
   ) {
     return this.chatService.markRead(dto, user, institutionId);
+  }
+
+  @Get('messages/search')
+  @CheckAbility({ action: Action.Read, subject: 'ChatRoom' })
+  @ApiOperation({ summary: 'Buscar mensajes por contenido' })
+  searchMessages(
+    @Query(new ZodPipe(SearchMessagesSchema)) dto: SearchMessagesDto,
+    @InstitutionId() institutionId: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.chatService.searchMessages(dto.q, user, institutionId, dto.limit);
+  }
+
+  @Post('attachments/upload')
+  @CheckAbility({ action: Action.Create, subject: 'ChatMessage' })
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiOperation({ summary: 'Subir archivo adjunto para chat' })
+  async uploadAttachment(
+    @UploadedFile() file: Express.Multer.File,
+    @CurrentUser() user: RequestUser,
+  ) {
+    if (!file) {
+      throw new BadRequestException('No se proporcionó ningún archivo');
+    }
+
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'application/pdf'];
+    if (!allowedTypes.includes(file.mimetype)) {
+      throw new BadRequestException('Tipo de archivo no permitido');
+    }
+
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+      throw new BadRequestException('El archivo excede el límite de 10MB');
+    }
+
+    const filename = this.storageService.generateFilename(file.originalname);
+    const objectName = `chat/${user.institutionId}/${filename}`;
+
+    await this.storageService.uploadFile(
+      `chat/${user.institutionId}`,
+      filename,
+      file.buffer,
+      file.mimetype,
+    );
+
+    const url = await this.storageService.getFileUrl(objectName);
+
+    return { url, filename: file.originalname, size: file.size, mimetype: file.mimetype };
+  }
+
+  @Get('policy')
+  @CheckAbility({ action: Action.Read, subject: 'Institution' })
+  @ApiOperation({ summary: 'Obtener política de chat de la institución' })
+  getPolicy(@InstitutionId() institutionId: string) {
+    return this.chatPolicyService.getPolicy(institutionId);
+  }
+
+  @Patch('policy')
+  @CheckAbility({ action: Action.Update, subject: 'Institution' })
+  @ApiOperation({ summary: 'Actualizar política de chat de la institución' })
+  updatePolicy(
+    @InstitutionId() institutionId: string,
+    @Body(new ZodPipe(UpdateChatPolicySchema)) dto: UpdateChatPolicyDto,
+  ) {
+    return this.chatPolicyService.updatePolicy(institutionId, dto);
   }
 }

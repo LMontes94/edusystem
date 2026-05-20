@@ -41,3 +41,27 @@ export const QueryMessagesSchema = z.object({
 });
 
 export type QueryMessagesDto = z.infer<typeof QueryMessagesSchema>;
+
+export const SearchMessagesSchema = z.object({
+  q: z.string().min(1).max(100),
+  limit: z.coerce.number().min(1).max(100).default(20),
+});
+
+export type SearchMessagesDto = z.infer<typeof SearchMessagesSchema>;
+
+export const UpdateChatPolicySchema = z.object({
+  guardiansCanMessageTeachers: z.boolean().optional(),
+  guardiansCanMessageDirectors: z.boolean().optional(),
+  guardiansCanMessageSecretariat: z.boolean().optional(),
+  guardiansCanMessageAdmin: z.boolean().optional(),
+  teachersCanMessageGuardians: z.boolean().optional(),
+  teachersCanMessageOtherTeachers: z.boolean().optional(),
+  teachersCanMessageStudents: z.boolean().optional(),
+  studentsCanMessageTeachers: z.boolean().optional(),
+  studentsCanMessageOtherStudents: z.boolean().optional(),
+  studentsCanCreateRooms: z.boolean().optional(),
+  requireModerationForNewRooms: z.boolean().optional(),
+  allowAnonymousReporting: z.boolean().optional(),
+});
+
+export type UpdateChatPolicyDto = z.infer<typeof UpdateChatPolicySchema>;

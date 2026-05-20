@@ -480,4 +480,31 @@ export class ChatService {
 
     return true;
   }
+
+  async searchMessages(query: string, user: RequestUser, institutionId: string, limit = 20) {
+    const memberRooms = await this.prisma.chatRoomMember.findMany({
+      where: { userId: user.id },
+      select: { roomId: true },
+    });
+    const roomIds = memberRooms.map((m) => m.roomId);
+
+    if (roomIds.length === 0) return [];
+
+    const messages = await this.prisma.chatMessage.findMany({
+      where: {
+        roomId: { in: roomIds },
+        content: { contains: query, mode: 'insensitive' },
+      },
+      include: {
+        sender: {
+          select: { id: true, firstName: true, lastName: true, role: true, avatarUrl: true },
+        },
+        room: { select: { id: true, name: true } },
+      },
+      orderBy: { sentAt: 'desc' },
+      take: limit,
+    });
+
+    return messages;
+  }
 }
