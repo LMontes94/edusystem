@@ -127,9 +127,81 @@ export class ChatService {
       throw new ForbiddenException('No tenés permisos para crear salas de chat');
     }
 
-    if (dto.type === 'DIRECT' && dto.participantIds && dto.participantIds.length > 1) {
-      const existingRoom = await this.findDirectRoom(user.id, dto.participantIds[0], institutionId);
-      if (existingRoom) return existingRoom;
+    if (dto.type === 'DIRECT' && dto.participantIds?.length) {
+      const otherUserId = dto.participantIds[0];
+      const sortedIds = [user.id, otherUserId].sort();
+      const roomHash = `${institutionId}::${sortedIds[0]}::${sortedIds[1]}`;
+
+      const existing = await this.prisma.chatRoom.findFirst({
+        where: { directRoomHash: roomHash },
+        include: {
+          members: {
+            include: {
+              user: {
+                select: { id: true, firstName: true, lastName: true, role: true, avatarUrl: true },
+              },
+            },
+          },
+        },
+      });
+      if (existing) return existing;
+
+      try {
+        const room = await this.prisma.chatRoom.create({
+          data: {
+            institutionId,
+            type: 'DIRECT',
+            directRoomHash: roomHash,
+            members: {
+              create: [
+                { userId: user.id },
+                { userId: otherUserId },
+              ],
+            },
+          },
+          include: {
+            members: {
+              include: {
+                user: {
+                  select: { id: true, firstName: true, lastName: true, role: true, avatarUrl: true },
+                },
+              },
+            },
+          },
+        });
+
+        await this.auditQueue.add(
+          JOBS.AUDIT_LOG,
+          {
+            institutionId,
+            userId: user.id,
+            action: 'CREATE',
+            resource: 'ChatRoom',
+            resourceId: room.id,
+            after: { type: room.type, participantCount: 2 },
+          },
+          JOB_OPTIONS.CRITICAL,
+        );
+
+        return room;
+      } catch (err) {
+        if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+          const existingOnConflict = await this.prisma.chatRoom.findFirst({
+            where: { directRoomHash: roomHash },
+            include: {
+              members: {
+                include: {
+                  user: {
+                    select: { id: true, firstName: true, lastName: true, role: true, avatarUrl: true },
+                  },
+                },
+              },
+            },
+          });
+          if (existingOnConflict) return existingOnConflict;
+        }
+        throw err;
+      }
     }
 
     if (dto.participantIds) {
@@ -143,7 +215,7 @@ export class ChatService {
       data: {
         institutionId,
         name: dto.name,
-        type: dto.type === 'DIRECT' ? 'DIRECT' : 'GROUP',
+        type: 'GROUP',
         courseId: dto.courseId,
         members: {
           create: [
@@ -340,20 +412,22 @@ export class ChatService {
         throw new NotFoundException('Mensaje no encontrado');
       }
 
-      await this.prisma.chatMessageRead.upsert({
-        where: {
-          messageId_userId: { messageId: dto.messageId, userId: user.id },
-        },
-        create: { messageId: dto.messageId, userId: user.id },
-        update: {},
-      });
+      await this.prisma.$transaction(async (tx) => {
+        await tx.chatMessageRead.upsert({
+          where: {
+            messageId_userId: { messageId: dto.messageId, userId: user.id },
+          },
+          create: { messageId: dto.messageId, userId: user.id },
+          update: {},
+        });
 
-      await this.prisma.chatRoomMember.update({
-        where: {
-          roomId_userId: { roomId: dto.roomId, userId: user.id },
-          unreadCount: { gt: 0 },
-        },
-        data: { unreadCount: { decrement: 1 } },
+        await tx.chatRoomMember.update({
+          where: {
+            roomId_userId: { roomId: dto.roomId, userId: user.id },
+            unreadCount: { gt: 0 },
+          },
+          data: { unreadCount: { decrement: 1 } },
+        });
       });
 
       this.chatGateway.notifyMessageRead(dto.roomId, user.id, [dto.messageId]);
@@ -374,17 +448,19 @@ export class ChatService {
     });
 
     if (unreadMessages.length > 0) {
-      await this.prisma.chatMessageRead.createMany({
-        data: unreadMessages.map((m) => ({
-          messageId: m.id,
-          userId: user.id,
-        })),
-        skipDuplicates: true,
-      });
+      await this.prisma.$transaction(async (tx) => {
+        await tx.chatMessageRead.createMany({
+          data: unreadMessages.map((m) => ({
+            messageId: m.id,
+            userId: user.id,
+          })),
+          skipDuplicates: true,
+        });
 
-      await this.prisma.chatRoomMember.update({
-        where: { roomId_userId: { roomId: dto.roomId, userId: user.id } },
-        data: { unreadCount: { decrement: unreadMessages.length } },
+        await tx.chatRoomMember.update({
+          where: { roomId_userId: { roomId: dto.roomId, userId: user.id } },
+          data: { unreadCount: { decrement: unreadMessages.length } },
+        });
       });
     }
 

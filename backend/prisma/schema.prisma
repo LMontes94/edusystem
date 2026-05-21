@@ -605,13 +605,14 @@ model Announcement {
 }
 
 model ChatRoom {
-  id            String       @id @default(uuid())
-  institutionId String       @map("institution_id")
-  type          ChatRoomType
-  name          String?      @db.VarChar(100)
-  courseId      String?      @map("course_id")
-  lastMessageAt DateTime?    @map("last_message_at")
-  createdAt     DateTime     @default(now()) @map("created_at")
+  id              String       @id @default(uuid())
+  institutionId   String       @map("institution_id")
+  type            ChatRoomType
+  name            String?      @db.VarChar(100)
+  courseId        String?      @map("course_id")
+  directRoomHash  String?      @unique @map("direct_room_hash")
+  lastMessageAt   DateTime?    @map("last_message_at")
+  createdAt       DateTime     @default(now()) @map("created_at")
 
   institution Institution      @relation(fields: [institutionId], references: [id])
   course      Course?          @relation(fields: [courseId], references: [id])

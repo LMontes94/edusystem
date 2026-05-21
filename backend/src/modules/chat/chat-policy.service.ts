@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 
 interface UpdateChatPolicyDto {
@@ -21,31 +22,24 @@ export class ChatPolicyService {
   constructor(private readonly prisma: PrismaService) {}
 
   async getPolicy(institutionId: string) {
-    let policy = await this.prisma.institutionChatPolicy.findUnique({
+    return this.prisma.institutionChatPolicy.upsert({
       where: { institutionId },
+      create: { institutionId },
+      update: {},
     });
-
-    if (!policy) {
-      policy = await this.prisma.institutionChatPolicy.create({
-        data: { institutionId },
-      });
-    }
-
-    return policy;
   }
 
   async updatePolicy(institutionId: string, dto: UpdateChatPolicyDto) {
-    const policy = await this.prisma.institutionChatPolicy.findUnique({
-      where: { institutionId },
-    });
-
-    if (!policy) {
-      throw new NotFoundException('Política de chat no encontrada');
+    try {
+      return await this.prisma.institutionChatPolicy.update({
+        where: { institutionId },
+        data: dto,
+      });
+    } catch (err) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2025') {
+        throw new NotFoundException('Política de chat no encontrada');
+      }
+      throw err;
     }
-
-    return this.prisma.institutionChatPolicy.update({
-      where: { institutionId },
-      data: dto,
-    });
   }
 }
