@@ -16,12 +16,16 @@ import { ChatPresenceService } from './chat-presence.service';
 import { WsUser } from '../../common/decorators/ws-user.decorator';
 import { ThrottleWs } from './decorators/throttle-ws.decorator';
 import { WsThrottleGuard } from './guards/ws-throttle.guard';
+import { CaslWsGuard } from '../casl/guards/casl-ws.guard';
+import { CheckAbilityWs } from '../casl/decorators/check-ability-ws.decorator';
+import { Action } from '../casl/casl.types';
 
 interface AuthenticatedUser {
   id: string;
   email: string;
   role: string;
   institutionId: string | null;
+  status: string;
   firstName: string;
   lastName: string;
 }
@@ -97,6 +101,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         email: user.email,
         role: user.role,
         institutionId: user.institutionId,
+        status: user.status,
         firstName: user.firstName,
         lastName: user.lastName,
       } satisfies AuthenticatedUser;
@@ -126,8 +131,44 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
+  private async verifyRoomAccess(
+    userId: string,
+    roomId: string,
+    institutionId: string | null,
+  ): Promise<boolean> {
+    if (!institutionId) {
+      const membership = await this.prisma.chatRoomMember.findFirst({
+        where: { roomId, userId },
+      });
+      return !!membership;
+    }
+
+    const membership = await this.prisma.chatRoomMember.findFirst({
+      where: { roomId, userId },
+      include: { room: { select: { institutionId: true } } },
+    });
+
+    if (!membership) return false;
+    if (membership.room.institutionId !== institutionId) return false;
+
+    return true;
+  }
+
+  private readonly BLOCKED_STATUSES = new Set(['ON_LEAVE', 'INACTIVE', 'SUSPENDED']);
+
+  private checkUserStatus(client: Socket, user: AuthenticatedUser): boolean {
+    if (this.BLOCKED_STATUSES.has(user.status)) {
+      this.logger.debug(`WS blocked: user=${user.id} status=${user.status}`);
+      client.emit('error', { message: 'Tu cuenta no puede realizar esta acción' });
+      return true;
+    }
+    return false;
+  }
+
   @SubscribeMessage('joinRoom')
   @UseGuards(WsThrottleGuard)
+  @UseGuards(CaslWsGuard)
+  @CheckAbilityWs({ action: Action.Read, subject: 'ChatRoom' })
   @ThrottleWs(10, 60000)
   async handleJoinRoom(
     @ConnectedSocket() client: Socket,
@@ -135,12 +176,10 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @MessageBody() data: { roomId: string },
   ) {
     if (!user) return;
+    if (this.checkUserStatus(client, user)) return;
 
-    const membership = await this.prisma.chatRoomMember.findFirst({
-      where: { roomId: data.roomId, userId: user.id },
-    });
-
-    if (!membership) {
+    const hasAccess = await this.verifyRoomAccess(user.id, data.roomId, user.institutionId);
+    if (!hasAccess) {
       client.emit('error', { message: 'No tenés acceso a esta sala' });
       return;
     }
@@ -169,6 +208,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   @SubscribeMessage('leaveRoom')
   @UseGuards(WsThrottleGuard)
+  @UseGuards(CaslWsGuard)
+  @CheckAbilityWs({ action: Action.Read, subject: 'ChatRoom' })
   @ThrottleWs(10, 60000)
   async handleLeaveRoom(
     @ConnectedSocket() client: Socket,
@@ -176,6 +217,13 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @MessageBody() data: { roomId: string },
   ) {
     if (!user) return;
+    if (this.checkUserStatus(client, user)) return;
+
+    const hasAccess = await this.verifyRoomAccess(user.id, data.roomId, user.institutionId);
+    if (!hasAccess) {
+      client.emit('error', { message: 'No tenés acceso a esta sala' });
+      return;
+    }
 
     await client.leave(data.roomId);
     client.to(data.roomId).emit('userOffline', { userId: user.id });
@@ -185,6 +233,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   @SubscribeMessage('typing')
   @UseGuards(WsThrottleGuard)
+  @UseGuards(CaslWsGuard)
+  @CheckAbilityWs({ action: Action.Read, subject: 'ChatRoom' })
   @ThrottleWs(1, 500)
   async handleTyping(
     @ConnectedSocket() client: Socket,
@@ -192,6 +242,13 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @MessageBody() data: { roomId: string; isTyping: boolean },
   ) {
     if (!user) return;
+    if (this.checkUserStatus(client, user)) return;
+
+    const hasAccess = await this.verifyRoomAccess(user.id, data.roomId, user.institutionId);
+    if (!hasAccess) {
+      client.emit('error', { message: 'No tenés acceso a esta sala' });
+      return;
+    }
 
     client.to(data.roomId).emit('userTyping', {
       roomId: data.roomId,
@@ -204,13 +261,19 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('heartbeat')
   @UseGuards(WsThrottleGuard)
   @ThrottleWs(1, 5000)
-  async handleHeartbeat(@WsUser() user: AuthenticatedUser) {
+  async handleHeartbeat(
+    @ConnectedSocket() client: Socket,
+    @WsUser() user: AuthenticatedUser,
+  ) {
     if (!user) return;
+    if (this.checkUserStatus(client, user)) return;
     await this.chatPresenceService.heartbeat(user.id);
   }
 
   @SubscribeMessage('getOnlineUsers')
   @UseGuards(WsThrottleGuard)
+  @UseGuards(CaslWsGuard)
+  @CheckAbilityWs({ action: Action.Read, subject: 'ChatRoom' })
   @ThrottleWs(10, 60000)
   async handleGetOnlineUsers(
     @ConnectedSocket() client: Socket,
@@ -218,6 +281,13 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @MessageBody() data: { roomId: string },
   ) {
     if (!user) return;
+    if (this.checkUserStatus(client, user)) return;
+
+    const hasAccess = await this.verifyRoomAccess(user.id, data.roomId, user.institutionId);
+    if (!hasAccess) {
+      client.emit('error', { message: 'No tenés acceso a esta sala' });
+      return;
+    }
 
     const roomMembers = await this.prisma.chatRoomMember.findMany({
       where: { roomId: data.roomId },
