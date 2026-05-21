@@ -94,13 +94,12 @@ export class NotificationProcessor {
           // Guardar notificación in-app
           await this.prisma.notification.create({
             data: {
-              userId:        guardian.userId,
-              institutionId: job.data.institutionId,
-              type:          'GRADE',
+              userId: guardian.userId,
+              type:   'GRADE',
               title,
               body,
-              data:          { gradeId, studentId },
-            } as any,
+              data:   { gradeId, studentId } as Prisma.InputJsonValue,
+            },
           });
 
           // Enviar push si tiene tokens activos
@@ -150,13 +149,12 @@ export class NotificationProcessor {
         guardians.map(async (guardian) => {
           await this.prisma.notification.create({
             data: {
-              userId:        guardian.userId,
-              institutionId: job.data.institutionId,
-              type:          'ATTENDANCE',
+              userId: guardian.userId,
+              type:   'ATTENDANCE',
               title,
               body,
-              data:          { studentId, date, status },
-            } as any,
+              data:   { studentId, date, status } as Prisma.InputJsonValue,
+            },
           });
 
           const tokens = guardian.user.pushTokens.map((t) => t.token);
@@ -219,13 +217,12 @@ export class NotificationProcessor {
         Array.from(guardiansMap.values()).map(async (guardian) => {
           await this.prisma.notification.create({
             data: {
-              userId:        guardian.userId,
-              institutionId,
-              type:          'ANNOUNCEMENT',
+              userId: guardian.userId,
+              type:   'ANNOUNCEMENT',
               title,
               body,
-              data:          { announcementId },
-            } as any,
+              data:   { announcementId } as Prisma.InputJsonValue,
+            },
           });
 
           const tokens = guardian.user.pushTokens.map((t: any) => t.token);

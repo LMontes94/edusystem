@@ -10,7 +10,7 @@ import {
 import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import { UseGuards } from '@nestjs/common';
+import { Logger, UseGuards } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ChatPresenceService } from './chat-presence.service';
 import { WsUser } from '../../common/decorators/ws-user.decorator';
@@ -47,6 +47,8 @@ interface MessagePayload {
   namespace: '/chat',
 })
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
+  private readonly logger = new Logger(ChatGateway.name);
+
   @WebSocketServer()
   server: Server;
 
@@ -108,15 +110,19 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   async handleDisconnect(client: Socket) {
-    const user = client.data.user as AuthenticatedUser | undefined;
-    if (user) {
-      const stillOnline = await this.chatPresenceService.userDisconnected(
-        user.id,
-        client.id,
-      );
-      if (!stillOnline) {
-        this.server.to(`user:${user.id}`).emit('userOffline', { userId: user.id });
+    try {
+      const user = client.data.user as AuthenticatedUser | undefined;
+      if (user) {
+        const stillOnline = await this.chatPresenceService.userDisconnected(
+          user.id,
+          client.id,
+        );
+        if (!stillOnline && this.server) {
+          this.server.to(`user:${user.id}`).emit('userOffline', { userId: user.id });
+        }
       }
+    } catch (err) {
+      this.logger.error(`Error en disconnect para socket ${client.id}`, err);
     }
   }
 

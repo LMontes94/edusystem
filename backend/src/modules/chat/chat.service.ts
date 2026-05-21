@@ -1,7 +1,7 @@
 import {
-  BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
   Inject,
   forwardRef,
@@ -30,6 +30,8 @@ interface ChatPolicy {
 
 @Injectable()
 export class ChatService {
+  private readonly logger = new Logger(ChatService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     @InjectQueue(QUEUES.NOTIFICATIONS)
@@ -121,6 +123,7 @@ export class ChatService {
   }
 
   async createRoom(dto: CreateRoomDto, user: RequestUser, institutionId: string) {
+    this.logger.log(`Creando sala tipo=${dto.type} por usuario=${user.id}`);
     const policy = await this.getChatPolicy(institutionId);
 
     if (!this.canCreateRoom(user, policy)) {
@@ -287,6 +290,7 @@ export class ChatService {
   }
 
   async sendMessage(dto: SendMessageDto, user: RequestUser, institutionId: string) {
+    this.logger.log(`Enviando mensaje en sala=${dto.roomId} por usuario=${user.id}`);
     const membership = await this.prisma.chatRoomMember.findFirst({
       where: { roomId: dto.roomId, userId: user.id },
     });
@@ -395,6 +399,7 @@ export class ChatService {
   }
 
   async markRead(dto: MarkReadDto, user: RequestUser, institutionId: string) {
+    this.logger.log(`Marcando como leído en sala=${dto.roomId} por usuario=${user.id}`);
     const membership = await this.prisma.chatRoomMember.findUnique({
       where: { roomId_userId: { roomId: dto.roomId, userId: user.id } },
       select: { unreadCount: true },
