@@ -1,6 +1,7 @@
 import { Process, Processor } from '@nestjs/bull';
 import { Logger } from '@nestjs/common';
 import { Job } from 'bull';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { FcmService } from '../../modules/notifications/fcm.service';
 import { QUEUES, JOBS } from '../queue.constants';
@@ -253,37 +254,52 @@ export class NotificationProcessor {
         select: { name: true },
       });
 
+      // Idempotency guard: skip recipients already notified for this message
+      const existingNotifications = await this.prisma.notification.findMany({
+        where: {
+          type: 'CHAT',
+          data: { path: ['messageId'], equals: messageId },
+          userId: { in: recipientIds },
+        },
+        select: { userId: true },
+      });
+      const alreadyNotified = new Set(existingNotifications.map((n) => n.userId));
+      const pendingRecipientIds = recipientIds.filter((id) => !alreadyNotified.has(id));
+
+      if (pendingRecipientIds.length === 0) {
+        this.logger.log(`Mensaje ${messageId} ya notificado a todos los destinatarios`);
+        return;
+      }
+
       const title = room?.name ? `${senderName} en ${room.name}` : `Mensaje de ${senderName}`;
       const body = content.length > 80 ? content.substring(0, 80) + '...' : content;
 
-      await Promise.all(
-        recipientIds.map(async (recipientId) => {
-          const user = await this.prisma.user.findUnique({
-            where: { id: recipientId },
-            include: { pushTokens: { where: { isActive: true } } },
-          });
+      // Batch-load all pending recipients in one query (removes N+1)
+      const recipients = await this.prisma.user.findMany({
+        where: { id: { in: pendingRecipientIds } },
+        include: { pushTokens: { where: { isActive: true } } },
+      });
 
-          if (!user) return;
+      for (const user of recipients) {
+        await this.prisma.notification.create({
+          data: {
+            userId: user.id,
+            type: 'CHAT',
+            title,
+            body,
+            data: { roomId, messageId, senderId } as Prisma.InputJsonValue,
+          },
+        });
 
-          await this.prisma.notification.create({
-            data: {
-              userId: recipientId,
-              institutionId,
-              type: 'CHAT',
-              title,
-              body,
-              data: { roomId, messageId, senderId },
-            } as any,
-          });
+        const tokens = user.pushTokens.map((t) => t.token);
+        if (tokens.length > 0) {
+          await this.fcm.sendToTokens(tokens, { title, body });
+        }
+      }
 
-          const tokens = user.pushTokens.map((t) => t.token);
-          if (tokens.length > 0) {
-            await this.fcm.sendToTokens(tokens, { title, body });
-          }
-        }),
+      this.logger.log(
+        `Mensaje ${messageId} notificado a ${recipients.length} usuarios (${alreadyNotified.size} ya notificados previamente)`,
       );
-
-      this.logger.log(`Mensaje ${messageId} notificado a ${recipientIds.length} usuarios`);
     } catch (err) {
       this.logger.error(`Error procesando chat.message`, err);
       throw err;

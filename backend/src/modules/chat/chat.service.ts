@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RequestUser } from '../../common/decorators/current-user.decorator';
 import { CreateRoomDto, SendMessageDto, MarkReadDto, QueryRoomsDto, QueryMessagesDto } from './dto/chat.dto';
@@ -33,19 +34,20 @@ export class ChatService {
     private readonly prisma: PrismaService,
     @InjectQueue(QUEUES.NOTIFICATIONS)
     private readonly notificationQueue: Queue,
+    @InjectQueue(QUEUES.AUDIT)
+    private readonly auditQueue: Queue,
     @Inject(forwardRef(() => ChatGateway))
     private readonly chatGateway: ChatGateway,
   ) {}
 
   async findAllRooms(dto: QueryRoomsDto, user: RequestUser, institutionId: string) {
-    const policy = await this.getChatPolicy(institutionId);
     const memberRooms = await this.prisma.chatRoomMember.findMany({
       where: { userId: user.id },
       select: { roomId: true },
     });
     const memberRoomIds = memberRooms.map((m) => m.roomId);
 
-    const where: any = {
+    const where: Prisma.ChatRoomWhereInput = {
       id: { in: memberRoomIds },
       institutionId,
     };
@@ -161,6 +163,19 @@ export class ChatService {
       },
     });
 
+    await this.auditQueue.add(
+      JOBS.AUDIT_LOG,
+      {
+        institutionId,
+        userId: user.id,
+        action: 'CREATE',
+        resource: 'ChatRoom',
+        resourceId: room.id,
+        after: { type: room.type, name: room.name, participantCount: dto.participantIds?.length },
+      },
+      JOB_OPTIONS.CRITICAL,
+    );
+
     return room;
   }
 
@@ -172,7 +187,7 @@ export class ChatService {
       throw new ForbiddenException('No tenés acceso a esta sala');
     }
 
-    const where: any = { roomId: dto.roomId };
+    const where: Prisma.ChatMessageWhereInput = { roomId: dto.roomId };
     if (dto.before) {
       where.sentAt = { lt: new Date(dto.before) };
     }
@@ -228,7 +243,7 @@ export class ChatService {
           user,
           [otherMember.user.id],
           institutionId,
-          policy
+          policy,
         );
         if (!canMessage) {
           throw new ForbiddenException('No podés enviar mensajes a este usuario');
@@ -236,28 +251,36 @@ export class ChatService {
       }
     }
 
-    const message = await this.prisma.chatMessage.create({
-      data: {
-        roomId: dto.roomId,
-        senderId: user.id,
-        content: dto.content,
-        type: dto.type,
-        attachmentUrl: dto.attachmentUrl,
-        readBy: [user.id],
-      },
-      include: {
-        sender: {
-          select: { id: true, firstName: true, lastName: true, role: true, avatarUrl: true },
+    const result = await this.prisma.$transaction(async (tx) => {
+      const message = await tx.chatMessage.create({
+        data: {
+          roomId: dto.roomId,
+          senderId: user.id,
+          content: dto.content,
+          type: dto.type,
+          attachmentUrl: dto.attachmentUrl,
         },
-      },
+        include: {
+          sender: {
+            select: { id: true, firstName: true, lastName: true, role: true, avatarUrl: true },
+          },
+        },
+      });
+
+      await tx.chatRoom.update({
+        where: { id: dto.roomId },
+        data: { lastMessageAt: message.sentAt },
+      });
+
+      await tx.chatRoomMember.updateMany({
+        where: { roomId: dto.roomId, userId: { not: user.id } },
+        data: { unreadCount: { increment: 1 } },
+      });
+
+      return message;
     });
 
-    await this.prisma.chatRoom.update({
-      where: { id: dto.roomId },
-      data: { lastMessageAt: message.sentAt },
-    });
-
-    this.chatGateway.notifyNewMessage(dto.roomId, message);
+    this.chatGateway.notifyNewMessage(dto.roomId, result);
 
     const members = await this.prisma.chatRoomMember.findMany({
       where: { roomId: dto.roomId, userId: { not: user.id } },
@@ -267,33 +290,42 @@ export class ChatService {
     const recipientIds = members.map((m) => m.userId);
 
     if (recipientIds.length > 0) {
-      const senderUser = await this.prisma.user.findUnique({
-        where: { id: user.id },
-        select: { firstName: true, lastName: true },
-      });
-      await Promise.all([
-        this.notificationQueue.add(
-          JOBS.CHAT_MESSAGE,
-          {
-            roomId: dto.roomId,
-            messageId: message.id,
-            senderId: user.id,
-            senderName: senderUser ? `${senderUser.firstName} ${senderUser.lastName}` : 'Usuario',
-            content: dto.content.substring(0, 100),
-            recipientIds,
-            institutionId,
-          },
-          JOB_OPTIONS.DEFAULT
-        ),
-      ]);
+      const senderUser = result.sender;
+      await this.notificationQueue.add(
+        JOBS.CHAT_MESSAGE,
+        {
+          roomId: dto.roomId,
+          messageId: result.id,
+          senderId: user.id,
+          senderName: `${senderUser.firstName} ${senderUser.lastName}`,
+          content: dto.content.substring(0, 100),
+          recipientIds,
+          institutionId,
+        },
+        JOB_OPTIONS.DEFAULT,
+      );
     }
 
-    return message;
+    await this.auditQueue.add(
+      JOBS.AUDIT_LOG,
+      {
+        institutionId,
+        userId: user.id,
+        action: 'CREATE',
+        resource: 'ChatMessage',
+        resourceId: result.id,
+        after: { roomId: dto.roomId, type: dto.type, hasAttachment: !!dto.attachmentUrl },
+      },
+      JOB_OPTIONS.CRITICAL,
+    );
+
+    return result;
   }
 
   async markRead(dto: MarkReadDto, user: RequestUser, institutionId: string) {
-    const membership = await this.prisma.chatRoomMember.findFirst({
-      where: { roomId: dto.roomId, userId: user.id },
+    const membership = await this.prisma.chatRoomMember.findUnique({
+      where: { roomId_userId: { roomId: dto.roomId, userId: user.id } },
+      select: { unreadCount: true },
     });
     if (!membership) {
       throw new ForbiddenException('No tenés acceso a esta sala');
@@ -302,76 +334,78 @@ export class ChatService {
     if (dto.messageId) {
       const message = await this.prisma.chatMessage.findFirst({
         where: { id: dto.messageId, roomId: dto.roomId },
+        select: { id: true },
       });
       if (!message) {
         throw new NotFoundException('Mensaje no encontrado');
       }
 
-      const readBy = message.readBy.includes(user.id)
-        ? message.readBy
-        : [...message.readBy, user.id];
-
-      await this.prisma.chatMessage.update({
-        where: { id: dto.messageId },
-        data: { readBy },
-      });
-    } else {
-      const unreadMessages = await this.prisma.chatMessage.findMany({
-        where: { roomId: dto.roomId },
-        select: { id: true, readBy: true },
+      await this.prisma.chatMessageRead.upsert({
+        where: {
+          messageId_userId: { messageId: dto.messageId, userId: user.id },
+        },
+        create: { messageId: dto.messageId, userId: user.id },
+        update: {},
       });
 
-      const updates = unreadMessages
-        .filter((m) => !m.readBy.includes(user.id))
-        .map((m) =>
-          this.prisma.chatMessage.update({
-            where: { id: m.id },
-            data: { readBy: { push: user.id } },
-          })
-        );
+      await this.prisma.chatRoomMember.update({
+        where: {
+          roomId_userId: { roomId: dto.roomId, userId: user.id },
+          unreadCount: { gt: 0 },
+        },
+        data: { unreadCount: { decrement: 1 } },
+      });
 
-      await Promise.all(updates);
+      this.chatGateway.notifyMessageRead(dto.roomId, user.id, [dto.messageId]);
+
+      return { success: true };
     }
 
-    const messageIds = dto.messageId
-      ? [dto.messageId]
-      : (await this.prisma.chatMessage.findMany({
-          where: { roomId: dto.roomId },
-          select: { id: true },
-        })).map((m) => m.id);
+    const beforeDate = new Date();
+    const unreadMessages = await this.prisma.chatMessage.findMany({
+      where: {
+        roomId: dto.roomId,
+        senderId: { not: user.id },
+        sentAt: { lte: beforeDate },
+        reads: { none: { userId: user.id } },
+      },
+      select: { id: true },
+      take: Math.max(membership.unreadCount, 1),
+    });
 
-    this.chatGateway.notifyMessageRead(dto.roomId, user.id, messageIds);
+    if (unreadMessages.length > 0) {
+      await this.prisma.chatMessageRead.createMany({
+        data: unreadMessages.map((m) => ({
+          messageId: m.id,
+          userId: user.id,
+        })),
+        skipDuplicates: true,
+      });
+
+      await this.prisma.chatRoomMember.update({
+        where: { roomId_userId: { roomId: dto.roomId, userId: user.id } },
+        data: { unreadCount: { decrement: unreadMessages.length } },
+      });
+    }
+
+    this.chatGateway.notifyMessageRead(
+      dto.roomId,
+      user.id,
+      unreadMessages.map((m) => m.id),
+    );
 
     return { success: true };
   }
 
   async getUnreadCount(user: RequestUser, institutionId: string) {
-    const memberRooms = await this.prisma.chatRoomMember.findMany({
-      where: { userId: user.id },
-      select: { roomId: true },
+    const memberships = await this.prisma.chatRoomMember.findMany({
+      where: { userId: user.id, unreadCount: { gt: 0 } },
+      select: { roomId: true, unreadCount: true },
     });
-    const roomIds = memberRooms.map((m) => m.roomId);
-
-    if (roomIds.length === 0) return { total: 0, rooms: [] };
-
-    const allMessages = await this.prisma.chatMessage.findMany({
-      where: { roomId: { in: roomIds } },
-      select: { roomId: true, readBy: true },
-    });
-
-    const unreadByRoom: Record<string, number> = {};
-    let totalUnread = 0;
-
-    for (const msg of allMessages) {
-      if (!msg.readBy.includes(user.id)) {
-        unreadByRoom[msg.roomId] = (unreadByRoom[msg.roomId] || 0) + 1;
-        totalUnread++;
-      }
-    }
 
     return {
-      total: totalUnread,
-      rooms: Object.entries(unreadByRoom).map(([roomId, unreadCount]) => ({ roomId, unreadCount })),
+      total: memberships.reduce((sum, m) => sum + m.unreadCount, 0),
+      rooms: memberships.map((m) => ({ roomId: m.roomId, unreadCount: m.unreadCount })),
     };
   }
 
@@ -453,9 +487,15 @@ export class ChatService {
     user: RequestUser,
     participantIds: string[],
     institutionId: string,
-    policy: ChatPolicy
+    policy: ChatPolicy,
   ): Promise<boolean> {
-    if (user.role === 'SUPER_ADMIN' || user.role === 'ADMIN' || user.role === 'DIRECTOR' || user.role === 'SECRETARY' || user.role === 'PRECEPTOR') {
+    if (
+      user.role === 'SUPER_ADMIN' ||
+      user.role === 'ADMIN' ||
+      user.role === 'DIRECTOR' ||
+      user.role === 'SECRETARY' ||
+      user.role === 'PRECEPTOR'
+    ) {
       return true;
     }
 
@@ -481,19 +521,28 @@ export class ChatService {
     return true;
   }
 
-  async searchMessages(query: string, user: RequestUser, institutionId: string, limit = 20) {
+  async searchMessages(
+    query: string,
+    user: RequestUser,
+    institutionId: string,
+    limit = 20,
+    cursor?: string,
+  ) {
     const memberRooms = await this.prisma.chatRoomMember.findMany({
       where: { userId: user.id },
       select: { roomId: true },
     });
     const roomIds = memberRooms.map((m) => m.roomId);
 
-    if (roomIds.length === 0) return [];
+    if (roomIds.length === 0) {
+      return { messages: [], nextCursor: undefined, hasMore: false };
+    }
 
     const messages = await this.prisma.chatMessage.findMany({
       where: {
         roomId: { in: roomIds },
         content: { contains: query, mode: 'insensitive' },
+        ...(cursor ? { sentAt: { lt: new Date(cursor) } } : {}),
       },
       include: {
         sender: {
@@ -502,9 +551,13 @@ export class ChatService {
         room: { select: { id: true, name: true } },
       },
       orderBy: { sentAt: 'desc' },
-      take: limit,
+      take: limit + 1,
     });
 
-    return messages;
+    const hasMore = messages.length > limit;
+    const results = hasMore ? messages.slice(0, -1) : messages;
+    const nextCursor = hasMore ? results[results.length - 1]?.sentAt.toISOString() : undefined;
+
+    return { messages: results, nextCursor, hasMore };
   }
 }

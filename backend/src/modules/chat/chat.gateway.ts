@@ -9,38 +9,59 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
-import { PrismaService } from '../../prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
+import { UseGuards } from '@nestjs/common';
+import { PrismaService } from '../../prisma/prisma.service';
+import { ChatPresenceService } from './chat-presence.service';
+import { WsUser } from '../../common/decorators/ws-user.decorator';
+import { ThrottleWs } from './decorators/throttle-ws.decorator';
+import { WsThrottleGuard } from './guards/ws-throttle.guard';
 
 interface AuthenticatedUser {
   id: string;
   email: string;
   role: string;
   institutionId: string | null;
+  firstName: string;
+  lastName: string;
+}
+
+interface MessagePayload {
+  id: string;
+  roomId: string;
+  senderId: string;
+  content: string | null;
+  type: string;
+  attachmentUrl: string | null;
+  sentAt: Date;
+  sender: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    role: string;
+    avatarUrl: string | null;
+  };
 }
 
 @WebSocketGateway({
-  cors: {
-    origin: '*',
-    credentials: true,
-  },
   namespace: '/chat',
 })
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server: Server;
 
-  private connectedUsers = new Map<string, AuthenticatedUser>();
-
   constructor(
     private readonly jwtService: JwtService,
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
+    private readonly chatPresenceService: ChatPresenceService,
   ) {}
 
   async handleConnection(client: Socket) {
     try {
-      const token = client.handshake.auth?.token || client.handshake.headers?.authorization?.replace('Bearer ', '');
+      const token =
+        client.handshake.auth?.token ||
+        client.handshake.headers?.authorization?.replace('Bearer ', '');
 
       if (!token) {
         client.disconnect();
@@ -53,7 +74,15 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
       const user = await this.prisma.user.findUnique({
         where: { id: payload.sub },
-        select: { id: true, email: true, role: true, institutionId: true, status: true },
+        select: {
+          id: true,
+          email: true,
+          role: true,
+          institutionId: true,
+          status: true,
+          firstName: true,
+          lastName: true,
+        },
       });
 
       if (!user || user.status === 'INACTIVE' || user.status === 'SUSPENDED') {
@@ -61,35 +90,44 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         return;
       }
 
-      this.connectedUsers.set(client.id, {
+      client.data.user = {
         id: user.id,
         email: user.email,
         role: user.role,
         institutionId: user.institutionId,
-      });
+        firstName: user.firstName,
+        lastName: user.lastName,
+      } satisfies AuthenticatedUser;
 
-      client.data.user = this.connectedUsers.get(client.id);
+      await this.chatPresenceService.userConnected(user.id, client.id);
 
       client.emit('connected', { userId: user.id });
-    } catch (err) {
+    } catch {
       client.disconnect();
     }
   }
 
-  handleDisconnect(client: Socket) {
-    const user = this.connectedUsers.get(client.id);
+  async handleDisconnect(client: Socket) {
+    const user = client.data.user as AuthenticatedUser | undefined;
     if (user) {
-      this.server.to(`user:${user.id}`).emit('userOffline', { userId: user.id });
-      this.connectedUsers.delete(client.id);
+      const stillOnline = await this.chatPresenceService.userDisconnected(
+        user.id,
+        client.id,
+      );
+      if (!stillOnline) {
+        this.server.to(`user:${user.id}`).emit('userOffline', { userId: user.id });
+      }
     }
   }
 
   @SubscribeMessage('joinRoom')
+  @UseGuards(WsThrottleGuard)
+  @ThrottleWs(10, 60000)
   async handleJoinRoom(
     @ConnectedSocket() client: Socket,
+    @WsUser() user: AuthenticatedUser,
     @MessageBody() data: { roomId: string },
   ) {
-    const user = client.data.user as AuthenticatedUser;
     if (!user) return;
 
     const membership = await this.prisma.chatRoomMember.findFirst({
@@ -111,8 +149,10 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       },
     });
 
+    const memberUserIds = roomMembers.map((m) => m.userId);
+    const onlineUserIds = await this.chatPresenceService.getOnlineUsers(memberUserIds);
     const onlineMembers = roomMembers
-      .filter((m) => Array.from(this.connectedUsers.values()).some((u) => u.id === m.userId))
+      .filter((m) => onlineUserIds.has(m.userId))
       .map((m) => m.user);
 
     client.emit('roomMembers', { roomId: data.roomId, members: roomMembers });
@@ -122,11 +162,13 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('leaveRoom')
+  @UseGuards(WsThrottleGuard)
+  @ThrottleWs(10, 60000)
   async handleLeaveRoom(
     @ConnectedSocket() client: Socket,
+    @WsUser() user: AuthenticatedUser,
     @MessageBody() data: { roomId: string },
   ) {
-    const user = client.data.user as AuthenticatedUser;
     if (!user) return;
 
     await client.leave(data.roomId);
@@ -136,52 +178,67 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('typing')
+  @UseGuards(WsThrottleGuard)
+  @ThrottleWs(1, 500)
   async handleTyping(
     @ConnectedSocket() client: Socket,
+    @WsUser() user: AuthenticatedUser,
     @MessageBody() data: { roomId: string; isTyping: boolean },
   ) {
-    const user = client.data.user as AuthenticatedUser;
     if (!user) return;
-
-    const userInfo = await this.prisma.user.findUnique({
-      where: { id: user.id },
-      select: { id: true, firstName: true, lastName: true },
-    });
 
     client.to(data.roomId).emit('userTyping', {
       roomId: data.roomId,
       userId: user.id,
-      userName: userInfo ? `${userInfo.firstName} ${userInfo.lastName}` : 'Usuario',
+      userName: `${user.firstName} ${user.lastName}`,
       isTyping: data.isTyping,
     });
   }
 
+  @SubscribeMessage('heartbeat')
+  @UseGuards(WsThrottleGuard)
+  @ThrottleWs(1, 5000)
+  async handleHeartbeat(@WsUser() user: AuthenticatedUser) {
+    if (!user) return;
+    await this.chatPresenceService.heartbeat(user.id);
+  }
+
   @SubscribeMessage('getOnlineUsers')
+  @UseGuards(WsThrottleGuard)
+  @ThrottleWs(10, 60000)
   async handleGetOnlineUsers(
     @ConnectedSocket() client: Socket,
+    @WsUser() user: AuthenticatedUser,
     @MessageBody() data: { roomId: string },
   ) {
+    if (!user) return;
+
     const roomMembers = await this.prisma.chatRoomMember.findMany({
       where: { roomId: data.roomId },
       select: { userId: true },
     });
 
-    const onlineUserIds = Array.from(this.connectedUsers.values())
-      .filter((u) => roomMembers.some((m) => m.userId === u.id))
-      .map((u) => u.id);
+    const memberUserIds = roomMembers.map((m) => m.userId);
+    const onlineUserIds = await this.chatPresenceService.getOnlineUsers(memberUserIds);
 
-    return { roomId: data.roomId, onlineUserIds };
+    return { roomId: data.roomId, onlineUserIds: [...onlineUserIds] };
   }
 
-  notifyNewMessage(roomId: string, message: any) {
-    this.server.to(roomId).emit('newMessage', message);
+  notifyNewMessage(roomId: string, message: MessagePayload) {
+    if (this.server) {
+      this.server.to(roomId).emit('newMessage', message);
+    }
   }
 
   notifyMessageRead(roomId: string, userId: string, messageIds: string[]) {
-    this.server.to(roomId).emit('messagesRead', { roomId, userId, messageIds });
+    if (this.server) {
+      this.server.to(roomId).emit('messagesRead', { roomId, userId, messageIds });
+    }
   }
 
-  notifyUserInvited(roomId: string, user: any, invitedUserId: string) {
-    this.server.to(`user:${invitedUserId}`).emit('invitedToRoom', { roomId, user });
+  notifyUserInvited(roomId: string, user: { id: string }, invitedUserId: string) {
+    if (this.server) {
+      this.server.to(`user:${invitedUserId}`).emit('invitedToRoom', { roomId, user });
+    }
   }
 }

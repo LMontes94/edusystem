@@ -271,6 +271,7 @@ model User {
   spaceReservations SpaceReservation[]
   sportGroupsAsTeacher SportGroupTeacher[]
   subjectAssignmentsCreated StudentCourseSubject[] @relation("SubjectAssignedBy")
+  messageReads ChatMessageRead[]
   
   @@unique([email, institutionId])
 
@@ -623,15 +624,17 @@ model ChatRoom {
 }
 
 model ChatRoomMember {
-  id       String   @id @default(uuid())
-  roomId   String   @map("room_id")
-  userId   String   @map("user_id")
-  joinedAt DateTime @default(now()) @map("joined_at")
+  id          String   @id @default(uuid())
+  roomId      String   @map("room_id")
+  userId      String   @map("user_id")
+  joinedAt    DateTime @default(now()) @map("joined_at")
+  unreadCount Int      @default(0) @map("unread_count")
 
   room ChatRoom @relation(fields: [roomId], references: [id])
   user User     @relation(fields: [userId], references: [id])
 
   @@unique([roomId, userId])
+  @@index([userId])
   @@map("chat_room_members")
 }
 
@@ -642,14 +645,29 @@ model ChatMessage {
   content       String?
   type          MessageType @default(TEXT)
   attachmentUrl String?     @map("attachment_url")
-  readBy        String[]    @map("read_by")
   sentAt        DateTime    @default(now()) @map("sent_at")
 
-  room   ChatRoom @relation(fields: [roomId], references: [id])
-  sender User     @relation(fields: [senderId], references: [id])
+  room   ChatRoom          @relation(fields: [roomId], references: [id])
+  sender User              @relation(fields: [senderId], references: [id])
+  reads  ChatMessageRead[]
 
   @@index([roomId, sentAt])
   @@map("chat_messages")
+}
+
+model ChatMessageRead {
+  id        String   @id @default(uuid())
+  messageId String   @map("message_id")
+  userId    String   @map("user_id")
+  readAt    DateTime @default(now()) @map("read_at")
+
+  message ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User        @relation(fields: [userId], references: [id])
+
+  @@unique([messageId, userId])
+  @@index([userId])
+  @@index([messageId])
+  @@map("chat_message_reads")
 }
 
 model Notification {

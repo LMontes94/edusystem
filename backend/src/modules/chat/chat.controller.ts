@@ -121,7 +121,7 @@ export class ChatController {
     @InstitutionId() institutionId: string,
     @CurrentUser() user: RequestUser,
   ) {
-    return this.chatService.searchMessages(dto.q, user, institutionId, dto.limit);
+    return this.chatService.searchMessages(dto.q, user, institutionId, dto.limit, dto.cursor);
   }
 
   @Post('attachments/upload')

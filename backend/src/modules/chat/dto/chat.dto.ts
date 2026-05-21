@@ -45,6 +45,7 @@ export type QueryMessagesDto = z.infer<typeof QueryMessagesSchema>;
 export const SearchMessagesSchema = z.object({
   q: z.string().min(1).max(100),
   limit: z.coerce.number().min(1).max(100).default(20),
+  cursor: z.string().datetime().optional(),
 });
 
 export type SearchMessagesDto = z.infer<typeof SearchMessagesSchema>;

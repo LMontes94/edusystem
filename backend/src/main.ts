@@ -4,6 +4,7 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { WorkerAppModule } from './worker-app.module';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
+import { RedisIoAdapter } from './common/adapters/redis-io.adapter';
 
 const logger = new Logger('Bootstrap');
 
@@ -55,6 +56,12 @@ async function bootstrap() {
     });
     logger.log(`Swagger: http://localhost:${port}/docs`);
   }
+
+  const redisHost = process.env.REDIS_HOST ?? 'localhost';
+  const redisPort = process.env.REDIS_PORT ?? '6379';
+  const redisAdapter = new RedisIoAdapter(app);
+  await redisAdapter.connectToRedis(`redis://${redisHost}:${redisPort}`);
+  app.useWebSocketAdapter(redisAdapter);
 
   await app.listen(port);
   logger.log(`API corriendo en http://localhost:${port}/api/v1`);
