@@ -12,6 +12,7 @@ import {
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Menu, User, Settings, LogOut } from 'lucide-react';
+import { ChatHeaderBell } from '@/components/chat/chat-header-popover';
 import { NotificationBell } from '@/components/notification-bell';
 
 interface Props {
@@ -21,9 +22,10 @@ interface Props {
 export function AppHeader({ onMobileMenuOpen }: Props) {
   const { data: session } = useAppSession();
 
-  const role    = (session?.user as any)?.role as string | undefined;
+  const appUser = session?.user as { id?: string; role?: string } | undefined;
+  const role    = appUser?.role;
   const isAdmin = ['ADMIN', 'DIRECTOR', 'SECRETARY'].includes(role ?? '');
-  const userId  = (session?.user as any)?.id as string | undefined;
+  const userId  = appUser?.id;
 
   const initials = session?.user?.name
     ?.split(' ')
@@ -50,6 +52,7 @@ export function AppHeader({ onMobileMenuOpen }: Props) {
 
       <div className="flex-1" />
 
+      <ChatHeaderBell />
       <NotificationBell />
 
       <DropdownMenu>

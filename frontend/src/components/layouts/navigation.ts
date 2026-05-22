@@ -2,7 +2,7 @@ import {
     LayoutDashboard, Users, GraduationCap, BookOpen,
     ClipboardList, Star, Megaphone, FileText, ClipboardCheck,
     ListChecks, BookText, Clock, BarChart2, ShieldAlert,DoorOpenIcon,CalendarIcon,
-    UsersIcon, SportShoe, MessageCircle
+    UsersIcon, SportShoe
   } from 'lucide-react';
   
   export interface NavItem {
@@ -28,7 +28,6 @@ import {
     { name: 'Evaluaciones',       href: '/admin/evaluations',       icon: ClipboardCheck  },
     { name: 'Reportes',           href: '/admin/reports',           icon: FileText        },
     { name: 'Comunicados',        href: '/admin/announcements',     icon: Megaphone       },
-    { name: 'Chat',                href: '/admin/chat',              icon: MessageCircle   },
 
     { name: '— Panel del docente —', separator: true },
     { name: 'Temario',            href: '/admin/syllabus',          icon: BookText        },
@@ -53,7 +52,6 @@ import {
     { name: 'Reportes',           href: '/admin/reports',           icon: FileText        },
     { name: 'Pendientes',         href: '/admin/pending',           icon: Clock           },
     { name: 'Comunicados',        href: '/admin/announcements',     icon: Megaphone       },
-    { name: 'Chat',                href: '/admin/chat',              icon: MessageCircle   },
   ];
   
   // ── Teacher ───────────────────────────────────
@@ -65,7 +63,6 @@ import {
     { name: 'Evaluaciones', href: '/teacher/evaluations',  icon: ClipboardCheck  },
     { name: 'Temario',      href: '/teacher/syllabus',     icon: BookText        },
     { name: 'Pendientes',   href: '/teacher/pending',      icon: Clock           },
-    { name: 'Chat',         href: '/teacher/chat',         icon: MessageCircle   },
   ];
   
   // ── Mapa por rol ──────────────────────────────
