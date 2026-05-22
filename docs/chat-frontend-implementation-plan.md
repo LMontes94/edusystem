@@ -324,12 +324,31 @@ The following are **intentionally excluded** from Phase 1. Each exclusion includ
 ### 5.8 Rollback Strategy
 
 All Phase 1 files are additive:
-- Routes under `/admin/chat/` and `/teacher/chat/` — new, no existing routes modified
-- Components under `components/chat/` — new directory
-- Hooks in `lib/api/chat.ts` — new file
-- Navigation entries in `navigation.ts` — additive array entries
+- Routes under `/admin/chat/` and `/teacher/chat/` — 4 new route files
+- Components under `components/chat/` — 10 new component files
+- Hooks under `hooks/chat/` — 7 new hook files
+- API layer in `lib/api/chat.ts` — refactored (pure API functions, no hooks)
+- Navigation entries in `navigation.ts` — 3 additive array entries
+- Plan document — `docs/chat-frontend-implementation-plan.md` (documentation only)
 
-To roll back: remove navigation entries → chat routes become unreachable. Remove component directory → no orphaned code.
+**Total: 23 new files** (22 source files + 1 plan document), **2 modified** (navigation.ts, chat.ts).
+
+To roll back: remove navigation entries → chat routes become unreachable. Remove component/hook/chat directories → no orphaned code.
+
+### 5.9 Known Phase 1 Limitations
+
+The following limitations are **intentionally deferred** to later phases. They are not bugs — they are architectural boundaries scoped out of Phase 1 to maintain mergeability and testability.
+
+| Limitation | Deferred To | Rationale |
+|-----------|-------------|-----------|
+| **No realtime transport** | Phase 2 | REST polling provides eventual consistency (rooms 10s, messages 5s). WebSocket adds reconnect, listener lifecycle, WS→RQ bridge complexity. |
+| **No virtualization** | Phase 7 | Message volumes are low (< 200 messages per conversation). Virtualization adds dynamic height measurement, scroll offset remapping complexity. |
+| **No optimistic updates** | Phase 2 | `tempId` lifecycle (generation → display → replacement → dedup) requires WS echo for reliable replacement. Without WS, optimistically inserted messages duplicate on refetch. |
+| **No incoming-message auto-scroll** | Phase 2 | Without WS, polling-based auto-scroll fights user scroll position. Phase 2 WS handler patches cache + triggers conditional scroll. |
+| **Full-query invalidation after send** | Phase 2 | `invalidateQueries` on `['chat', 'messages', roomId]` refetches all infinite query pages. Phase 2 WS echo patches the first page directly, making re-fetch unnecessary. |
+| **Backend-authoritative room ordering** | N/A (by design) | Rooms are ordered by backend `ORDER BY lastMessageAt DESC`. Frontend never re-sorts client-side to avoid divergence from backend state. |
+| **No client-side room type filtering** | Phase 5 | Room type filter ("Todos", "Directo", "Grupal") adds UI complexity without backend sorting support in Phase 1. |
+| **`ChatHeader` lacks error/404 state** | Phase 5 | 403/404 on individual room is an edge case that doesn't crash the app. Error is surfaced via `MessageList` error state. |
 
 ---
 

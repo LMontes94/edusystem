@@ -11,6 +11,20 @@ import { ChevronUp } from 'lucide-react';
 import type { MessageListProps } from './chat.types';
 import type { ChatMessage, MessagesResponse } from '@/lib/api/chat';
 
+// Phase 2 realtime integration will require extracting three concerns from this component:
+//
+// 1. useMessageScroll(containerRef, messages, roomId) — manages auto-scroll-to-bottom
+//    and the isInitialLoad per-room reset logic.
+//
+// 2. useScrollAnchor(containerRef, sentinelRef, fetchNextPage, hasNextPage) —
+//    encapsulates the IntersectionObserver + scrollHeight anchor preservation.
+//
+// 3. useChatRealtimeSync(roomId) — subscribes to WS newMessage/messagesRead
+//    events and patches the React Query cache via setQueryData.
+//
+// These extractions keep MessageList as a thin orchestration shell when
+// realtime complexity is added.
+
 function flattenMessages(data: { pages: MessagesResponse[] } | undefined): ChatMessage[] {
   if (!data?.pages) return [];
   const all = data.pages.flatMap((p) => p.messages ?? []);
@@ -45,18 +59,18 @@ export function MessageList({ roomId }: MessageListProps) {
   const topSentinelRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const prevScrollHeightRef = useRef<number>(0);
-  const isInitialLoad = useRef(true);
+  const initialLoadMap = useRef<Record<string, boolean>>({});
 
   const messages = useMemo(() => flattenMessages(data), [data]);
   const groups = useMemo(() => groupByDate(messages), [messages]);
 
-  // Auto-scroll to bottom on initial load and new messages
+  // Auto-scroll to bottom on room entry (per-room, not per-component)
   useEffect(() => {
-    if (isInitialLoad.current && messages.length > 0) {
+    if (initialLoadMap.current[roomId] !== false && messages.length > 0) {
       bottomRef.current?.scrollIntoView();
-      isInitialLoad.current = false;
+      initialLoadMap.current[roomId] = false;
     }
-  }, [messages.length]);
+  }, [messages.length, roomId]);
 
   // Preserve scroll position after prepending older messages
   useEffect(() => {

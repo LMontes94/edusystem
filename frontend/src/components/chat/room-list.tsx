@@ -32,7 +32,7 @@ function formatLastMessage(iso: string | null): string {
   return date.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' });
 }
 
-export function RoomList({ rooms, activeRoomId, unreadByRoom, isLoading, onRoomClick }: RoomListProps) {
+export function RoomList({ rooms, activeRoomId, unreadByRoom, isLoading, isError, onRoomClick }: RoomListProps) {
   const [search, setSearch] = useState('');
 
   const filtered = useMemo(() => {
@@ -57,6 +57,16 @@ export function RoomList({ rooms, activeRoomId, unreadByRoom, isLoading, onRoomC
             </div>
           </div>
         ))}
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full text-muted-foreground p-6">
+        <MessageCircle className="h-10 w-10 mb-2 opacity-40" />
+        <p className="text-sm font-medium">Error al cargar las conversaciones</p>
+        <p className="text-xs mt-1 text-center">Intentá de nuevo más tarde</p>
       </div>
     );
   }

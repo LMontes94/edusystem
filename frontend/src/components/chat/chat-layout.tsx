@@ -32,7 +32,7 @@ export function ChatLayout({ activeRoomId, basePath }: ChatLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
 
-  const { data: roomsData, isLoading: roomsLoading } = useChatRooms();
+  const { data: roomsData, isLoading: roomsLoading, isError: roomsError } = useChatRooms();
   const { data: unreadData } = useChatUnreadCount();
   const { data: activeRoom, isLoading: roomLoading } = useChatRoom(activeRoomId ?? '');
 
@@ -78,6 +78,7 @@ export function ChatLayout({ activeRoomId, basePath }: ChatLayoutProps) {
           activeRoomId={activeRoomId}
           unreadByRoom={unreadByRoom}
           isLoading={roomsLoading}
+          isError={roomsError}
           onRoomClick={handleRoomClick}
         />
       </aside>
@@ -112,6 +113,7 @@ export function ChatLayout({ activeRoomId, basePath }: ChatLayoutProps) {
             activeRoomId={activeRoomId}
             unreadByRoom={unreadByRoom}
             isLoading={roomsLoading}
+            isError={roomsError}
             onRoomClick={handleRoomClick}
           />
         </SheetContent>

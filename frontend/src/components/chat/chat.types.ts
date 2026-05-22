@@ -5,6 +5,7 @@ export interface RoomListProps {
   activeRoomId?: string;
   unreadByRoom?: Record<string, number>;
   isLoading: boolean;
+  isError?: boolean;
   onRoomClick: (roomId: string) => void;
 }
 
