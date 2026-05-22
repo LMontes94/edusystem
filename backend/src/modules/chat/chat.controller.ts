@@ -86,7 +86,7 @@ export class ChatController {
     @InstitutionId() institutionId: string,
     @CurrentUser() user: RequestUser,
   ) {
-    return this.chatService.findMessages({ ...dto, roomId }, user, institutionId);
+    return this.chatService.findMessages(roomId, dto, user, institutionId);
   }
 
   @Post('messages')

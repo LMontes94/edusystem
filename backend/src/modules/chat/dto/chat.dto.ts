@@ -35,7 +35,6 @@ export const QueryRoomsSchema = z.object({
 export type QueryRoomsDto = z.infer<typeof QueryRoomsSchema>;
 
 export const QueryMessagesSchema = z.object({
-  roomId: z.string().uuid(),
   limit: z.coerce.number().min(1).max(100).default(50),
   before: z.string().datetime().optional(),
 });

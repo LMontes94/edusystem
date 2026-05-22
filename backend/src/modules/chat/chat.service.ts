@@ -254,15 +254,15 @@ export class ChatService {
     return room;
   }
 
-  async findMessages(dto: QueryMessagesDto, user: RequestUser, institutionId: string) {
+  async findMessages(roomId: string, dto: QueryMessagesDto, user: RequestUser, institutionId: string) {
     const membership = await this.prisma.chatRoomMember.findFirst({
-      where: { roomId: dto.roomId, userId: user.id },
+      where: { roomId, userId: user.id },
     });
     if (!membership) {
       throw new ForbiddenException('No tenés acceso a esta sala');
     }
 
-    const where: Prisma.ChatMessageWhereInput = { roomId: dto.roomId };
+    const where: Prisma.ChatMessageWhereInput = { roomId };
     if (dto.before) {
       where.sentAt = { lt: new Date(dto.before) };
     }
