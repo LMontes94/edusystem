@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { MessageCircle, MessageSquare } from 'lucide-react';
+import Link from 'next/link';
+import { MessageCircle, MessageSquare, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Popover, PopoverContent, PopoverTrigger,
@@ -106,72 +107,82 @@ export function ChatHeaderBell() {
   }
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative h-9 w-9">
+    <div className="flex items-center">
+      {/* Primary navigation → chat page */}
+      <Button asChild variant="ghost" size="icon" className="relative h-9 w-9 rounded-r-none">
+        <Link href={chatBaseHref}>
           <MessageCircle className="h-4 w-4" />
           {unreadTotal > 0 && (
             <span className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center leading-none">
               {unreadTotal > 9 ? '9+' : unreadTotal}
             </span>
           )}
-        </Button>
-      </PopoverTrigger>
+        </Link>
+      </Button>
 
-      <PopoverContent
-        align="end"
-        className="w-80 p-0 shadow-lg"
-        sideOffset={8}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b">
-          <div className="flex items-center gap-2">
-            <h3 className="text-sm font-semibold">Mensajes</h3>
-            {unreadTotal > 0 && (
-              <span className="text-xs bg-red-100 text-red-600 font-medium px-1.5 py-0.5 rounded-full">
-                {unreadTotal}
-              </span>
+      {/* Secondary trigger → popover preview */}
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button variant="ghost" size="icon" className="h-9 w-6 rounded-l-none border-l border-border/50">
+            <ChevronDown className="h-3 w-3" />
+          </Button>
+        </PopoverTrigger>
+
+        <PopoverContent
+          align="end"
+          className="w-80 p-0 shadow-lg"
+          sideOffset={8}
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between px-4 py-3 border-b">
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-semibold">Mensajes</h3>
+              {unreadTotal > 0 && (
+                <span className="text-xs bg-red-100 text-red-600 font-medium px-1.5 py-0.5 rounded-full">
+                  {unreadTotal}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* List */}
+          <ScrollArea className="max-h-[380px]">
+            {roomsLoading ? (
+              <div className="flex items-center justify-center py-8 text-muted-foreground">
+                <p className="text-sm">Cargando...</p>
+              </div>
+            ) : rooms.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-10 text-muted-foreground gap-2">
+                <MessageSquare className="h-8 w-8 opacity-20" />
+                <p className="text-sm">Sin conversaciones</p>
+              </div>
+            ) : (
+              rooms.map((room) => (
+                <RoomItem
+                  key={room.id}
+                  room={room}
+                  unread={unreadForRoom(room.id)}
+                  onNavigate={handleRoomClick}
+                />
+              ))
             )}
-          </div>
-        </div>
+          </ScrollArea>
 
-        {/* List */}
-        <ScrollArea className="max-h-[380px]">
-          {roomsLoading ? (
-            <div className="flex items-center justify-center py-8 text-muted-foreground">
-              <p className="text-sm">Cargando...</p>
+          {/* Footer */}
+          {rooms.length > 0 && (
+            <div className="border-t px-4 py-2.5 text-center">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs text-muted-foreground hover:text-foreground w-full"
+                onClick={handleViewAll}
+              >
+                Ver todas las conversaciones
+              </Button>
             </div>
-          ) : rooms.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-10 text-muted-foreground gap-2">
-              <MessageSquare className="h-8 w-8 opacity-20" />
-              <p className="text-sm">Sin conversaciones</p>
-            </div>
-          ) : (
-            rooms.map((room) => (
-              <RoomItem
-                key={room.id}
-                room={room}
-                unread={unreadForRoom(room.id)}
-                onNavigate={handleRoomClick}
-              />
-            ))
           )}
-        </ScrollArea>
-
-        {/* Footer */}
-        {rooms.length > 0 && (
-          <div className="border-t px-4 py-2.5 text-center">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 text-xs text-muted-foreground hover:text-foreground w-full"
-              onClick={handleViewAll}
-            >
-              Ver todas las conversaciones
-            </Button>
-          </div>
-        )}
-      </PopoverContent>
-    </Popover>
+        </PopoverContent>
+      </Popover>
+    </div>
   );
 }
