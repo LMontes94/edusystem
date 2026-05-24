@@ -49,6 +49,11 @@ export const SearchMessagesSchema = z.object({
 
 export type SearchMessagesDto = z.infer<typeof SearchMessagesSchema>;
 
+export const AddMembersSchema = z.object({
+  userIds: z.array(z.string().uuid()).min(1).max(50),
+});
+export type AddMembersDto = z.infer<typeof AddMembersSchema>;
+
 export const UpdateChatPolicySchema = z.object({
   guardiansCanMessageTeachers: z.boolean().optional(),
   guardiansCanMessageDirectors: z.boolean().optional(),

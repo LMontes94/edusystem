@@ -74,6 +74,22 @@ export interface UnreadResponse {
   rooms: { roomId: string; unreadCount: number }[];
 }
 
+export interface MembersResponse {
+  creator: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    role: string;
+    avatarUrl: string | null;
+  } | null;
+  createdAt: string;
+  level: string | null;
+  participants: (ChatRoomMember & {
+    role: string;
+    addedBy?: { firstName: string; lastName: string } | null;
+  })[];
+}
+
 // ── Pure API functions ─────────────────────────
 
 export async function fetchRooms(params?: { type?: string; courseId?: string; limit?: number; cursor?: string }): Promise<RoomsResponse> {
@@ -117,6 +133,23 @@ export async function markMessagesRead(data: { roomId: string; messageId?: strin
 export async function fetchUnreadCount(): Promise<UnreadResponse> {
   const res = await api.get('/chat/rooms/unread');
   return res.data;
+}
+
+export async function addParticipants(roomId: string, userIds: string[]): Promise<void> {
+  await api.post(`/chat/rooms/${roomId}/members`, { userIds });
+}
+
+export async function fetchParticipants(roomId: string): Promise<MembersResponse> {
+  const res = await api.get(`/chat/rooms/${roomId}/members`);
+  return res.data;
+}
+
+export async function exportConversationPdf(roomId: string): Promise<void> {
+  const res = await api.get(`/chat/rooms/${roomId}/export/pdf`, { responseType: 'blob' });
+  const url = URL.createObjectURL(res.data);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'conversacion.pdf'; a.click();
+  URL.revokeObjectURL(url);
 }
 
 // ── Shared dedup utility ───────────────────────

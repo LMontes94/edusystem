@@ -1,7 +1,8 @@
 import {
   Body, Controller, Get, Patch, HttpCode, HttpStatus,
-  Param, Post, Query, UseGuards, UseInterceptors, UploadedFile, BadRequestException,
+  Param, Post, Query, Res, UseGuards, UseInterceptors, UploadedFile, BadRequestException,
 } from '@nestjs/common';
+import { Response } from 'express';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ChatService } from './chat.service';
@@ -14,6 +15,7 @@ import {
   QueryRoomsDto, QueryRoomsSchema,
   QueryMessagesDto, QueryMessagesSchema,
   SearchMessagesDto, SearchMessagesSchema,
+  AddMembersDto, AddMembersSchema,
   UpdateChatPolicyDto, UpdateChatPolicySchema,
 } from './dto/chat.dto';
 import { CurrentUser, RequestUser } from '../../common/decorators/current-user.decorator';
@@ -159,6 +161,49 @@ export class ChatController {
     const url = await this.storageService.getFileUrl(objectName);
 
     return { url, filename: file.originalname, size: file.size, mimetype: file.mimetype };
+  }
+
+  @Post('rooms/:roomId/members')
+  @CheckAbility({ action: Action.ManageParticipants, subject: 'ChatRoom' })
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Agregar miembros a una sala' })
+  addMembers(
+    @Param('roomId') roomId: string,
+    @Body(new ZodPipe(AddMembersSchema)) dto: AddMembersDto,
+    @CurrentUser() user: RequestUser,
+    @InstitutionId() institutionId: string,
+  ) {
+    return this.chatService.addMembers(roomId, dto, user, institutionId);
+  }
+
+  @Get('rooms/:roomId/members')
+  @CheckAbility({ action: Action.Read, subject: 'ChatRoom' })
+  @ApiOperation({ summary: 'Obtener miembros de una sala' })
+  getMembers(
+    @Param('roomId') roomId: string,
+    @CurrentUser() user: RequestUser,
+    @InstitutionId() institutionId: string,
+  ) {
+    return this.chatService.getMembers(roomId, user, institutionId);
+  }
+
+  @Get('rooms/:roomId/export/pdf')
+  @CheckAbility({ action: Action.Export, subject: 'ChatRoom' })
+  @ApiOperation({ summary: 'Exportar conversación a PDF' })
+  async exportPdf(
+    @Param('roomId') roomId: string,
+    @CurrentUser() user: RequestUser,
+    @InstitutionId() institutionId: string,
+    @Res() res: Response,
+  ) {
+    const buffer = await this.chatService.exportConversationPdf(roomId, user, institutionId);
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': 'attachment; filename="conversacion.pdf"',
+      'Content-Length': buffer.length,
+      'Access-Control-Expose-Headers': 'Content-Disposition',
+    });
+    res.end(buffer);
   }
 
   @Get('policy')

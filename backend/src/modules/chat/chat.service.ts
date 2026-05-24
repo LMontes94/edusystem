@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   Logger,
@@ -8,10 +9,10 @@ import {
 } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
-import { Prisma } from '@prisma/client';
+import { Prisma, Level } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RequestUser } from '../../common/decorators/current-user.decorator';
-import { CreateRoomDto, SendMessageDto, MarkReadDto, QueryRoomsDto, QueryMessagesDto } from './dto/chat.dto';
+import { CreateRoomDto, SendMessageDto, MarkReadDto, QueryRoomsDto, QueryMessagesDto, AddMembersDto } from './dto/chat.dto';
 import { QUEUES, JOBS, JOB_OPTIONS } from '../../queues/queue.constants';
 import { ChatGateway } from './chat.gateway';
 
@@ -130,6 +131,18 @@ export class ChatService {
       throw new ForbiddenException('No tenés permisos para crear salas de chat');
     }
 
+    const resolvedLevel = await this.resolveRoomLevel(dto.participantIds ?? [], dto.courseId);
+
+    if (user.role === 'GUARDIAN') {
+      const roomLevel = resolvedLevel ?? 'PRIMARIA';
+      const settings = await this.prisma.institutionLevelCommunicationSettings.findUnique({
+        where: { institutionId_level: { institutionId, level: roomLevel } },
+      });
+      if (!settings?.guardianCanStartConversation) {
+        throw new ForbiddenException('No tenés permisos para iniciar conversaciones');
+      }
+    }
+
     if (dto.type === 'DIRECT' && dto.participantIds?.length) {
       const otherUserId = dto.participantIds[0];
       const sortedIds = [user.id, otherUserId].sort();
@@ -155,6 +168,8 @@ export class ChatService {
             institutionId,
             type: 'DIRECT',
             directRoomHash: roomHash,
+            creatorId: user.id,
+            level: resolvedLevel,
             members: {
               create: [
                 { userId: user.id },
@@ -170,6 +185,15 @@ export class ChatService {
                 },
               },
             },
+          },
+        });
+
+        await this.prisma.chatAuditLog.create({
+          data: {
+            roomId: room.id,
+            actorId: user.id,
+            action: 'CREATE_ROOM',
+            metadata: { type: room.type, participantCount: 2, level: resolvedLevel },
           },
         });
 
@@ -220,6 +244,8 @@ export class ChatService {
         name: dto.name,
         type: 'GROUP',
         courseId: dto.courseId,
+        creatorId: user.id,
+        level: resolvedLevel,
         members: {
           create: [
             { userId: user.id },
@@ -234,6 +260,20 @@ export class ChatService {
               select: { id: true, firstName: true, lastName: true, role: true, avatarUrl: true },
             },
           },
+        },
+      },
+    });
+
+    await this.prisma.chatAuditLog.create({
+      data: {
+        roomId: room.id,
+        actorId: user.id,
+        action: 'CREATE_ROOM',
+        metadata: {
+          type: room.type,
+          name: room.name,
+          participantCount: dto.participantIds?.length ?? 1,
+          level: resolvedLevel,
         },
       },
     });
@@ -640,5 +680,258 @@ export class ChatService {
     const nextCursor = hasMore ? results[results.length - 1]?.sentAt.toISOString() : undefined;
 
     return { messages: results, nextCursor, hasMore };
+  }
+
+  private async resolveRoomLevel(
+    participantIds: string[],
+    courseId?: string,
+  ): Promise<Level | null> {
+    if (courseId) {
+      const course = await this.prisma.course.findUnique({
+        where: { id: courseId },
+        select: { level: true },
+      });
+      return course?.level ?? null;
+    }
+
+    const levelRoles = await this.prisma.userLevelRole.findMany({
+      where: { userId: { in: participantIds } },
+      select: { level: true },
+    });
+
+    const levels = [...new Set(levelRoles.map((lr) => lr.level))];
+
+    if (levels.length === 0) return null;
+    if (levels.length === 1) return levels[0];
+
+    throw new BadRequestException(
+      'No se pueden crear conversaciones entre múltiples niveles educativos',
+    );
+  }
+
+  async addMembers(
+    roomId: string,
+    dto: AddMembersDto,
+    user: RequestUser,
+    institutionId: string,
+  ) {
+    this.logger.log(`Agregando miembros a sala=${roomId} por usuario=${user.id}`);
+
+    const membership = await this.prisma.chatRoomMember.findFirst({
+      where: { roomId, userId: user.id },
+    });
+    if (!membership) {
+      throw new ForbiddenException('No tenés acceso a esta sala');
+    }
+
+    const room = await this.prisma.chatRoom.findUnique({
+      where: { id: roomId },
+      select: { institutionId: true, level: true },
+    });
+    if (!room || room.institutionId !== institutionId) {
+      throw new NotFoundException('Sala no encontrada');
+    }
+
+    if (user.role === 'GUARDIAN') {
+      const settings = await this.prisma.institutionLevelCommunicationSettings.findUnique({
+        where: { institutionId_level: { institutionId, level: room.level ?? 'PRIMARIA' } },
+      });
+      if (!settings?.guardianCanAddParticipants) {
+        throw new ForbiddenException('No tenés permisos para agregar participantes');
+      }
+    }
+
+    const existingMemberIds = await this.prisma.chatRoomMember.findMany({
+      where: { roomId },
+      select: { userId: true },
+    });
+    const existingIds = new Set(existingMemberIds.map((m) => m.userId));
+    const newUserIds = dto.userIds.filter((id) => !existingIds.has(id));
+
+    if (newUserIds.length === 0) {
+      return { added: 0 };
+    }
+
+    const validUsers = await this.prisma.user.findMany({
+      where: { id: { in: newUserIds }, institutionId },
+      select: { id: true },
+    });
+    const validIds = validUsers.map((u) => u.id);
+
+    if (validIds.length === 0) {
+      throw new BadRequestException('Ninguno de los usuarios seleccionados pertenece a la institución');
+    }
+
+    await this.prisma.chatRoomMember.createMany({
+      data: validIds.map((userId) => ({
+        roomId,
+        userId,
+        addedById: user.id,
+      })),
+    });
+
+    await this.prisma.chatAuditLog.create({
+      data: {
+        roomId,
+        actorId: user.id,
+        action: 'ADD_PARTICIPANTS',
+        metadata: { count: validIds.length },
+      },
+    });
+
+    await this.auditQueue.add(
+      JOBS.AUDIT_LOG,
+      {
+        institutionId,
+        userId: user.id,
+        action: 'UPDATE',
+        resource: 'ChatRoom',
+        resourceId: roomId,
+        after: { addedParticipants: validIds.length },
+      },
+      JOB_OPTIONS.CRITICAL,
+    );
+
+    return { added: validIds.length };
+  }
+
+  async getMembers(roomId: string, user: RequestUser, institutionId: string) {
+    const membership = await this.prisma.chatRoomMember.findFirst({
+      where: { roomId, userId: user.id },
+    });
+    if (!membership) {
+      throw new ForbiddenException('No tenés acceso a esta sala');
+    }
+
+    const room = await this.prisma.chatRoom.findUnique({
+      where: { id: roomId, institutionId },
+      include: {
+        creator: {
+          select: { id: true, firstName: true, lastName: true, role: true, avatarUrl: true },
+        },
+        members: {
+          include: {
+            user: {
+              select: { id: true, firstName: true, lastName: true, role: true, avatarUrl: true },
+            },
+            addedBy: {
+              select: { firstName: true, lastName: true },
+            },
+          },
+        },
+      },
+    });
+
+    if (!room) throw new NotFoundException('Sala no encontrada');
+
+    return {
+      creator: room.creator,
+      createdAt: room.createdAt,
+      level: room.level,
+      participants: room.members,
+    };
+  }
+
+  async exportConversationPdf(roomId: string, user: RequestUser, institutionId: string): Promise<Buffer> {
+    this.logger.log(`Exportando PDF de sala=${roomId} por usuario=${user.id}`);
+
+    const membership = await this.prisma.chatRoomMember.findFirst({
+      where: { roomId, userId: user.id },
+    });
+    if (!membership) {
+      throw new ForbiddenException('No tenés acceso a esta sala');
+    }
+
+    const room = await this.prisma.chatRoom.findUnique({
+      where: { id: roomId, institutionId },
+      include: {
+        creator: {
+          select: { id: true, firstName: true, lastName: true, role: true },
+        },
+        members: {
+          include: {
+            user: {
+              select: { id: true, firstName: true, lastName: true, role: true },
+            },
+          },
+        },
+      },
+    });
+
+    if (!room) throw new NotFoundException('Sala no encontrada');
+
+    if (user.role === 'GUARDIAN') {
+      const settings = await this.prisma.institutionLevelCommunicationSettings.findUnique({
+        where: { institutionId_level: { institutionId, level: room.level ?? 'PRIMARIA' } },
+      });
+      if (!settings?.guardianCanExportPdf) {
+        throw new ForbiddenException('No tenés permisos para exportar conversaciones');
+      }
+    }
+
+    const messages = await this.prisma.chatMessage.findMany({
+      where: { roomId },
+      include: {
+        sender: {
+          select: { id: true, firstName: true, lastName: true, role: true },
+        },
+      },
+      orderBy: { sentAt: 'asc' },
+    });
+
+    const participants = room.members.map((m) => ({
+      name: `${m.user.firstName} ${m.user.lastName}`,
+      role: m.user.role,
+    }));
+
+    const messagesData = messages.map((m) => ({
+      senderName: `${m.sender.firstName} ${m.sender.lastName}`,
+      senderRole: m.sender.role,
+      content: m.content ?? '',
+      sentAt: m.sentAt.toISOString(),
+    }));
+
+    const { chatExportTemplate } = await import('../../../templates/chat-export.template');
+
+    const html = chatExportTemplate({
+      title: room.name ?? `Conversación grupal (${room.type})`,
+      creator: room.creator
+        ? `${room.creator.firstName} ${room.creator.lastName}`
+        : 'Desconocido',
+      createdAt: room.createdAt.toISOString(),
+      level: room.level,
+      participants,
+      messages: messagesData,
+      exportedAt: new Date().toISOString(),
+    });
+
+    const puppeteer = await import('puppeteer');
+    const browser = await puppeteer.default.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    });
+
+    try {
+      const page = await browser.newPage();
+      await page.setContent(html, { waitUntil: 'networkidle0' });
+      const pdf = await page.pdf({
+        format: 'A4',
+        printBackground: true,
+        margin: { top: '10mm', bottom: '10mm', left: '10mm', right: '10mm' },
+      });
+
+      await this.prisma.chatAuditLog.create({
+        data: {
+          roomId,
+          actorId: user.id,
+          action: 'EXPORT_PDF',
+          metadata: { messageCount: messages.length },
+        },
+      });
+
+      return Buffer.from(pdf);
+    } finally {
+      await browser.close();
+    }
   }
 }

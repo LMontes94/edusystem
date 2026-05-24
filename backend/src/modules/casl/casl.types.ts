@@ -7,6 +7,7 @@ export enum Action {
   Update = 'update',
   Delete = 'delete',
   Export = 'export',
+  ManageParticipants = 'manage_participants',
 }
 
 export type Subjects =

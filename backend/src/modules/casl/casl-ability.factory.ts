@@ -65,6 +65,8 @@ export class AbilityFactory {
         can(Action.Manage, 'SportGroup', inst);
         can(Action.Manage, 'ChatRoom', inst);
         can(Action.Manage, 'ChatMessage', inst);
+        can(Action.ManageParticipants, 'ChatRoom', inst);
+        can(Action.Export, 'ChatRoom', inst);
         cannot([Action.Create, Action.Update, Action.Delete], 'Grade');
         cannot(Action.Delete, 'User');
         break;
@@ -90,6 +92,8 @@ export class AbilityFactory {
         can(Action.Update,'SportGroup', inst);
         can(Action.Manage, 'ChatRoom', inst);
         can(Action.Manage, 'ChatMessage', inst);
+        can(Action.ManageParticipants, 'ChatRoom', inst);
+        can(Action.Export, 'ChatRoom', inst);
         cannot([Action.Create, Action.Update, Action.Delete], 'User');
         cannot([Action.Create, Action.Update, Action.Delete], 'Grade');
         cannot([Action.Create, Action.Update, Action.Delete], 'Course');
@@ -114,6 +118,8 @@ export class AbilityFactory {
         can(Action.Create, 'ChatRoom', inst);
         can(Action.Read, 'ChatMessage', inst);
         can(Action.Create, 'ChatMessage', inst);
+        can(Action.ManageParticipants, 'ChatRoom', inst);
+        can(Action.Export, 'ChatRoom', inst);
 
         cannot([Action.Create, Action.Update, Action.Delete], 'User');
         cannot([Action.Create, Action.Update, Action.Delete], 'Student');

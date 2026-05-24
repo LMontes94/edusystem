@@ -179,6 +179,7 @@ model Institution {
   sports      Sport[]
   sportGroups SportGroup[]
   chatPolicy  InstitutionChatPolicy?
+  levelCommunicationSettings InstitutionLevelCommunicationSettings[]
 
   @@index([domain])
   @@index([status])
@@ -259,7 +260,7 @@ model User {
   teacherSubjects     CourseSubject[] @relation("TeacherSubjects")
   announcements       Announcement[]
   sentMessages        ChatMessage[]
-  chatRoomMembers     ChatRoomMember[]
+  chatRoomMembers     ChatRoomMember[] @relation("ChatRoomMemberUser")
   notifications       Notification[]
   guardianLinks       Guardian[]
   attendancesRecorded Attendance[]    @relation("RecordedBy")
@@ -272,6 +273,9 @@ model User {
   sportGroupsAsTeacher SportGroupTeacher[]
   subjectAssignmentsCreated StudentCourseSubject[] @relation("SubjectAssignedBy")
   messageReads ChatMessageRead[]
+  chatRoomsCreated ChatRoom[] @relation("ChatRoomCreator")
+  addedMembers ChatRoomMember[] @relation("ChatRoomMemberAddedBy")
+  chatAuditLogs ChatAuditLog[]
   
   @@unique([email, institutionId])
 
@@ -613,11 +617,15 @@ model ChatRoom {
   directRoomHash  String?      @unique @map("direct_room_hash")
   lastMessageAt   DateTime?    @map("last_message_at")
   createdAt       DateTime     @default(now()) @map("created_at")
+  creatorId       String?      @map("creator_id")
+  level           Level?       @map("level")
 
-  institution Institution      @relation(fields: [institutionId], references: [id])
-  course      Course?          @relation(fields: [courseId], references: [id])
+  institution Institution                  @relation(fields: [institutionId], references: [id])
+  course      Course?                      @relation(fields: [courseId], references: [id])
+  creator     User?                        @relation("ChatRoomCreator", fields: [creatorId], references: [id])
   members     ChatRoomMember[]
   messages    ChatMessage[]
+  auditLogs   ChatAuditLog[]
 
   @@index([institutionId])
   @@index([lastMessageAt])
@@ -630,13 +638,48 @@ model ChatRoomMember {
   userId      String   @map("user_id")
   joinedAt    DateTime @default(now()) @map("joined_at")
   unreadCount Int      @default(0) @map("unread_count")
+  addedById   String?  @map("added_by_id")
 
-  room ChatRoom @relation(fields: [roomId], references: [id])
-  user User     @relation(fields: [userId], references: [id])
+  room    ChatRoom @relation(fields: [roomId], references: [id])
+  user    User     @relation("ChatRoomMemberUser", fields: [userId], references: [id])
+  addedBy User?    @relation("ChatRoomMemberAddedBy", fields: [addedById], references: [id])
 
   @@unique([roomId, userId])
   @@index([userId])
   @@map("chat_room_members")
+}
+
+model InstitutionLevelCommunicationSettings {
+  id                             String   @id @default(uuid())
+  institutionId                  String   @map("institution_id")
+  level                          Level
+  guardianCanStartConversation   Boolean  @default(false) @map("guardian_can_start_conversation")
+  guardianCanAddParticipants     Boolean  @default(false) @map("guardian_can_add_participants")
+  guardianCanExportPdf           Boolean  @default(false) @map("guardian_can_export_pdf")
+  createdAt                      DateTime @default(now()) @map("created_at")
+  updatedAt                      DateTime @updatedAt @map("updated_at")
+
+  institution Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+
+  @@unique([institutionId, level])
+  @@index([institutionId])
+  @@map("institution_level_communication_settings")
+}
+
+model ChatAuditLog {
+  id        String   @id @default(uuid())
+  roomId    String   @map("room_id")
+  actorId   String   @map("actor_id")
+  action    String
+  metadata  Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  room  ChatRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  actor User     @relation(fields: [actorId], references: [id], onDelete: Cascade)
+
+  @@index([roomId])
+  @@index([actorId])
+  @@map("chat_audit_logs")
 }
 
 model ChatMessage {

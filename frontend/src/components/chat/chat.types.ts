@@ -32,10 +32,26 @@ export interface MessageInputProps {
 export interface ChatHeaderProps {
   room: ChatRoom | undefined;
   isLoading: boolean;
+  onViewParticipants?: () => void;
+  onAddParticipants?: () => void;
+  onExportPdf?: () => void;
+  currentUserRole?: string;
 }
 
 export interface NewMessageDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onRoomCreated?: (roomId: string) => void;
+}
+
+export interface AddParticipantsDialogProps {
+  roomId: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+export interface ViewParticipantsDialogProps {
+  roomId: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }

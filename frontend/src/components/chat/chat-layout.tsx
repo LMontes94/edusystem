@@ -12,6 +12,8 @@ import { MessageInput } from './message-input';
 import { ChatHeader } from './chat-header';
 import { ChatEmptyState } from './chat-empty-state';
 import { NewMessageDialog } from './new-message-dialog';
+import { AddParticipantsDialog } from './add-participants-dialog';
+import { ViewParticipantsDialog } from './view-participants-dialog';
 import { Button } from '@/components/ui/button';
 import {
   Sheet,
@@ -31,6 +33,8 @@ export function ChatLayout({ activeRoomId, basePath }: ChatLayoutProps) {
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [addParticipantsOpen, setAddParticipantsOpen] = useState(false);
+  const [viewParticipantsOpen, setViewParticipantsOpen] = useState(false);
 
   const { data: roomsData, isLoading: roomsLoading, isError: roomsError } = useChatRooms();
   const { data: unreadData } = useChatUnreadCount();
@@ -123,7 +127,20 @@ export function ChatLayout({ activeRoomId, basePath }: ChatLayoutProps) {
       <main className="flex-1 flex flex-col min-w-0">
         {activeRoomId ? (
           <>
-            <ChatHeader room={activeRoom} isLoading={roomLoading} />
+            <ChatHeader
+              room={activeRoom}
+              isLoading={roomLoading}
+              onViewParticipants={() => setViewParticipantsOpen(true)}
+              onAddParticipants={() => setAddParticipantsOpen(true)}
+              onExportPdf={async () => {
+                const { exportConversationPdf } = await import('@/lib/api/chat');
+                try {
+                  await exportConversationPdf(activeRoomId);
+                } catch {
+                  // handled by toast
+                }
+              }}
+            />
             <MessageList roomId={activeRoomId} />
             <MessageInput
               roomId={activeRoomId}
@@ -146,6 +163,24 @@ export function ChatLayout({ activeRoomId, basePath }: ChatLayoutProps) {
         onOpenChange={setDialogOpen}
         onRoomCreated={handleRoomCreated}
       />
+
+      {/* Add participants dialog */}
+      {activeRoomId && (
+        <AddParticipantsDialog
+          roomId={activeRoomId}
+          open={addParticipantsOpen}
+          onOpenChange={setAddParticipantsOpen}
+        />
+      )}
+
+      {/* View participants dialog */}
+      {activeRoomId && (
+        <ViewParticipantsDialog
+          roomId={activeRoomId}
+          open={viewParticipantsOpen}
+          onOpenChange={setViewParticipantsOpen}
+        />
+      )}
     </div>
   );
 }
