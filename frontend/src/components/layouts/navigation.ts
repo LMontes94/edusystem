@@ -2,7 +2,7 @@ import {
     LayoutDashboard, Users, GraduationCap, BookOpen,
     ClipboardList, Star, Megaphone, FileText, ClipboardCheck,
     ListChecks, BookText, Clock, BarChart2, ShieldAlert,DoorOpenIcon,CalendarIcon,
-    UsersIcon, SportShoe
+    UsersIcon, SportShoe, MessageSquare
   } from 'lucide-react';
   
   export interface NavItem {
@@ -65,6 +65,16 @@ import {
     { name: 'Pendientes',   href: '/teacher/pending',      icon: Clock           },
   ];
   
+  // ── Guardian ──────────────────────────────────
+  const guardianNav: NavItem[] = [
+    { name: 'Dashboard',    href: '/guardian/dashboard',   icon: LayoutDashboard },
+    { name: 'Notas',        href: '/guardian/grades',      icon: Star            },
+    { name: 'Asistencia',   href: '/guardian/attendance',  icon: ClipboardList   },
+    { name: 'Comunicados',  href: '/guardian/announcements', icon: Megaphone      },
+    { name: 'Convivencia',  href: '/guardian/convivencias', icon: ShieldAlert     },
+    { name: 'Chat',         href: '/guardian/chat',         icon: MessageSquare   },
+  ];
+  
   // ── Mapa por rol ──────────────────────────────
   export const navigationByRole: Record<string, NavItem[]> = {
     ADMIN:     adminNav,
@@ -72,6 +82,7 @@ import {
     SECRETARY: adminNav,
     PRECEPTOR: preceptorNav,
     TEACHER:   teacherNav,
+    GUARDIAN:  guardianNav,
   };
   
   export function getNavigation(role: string | undefined): NavItem[] {
@@ -87,6 +98,8 @@ import {
       case 'SECRETARY':
       case 'PRECEPTOR':
         return '/admin/dashboard';
+      case 'GUARDIAN':
+        return '/guardian/dashboard';
       default:
         return '/teacher/dashboard';
     }

@@ -23,12 +23,19 @@ export default auth((req) => {
     if (role === 'TEACHER') {
       return NextResponse.redirect(new URL('/teacher/dashboard', nextUrl));
     }
-    // GUARDIAN → por ahora al dashboard admin hasta tener la app móvil
+    if (role === 'GUARDIAN') {
+      return NextResponse.redirect(new URL('/guardian/dashboard', nextUrl));
+    }
+    // fallback
     return NextResponse.redirect(new URL('/admin/dashboard', nextUrl));
   }
 
   // Proteger rutas /admin solo para roles con acceso al panel
   if (pathname.startsWith('/admin') && !ADMIN_ROLES.includes(role) && role !== 'TEACHER') {
+    return NextResponse.redirect(new URL('/login', nextUrl));
+  }
+
+  if (pathname.startsWith('/guardian') && role !== 'GUARDIAN') {
     return NextResponse.redirect(new URL('/login', nextUrl));
   }
 
@@ -39,5 +46,5 @@ export default auth((req) => {
 });
 
 export const config = {
-  matcher: ['/', '/dashboard', '/admin/:path*', '/teacher/:path*', '/profile'],
+  matcher: ['/', '/dashboard', '/admin/:path*', '/teacher/:path*', '/guardian', '/guardian/:path*', '/profile'],
 };

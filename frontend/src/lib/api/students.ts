@@ -72,6 +72,16 @@ export function useCreateStudent() {
   });
 }
 
+export function useMyChildren() {
+  return useQuery({
+    queryKey: ['students', 'my-children'],
+    queryFn:  async () => {
+      const res = await api.get<Student[]>('/students/my-children');
+      return res.data;
+    },
+  });
+}
+
 export function useDeleteStudent() {
   const queryClient = useQueryClient();
   return useMutation({
