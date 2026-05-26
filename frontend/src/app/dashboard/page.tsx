@@ -10,13 +10,14 @@ export default async function DashboardPage() {
 
   const role = session.user?.role as string;
 
-  if (role === 'ADMIN' || role === 'SUPER_ADMIN') {
-    redirect('/admin/dashboard');
+  if (role === 'GUARDIAN') {
+    redirect('/guardian/dashboard');
   }
 
   if (role === 'TEACHER') {
     redirect('/teacher/dashboard');
   }
 
-  redirect('/login');
+  // ADMIN, SUPER_ADMIN, DIRECTOR, SECRETARY, PRECEPTOR
+  redirect('/admin/dashboard');
 }

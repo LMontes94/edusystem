@@ -44,7 +44,17 @@ export default function LoginPage() {
         return;
       }
 
-      router.push('/dashboard');
+      const sessionRes = await fetch('/api/auth/session');
+      const session = await sessionRes.json();
+      const role = session?.user?.role as string | undefined;
+
+      if (role === 'GUARDIAN') {
+        router.push('/guardian/dashboard');
+      } else if (role === 'TEACHER') {
+        router.push('/teacher/dashboard');
+      } else {
+        router.push('/admin/dashboard');
+      }
     } finally {
       setLoading(false);
     }
