@@ -1,6 +1,6 @@
 import {
   Body, Controller, Delete, Get, Param,
-  Patch, Post, HttpCode, HttpStatus, UseGuards,
+  Patch, Post, Query, HttpCode, HttpStatus, UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { StudentsService } from './students.service';
@@ -27,8 +27,11 @@ export class StudentsController {
   @Get()
   @CheckAbility({ action: Action.Read, subject: 'Student' })
   @ApiOperation({ summary: 'Listar alumnos de la institución' })
-  findAll(@InstitutionId() institutionId: string) {
-    return this.studentsService.findAll(institutionId);
+  findAll(
+    @InstitutionId() institutionId: string,
+    @Query('search') search?: string,
+  ) {
+    return this.studentsService.findAll(institutionId, search);
   }
 
   @Get('my-children')

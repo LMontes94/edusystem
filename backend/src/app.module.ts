@@ -35,6 +35,7 @@ import { SportsModule }      from './modules/sports/sports.module';
 import { SportGroupsModule } from './modules/sport-groups/sport-groups.module';
 import { StudentCourseSubjectsModule } from './modules/student-course-subjects/student-course-subjects.module';
 import { ChatModule } from './modules/chat/chat.module';
+import { GuardiansModule } from './modules/guardians/guardians.module';
 
 
 @Module({
@@ -75,6 +76,7 @@ import { ChatModule } from './modules/chat/chat.module';
     SportGroupsModule,
     StudentCourseSubjectsModule,
     ChatModule,
+    GuardiansModule,
   ],
   providers:[
     {

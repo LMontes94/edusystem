@@ -15,9 +15,16 @@ import {
 export class StudentsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findAll(institutionId: string) {
+  async findAll(institutionId: string, search?: string) {
+    const where: any = { institutionId, deletedAt: null };
+    if (search) {
+      where.OR = [
+        { firstName: { contains: search, mode: 'insensitive' } },
+        { lastName: { contains: search, mode: 'insensitive' } },
+      ];
+    }
     return this.prisma.student.findMany({
-      where: { institutionId, deletedAt: null },
+      where,
       include: {
         courseStudents: {
           where: { status: 'ACTIVE' },

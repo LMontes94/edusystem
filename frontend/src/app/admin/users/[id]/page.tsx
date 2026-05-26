@@ -11,6 +11,7 @@ import { PersonalInfoCard } from './_components/personal-info-card';
 import { AvatarCard }       from './_components/avatar-card';
 import { RoleCard }         from './_components/role-card';
 import { StatusCard }       from './_components/status-card';
+import { FamilyRelationsCard } from './_components/family-relations-card';
 
 export default function UserDetailPage() {
   const { id }        = useParams<{ id: string }>();
@@ -65,10 +66,14 @@ export default function UserDetailPage() {
         {/* Columna derecha — datos personales + roles */}
         <div className="md:col-span-2 space-y-6">
           <PersonalInfoCard user={user} />
-          <RoleCard
-            user={{ id: user.id, role: user.role, levelRoles: (user as any).levelRoles ?? [] }}
-            canManage={canManage}
-          />
+          {user.role === 'GUARDIAN' ? (
+            <FamilyRelationsCard userId={user.id} canManage={canManage} />
+          ) : (
+            <RoleCard
+              user={{ id: user.id, role: user.role, levelRoles: (user as any).levelRoles ?? [] }}
+              canManage={canManage}
+            />
+          )}
         </div>
 
       </div>
