@@ -1,75 +1,211 @@
 'use client';
 
-import Link            from 'next/link';
+import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { ChevronDown } from 'lucide-react';
+import { useState, useEffect } from 'react';
+
 import { useAppSession } from '@/lib/hooks/use-app-session';
-import { cn }          from '@/lib/utils';
-import { Button }      from '@/components/ui/button';
-import { X }           from 'lucide-react';
-import { SidebarBrand }           from './sidebar-brand';
-import { getNavigation, getDashboardHref } from '../navigation';
+import { cn } from '@/lib/utils';
+import { getNavConfig, getDashboardHref, isNavItemActive } from '../navigation/helpers';
+import { SidebarBrand } from './sidebar-brand';
+import { SidebarUser } from './sidebar-user';
+import type { NavItem as NavItemType } from '../navigation/types';
 
-interface Props {
-  onClose?: () => void;
-}
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuItem,
+  SidebarMenuButton,
+  SidebarMenuSub,
+  SidebarMenuSubItem,
+  SidebarMenuSubButton,
+  SidebarGroup,
+  SidebarGroupLabel,
+  SidebarGroupContent,
+  SidebarRail,
+  SidebarSeparator,
+  useSidebar,
+} from '@/components/ui/sidebar';
 
-export function AppSidebar({ onClose }: Props) {
-  const { data: session } = useAppSession();
-  const pathname          = usePathname();
-  const role              = (session?.user as any)?.role as string | undefined;
-  const nav               = getNavigation(role);
-  const dashboardHref     = getDashboardHref(role);
+import {
+  Collapsible,
+  CollapsibleTrigger,
+  CollapsibleContent,
+} from '@/components/ui/collapsible';
+
+function NavItem({
+  item,
+  pathname,
+  dashboardHref,
+  onNavClick,
+}: {
+  item: NavItemType;
+  pathname: string;
+  dashboardHref: string;
+  onNavClick: () => void;
+}) {
+  const hasChildren = item.children && item.children.length > 0;
+  const isParentActive = hasChildren
+    ? item.children.some((child) =>
+        isNavItemActive(pathname, child, dashboardHref),
+      )
+    : false;
+  const isActive = !hasChildren && isNavItemActive(pathname, item, dashboardHref);
+  const [open, setOpen] = useState(isParentActive);
+
+  useEffect(() => {
+    setOpen(isParentActive);
+  }, [isParentActive]);
+
+  if (!hasChildren) {
+    return (
+      <SidebarMenuItem>
+        <SidebarMenuButton
+          asChild
+          isActive={isActive}
+          tooltip={item.name}
+          className={cn(
+            isActive &&
+              'border-l-2 border-l-primary bg-sidebar-accent text-sidebar-accent-foreground font-medium',
+          )}
+        >
+          <Link href={item.href!} onClick={onNavClick}>
+            {item.icon && <item.icon className="size-[18px] stroke-[1.5]" />}
+            <span>{item.name}</span>
+          </Link>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+    );
+  }
 
   return (
-    <div className="flex h-full flex-col">
-      <div className="border-b">
-        <div className="flex items-center justify-between pr-2">
-          <SidebarBrand />
-          {onClose && (
-            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={onClose}>
-              <X className="h-4 w-4" />
-            </Button>
-          )}
-        </div>
-      </div>
-
-      <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-0.5">
-        {nav.map((item, i) => {
-          if (item.separator) {
-            return (
-              <div key={`sep-${i}`} className="px-3 pt-4 pb-1 text-xs font-semibold text-muted-foreground">
-                {item.name}
-              </div>
-            );
-          }
-
-          const isActive =
-            pathname === item.href ||
-            (item.href !== dashboardHref && pathname.startsWith(item.href!));
-
-          return (
-            <Link
-              key={item.href}
-              href={item.href!}
-              onClick={onClose}
+    <Collapsible open={open} onOpenChange={setOpen}>
+      <SidebarMenuItem>
+        <CollapsibleTrigger asChild>
+          <SidebarMenuButton
+            tooltip={item.name}
+            className={cn(
+              'group/collapsible',
+              isParentActive &&
+                'border-l-2 border-l-primary bg-sidebar-accent text-sidebar-accent-foreground font-medium',
+            )}
+          >
+            {item.icon && <item.icon className="size-[18px] stroke-[1.5]" />}
+            <span>{item.name}</span>
+            <ChevronDown
               className={cn(
-                'flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors',
-                isActive
-                  ? 'bg-primary text-primary-foreground'
-                  : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                'ml-auto h-4 w-4 shrink-0 transition-transform duration-200',
+                open && 'rotate-180',
+              )}
+            />
+          </SidebarMenuButton>
+        </CollapsibleTrigger>
+      </SidebarMenuItem>
+      <CollapsibleContent>
+        <SidebarMenuSub>
+          {item.children.map((child) => {
+            const isChildActive = isNavItemActive(pathname, child, dashboardHref);
+            return (
+              <SidebarMenuSubItem key={child.href}>
+                <SidebarMenuSubButton
+                  asChild
+                  isActive={isChildActive}
+                  className={cn(
+                    isChildActive &&
+                      'border-l-2 border-l-primary bg-sidebar-accent text-sidebar-accent-foreground font-medium',
+                  )}
+                >
+                  <Link href={child.href!} onClick={onNavClick}>
+                    {child.name}
+                  </Link>
+                </SidebarMenuSubButton>
+              </SidebarMenuSubItem>
+            );
+          })}
+        </SidebarMenuSub>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
+export function AppSidebar() {
+  const { data: session } = useAppSession();
+  const pathname = usePathname();
+  const { setOpenMobile, isMobile } = useSidebar();
+  const user = session?.user as { role?: string } | undefined;
+  const role = user?.role;
+  const config = getNavConfig(role);
+  const dashboardHref = getDashboardHref(role);
+
+  const isDashboardActive = isNavItemActive(pathname, config.dashboard, dashboardHref);
+
+  const handleNavClick = () => {
+    if (isMobile) {
+      setOpenMobile(false);
+    }
+  };
+
+  return (
+    <Sidebar collapsible="icon">
+      <SidebarHeader>
+        <SidebarBrand />
+      </SidebarHeader>
+
+      <SidebarContent>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              asChild
+              isActive={isDashboardActive}
+              tooltip={config.dashboard.name}
+              className={cn(
+                isDashboardActive &&
+                  'border-l-2 border-l-primary bg-sidebar-accent text-sidebar-accent-foreground font-medium',
               )}
             >
-              {item.icon && <item.icon className="h-4 w-4 shrink-0" />}
-              {item.name}
-            </Link>
-          );
-        })}
-      </nav>
+              <Link href={config.dashboard.href!} onClick={handleNavClick}>
+                {config.dashboard.icon && (
+                  <config.dashboard.icon className="size-[18px] stroke-[1.5]" />
+                )}
+                <span>{config.dashboard.name}</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
 
-      <div className="border-t px-4 py-3">
-        <p className="text-xs text-muted-foreground truncate">{session?.user?.email}</p>
-        <p className="text-xs font-medium capitalize">{role?.toLowerCase()}</p>
-      </div>
-    </div>
+        <SidebarSeparator />
+
+        {config.groups.map((group) => (
+          <SidebarGroup key={group.title}>
+            <SidebarGroupLabel className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              {group.title}
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {group.items.map((item) => (
+                  <NavItem
+                    key={item.name}
+                    item={item}
+                    pathname={pathname}
+                    dashboardHref={dashboardHref}
+                    onNavClick={handleNavClick}
+                  />
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ))}
+      </SidebarContent>
+
+      <SidebarFooter>
+        <SidebarUser />
+      </SidebarFooter>
+
+      <SidebarRail />
+    </Sidebar>
   );
 }

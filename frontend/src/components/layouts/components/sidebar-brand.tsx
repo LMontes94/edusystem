@@ -50,7 +50,7 @@ export function SidebarBrand() {
   const subtitle = subtitleByRole[role ?? ''] ?? 'Panel';
 
   return (
-    <div className="flex items-center gap-3 px-4 py-3">
+    <div className="flex items-center gap-3 px-2 py-2">
       <div className="h-9 w-9 rounded-md border bg-muted/50 flex items-center justify-center shrink-0 overflow-hidden">
         {logoUrl ? (
           <Image

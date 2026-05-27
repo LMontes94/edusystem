@@ -14,13 +14,11 @@ import {
 import { Menu, User, Settings, LogOut } from 'lucide-react';
 import { ChatHeaderBell } from '@/components/chat/chat-header-popover';
 import { NotificationBell } from '@/components/notification-bell';
+import { SidebarTrigger, useSidebar } from '@/components/ui/sidebar';
 
-interface Props {
-  onMobileMenuOpen: () => void;
-}
-
-export function AppHeader({ onMobileMenuOpen }: Props) {
+export function AppHeader() {
   const { data: session } = useAppSession();
+  const { toggleSidebar } = useSidebar();
 
   const appUser = session?.user as { id?: string; role?: string } | undefined;
   const role    = appUser?.role;
@@ -46,9 +44,11 @@ export function AppHeader({ onMobileMenuOpen }: Props) {
 
   return (
     <header className="flex h-14 items-center gap-4 border-b bg-background px-4 shrink-0">
-      <Button variant="ghost" size="icon" className="md:hidden" onClick={onMobileMenuOpen}>
+      <Button variant="ghost" size="icon" className="md:hidden" onClick={toggleSidebar}>
         <Menu className="h-5 w-5" />
       </Button>
+
+      <SidebarTrigger className="hidden md:flex" />
 
       <div className="flex-1" />
 
