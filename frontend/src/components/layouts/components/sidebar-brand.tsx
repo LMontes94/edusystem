@@ -4,6 +4,8 @@ import Image          from 'next/image';
 import { useQuery }   from '@tanstack/react-query';
 import { useAppSession } from '@/lib/hooks/use-app-session';
 import { api }        from '@/lib/api';
+import { useSidebar } from '@/components/ui/sidebar';
+import { cn } from '@/lib/utils';
 
 function useInstitutionLogo(institutionId: string | null | undefined) {
   return useQuery<{ url: string | null }>({
@@ -39,8 +41,10 @@ const subtitleByRole: Record<string, string> = {
 
 export function SidebarBrand() {
   const { data: session } = useAppSession();
+  const { state }         = useSidebar();
   const institutionId     = (session?.user as any)?.institutionId;
   const role              = (session?.user as any)?.role as string | undefined;
+  const isCollapsed       = state === 'collapsed';
 
   const { data: logoData } = useInstitutionLogo(institutionId);
   const { data: nameData } = useInstitutionName(institutionId);
@@ -50,7 +54,12 @@ export function SidebarBrand() {
   const subtitle = subtitleByRole[role ?? ''] ?? 'Panel';
 
   return (
-    <div className="flex items-center gap-3 px-2 py-2">
+    <div
+      className={cn(
+        'flex items-center py-2',
+        isCollapsed ? 'justify-center px-0' : 'gap-3 px-2',
+      )}
+    >
       <div className="h-9 w-9 rounded-md border bg-muted/50 flex items-center justify-center shrink-0 overflow-hidden">
         {logoUrl ? (
           <Image
@@ -67,10 +76,12 @@ export function SidebarBrand() {
           </span>
         )}
       </div>
-      <div className="min-w-0">
-        <p className="text-sm font-semibold truncate leading-tight">{instName}</p>
-        <p className="text-xs text-muted-foreground leading-tight">{subtitle}</p>
-      </div>
+      {!isCollapsed && (
+        <div className="min-w-0">
+          <p className="text-sm font-semibold truncate leading-tight">{instName}</p>
+          <p className="text-xs text-muted-foreground leading-tight">{subtitle}</p>
+        </div>
+      )}
     </div>
   );
 }
