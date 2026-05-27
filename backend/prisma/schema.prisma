@@ -415,6 +415,7 @@ model Subject {
   courseSubjects CourseSubject[]
   indicators  Indicator[]
   pendingSubjects PendingSubject[]
+  observations StudentObservation[]
 
   @@unique([institutionId, code]) // código único por institución (antes era global)
   @@index([institutionId])
@@ -768,17 +769,19 @@ model StudentObservation {
   studentId    String   @map("student_id")
   periodId     String   @map("period_id")
   courseId     String   @map("course_id")
+  subjectId    String?  @map("subject_id")
   authorId     String   @map("author_id")
   observation  String
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
-  student Student @relation(fields: [studentId], references: [id])
-  period  Period  @relation(fields: [periodId], references: [id])
-  course  Course  @relation(fields: [courseId], references: [id])
-  author  User    @relation(fields: [authorId], references: [id])
+  student Student  @relation(fields: [studentId], references: [id])
+  period  Period   @relation(fields: [periodId], references: [id])
+  course  Course   @relation(fields: [courseId], references: [id])
+  subject Subject? @relation(fields: [subjectId], references: [id])
+  author  User     @relation(fields: [authorId], references: [id])
 
-  @@unique([studentId, periodId, courseId])
+  @@unique([studentId, periodId, courseId, subjectId])
   @@map("student_observations")
 }
 

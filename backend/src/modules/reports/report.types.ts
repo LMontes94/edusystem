@@ -1,9 +1,7 @@
-// src/modules/reports/report.types.ts
-
 export interface ReportTheme {
-  primaryColor:   string; // header, tablas
-  secondaryColor: string; // subtítulos, bordes
-  textColor:      string; // texto principal
+  primaryColor:   string;
+  secondaryColor: string;
+  textColor:      string;
 }
 
 export type LogoPosition = 'center' | 'left' | 'none';
@@ -24,7 +22,79 @@ export const DEFAULT_THEME: ReportTheme = {
   textColor:      '#1a1a1a',
 };
 
-// ── Datos para boletín de secundaria ──────────
+export type TrayectoriaStrategy = 'MAJORITY' | 'STRICT' | 'WEIGHTED' | 'CUSTOM';
+
+export type ReportVariant = 'DEFAULT' | 'RITE_BA' | 'SANTA_TERESITA';
+
+export type ObservationType = 'PEDAGOGICAL' | 'DISCIPLINARY' | 'GENERAL';
+
+export type ConvivenciaType = 'OBSERVACION' | 'APERCIBIMIENTO';
+
+export interface RiteSubjectEntry {
+  subjectId: string;
+  courseSubjectId?: string;
+  subjectName: string;
+  code: string;
+  cursada: 'C' | 'R';
+  preliminary1: 'TEA' | 'TEP' | 'TED' | null;
+  grade1: number | null;
+  preliminary2: 'TEA' | 'TEP' | 'TED' | null;
+  grade2: number | null;
+  intensificacionDec: string | null;
+  intensificacionFeb: string | null;
+  finalGrade: number | null;
+  observations?: { type: ObservationType; text: string }[];
+}
+
+export interface AttendanceByPeriod {
+  firstC:  { present: number; absent: number; late: number; justified: number; total: number; rate: number };
+  secondC: { present: number; absent: number; late: number; justified: number; total: number; rate: number };
+  total:   { present: number; absent: number; late: number; justified: number; total: number; rate: number };
+}
+
+export interface RiteReport {
+  student: {
+    firstName:      string;
+    lastName:       string;
+    documentNumber: string;
+  };
+  course: {
+    name:     string;
+    grade:    number;
+    division: string;
+    level:    string;
+  };
+  schoolYear: number;
+  variant: ReportVariant;
+  subjects: RiteSubjectEntry[];
+  attendance: AttendanceByPeriod;
+  convivencias: { date: string; type: ConvivenciaType; description: string }[];
+}
+
+export interface ValoracionReport {
+  student: {
+    firstName:      string;
+    lastName:       string;
+    documentNumber: string;
+  };
+  course: {
+    name:     string;
+    grade:    number;
+    division: string;
+    level:    string;
+  };
+  schoolYear: number;
+  variant: ReportVariant;
+  subjects: {
+    subjectId:   string;
+    subjectName: string;
+    code:        string;
+    indicators: { description: string; value: string }[];
+    trayectoria: 'TEA' | 'TEP' | 'TED';
+    observations?: { type: ObservationType; text: string }[];
+  }[];
+}
+
 export interface SecondaryGradeReport {
   student: {
     firstName:      string;
@@ -62,7 +132,6 @@ export interface SecondaryGradeReport {
   };
 }
 
-// ── Datos para informe cualitativo de primaria ─
 export interface PrimaryQualitativeReport {
   student: {
     firstName:      string;
@@ -84,10 +153,10 @@ export interface PrimaryQualitativeReport {
     name:       string;
     indicators: {
       description: string;
-      valuesByPeriod: Record<string, 'achieved' | 'in-progress' | 'not-achieved' | null>;
+      valuesByPeriod: Record<string, string | null>;
     }[];
   }[];
-  observations: Record<string, string>; // período → observación
+  observations: Record<string, string>;
   attendance: {
     present:   number;
     absent:    number;

@@ -6,12 +6,19 @@ import {
   ReportTheme,
   LogoPosition,
   ReportLayout,
+  ReportVariant,
   DEFAULT_THEME,
   SecondaryGradeReport,
+  RiteReport,
+  ValoracionReport,
+  AttendanceByPeriod,
 } from './report.types';
+import { computeTrayectoria } from './trayectoria.helper';
 import {
   secondaryGradesTemplate,
   primaryQualitativeTemplate,
+  riteTemplate,
+  valoracionesTemplate,
 } from '../../../templates/report.templates';
 import { pendingSubjectsTemplate } from '../../../templates/pending.template';
 import { convivenciasTemplate } from '../../../templates/convivencias.template';
@@ -32,7 +39,7 @@ export class ReportsService {
   ) {}
   
   private buildFilename(
-  type:      'boletin' | 'informe' | 'pendientes',
+  type:      'boletin' | 'informe' | 'pendientes' | 'rite' | 'valoraciones',
   student:   { firstName: string; lastName: string },
   course:    { name: string },
   schoolYear: number,
@@ -117,23 +124,41 @@ export class ReportsService {
     await page.close(); // cerrar la página pero NO el browser
   }
 }
-  // ── Boletín de secundaria — un alumno ────────
+  // ── Boletín de secundaria — un alumno (delega a RITE) ─
   async generateSecondaryReport(
     studentId:     string,
     institutionId: string,
     schoolYearId:  string,
   ): Promise<{ buffer: Buffer; filename: string }> {
+    return this.generateRiteReport(studentId, institutionId, schoolYearId);
+  }
+
+  // ── Boletín de secundaria — curso completo (delega a RITE) ─
+  async generateSecondaryReportBulk(
+    courseId:      string,
+    institutionId: string,
+    schoolYearId:  string,
+  ): Promise<Buffer> {
+    return this.generateRiteReportBulk(courseId, institutionId, schoolYearId);
+  }
+
+  // ── RITE — un alumno ─────────────────────────
+  async generateRiteReport(
+    studentId:     string,
+    institutionId: string,
+    schoolYearId:  string,
+  ): Promise<{ buffer: Buffer; filename: string }> {
     const config  = await this.getReportConfig(institutionId);
-    const data    = await this.buildSecondaryData(studentId, institutionId, schoolYearId);
-    const html    = secondaryGradesTemplate(data, config);
+    const data    = await this.buildRiteData(studentId, institutionId, schoolYearId);
+    const html    = riteTemplate(data, config);
     const buffer  = await this.generatePdf(html);
-    const filename = this.buildFilename('boletin', data.student, data.course, data.schoolYear);
+    const filename = this.buildFilename('rite', data.student, data.course, data.schoolYear);
 
     return { buffer, filename };
   }
 
-  // ── Boletín de secundaria — curso completo ───
-  async generateSecondaryReportBulk(
+  // ── RITE — curso completo ────────────────────
+  async generateRiteReportBulk(
     courseId:      string,
     institutionId: string,
     schoolYearId:  string,
@@ -154,21 +179,73 @@ export class ReportsService {
 
     const allPdfs: { buffer: Buffer; filename: string }[] = [];
 
-    try{
-      for(const enrollment of enrollments){
-        const data = await this.buildSecondaryData(enrollment.studentId,institutionId,schoolYearId);
-        const html = secondaryGradesTemplate(data,config);
-        const buffer = await this.generatePdfWithBrowser(html,browser);
-        const filename = this.buildFilename('boletin',data.student,data.course,data.schoolYear);
-        allPdfs.push({buffer,filename});
+    try {
+      for (const enrollment of enrollments) {
+        const data   = await this.buildRiteData(enrollment.studentId, institutionId, schoolYearId);
+        const html   = riteTemplate(data, config);
+        const buffer = await this.generatePdfWithBrowser(html, browser);
+        const filename = this.buildFilename('rite', data.student, data.course, data.schoolYear);
+        allPdfs.push({ buffer, filename });
       }
-    }finally{
+    } finally {
       await browser.close();
     }
-    // Empaquetar en ZIP
+
     return this.createZip(allPdfs);
-  
   }
+
+  // ── Valoración Preliminar — un alumno ────────
+  async generateValoracionesReport(
+    studentId:     string,
+    institutionId: string,
+    schoolYearId:  string,
+  ): Promise<{ buffer: Buffer; filename: string }> {
+    const config  = await this.getReportConfig(institutionId);
+    const data    = await this.buildValoracionData(studentId, institutionId, schoolYearId);
+    const html    = valoracionesTemplate(data, config);
+    const buffer  = await this.generatePdf(html);
+    const filename = this.buildFilename('valoraciones', data.student, data.course, data.schoolYear);
+
+    return { buffer, filename };
+  }
+
+  // ── Valoración Preliminar — curso completo ───
+  async generateValoracionesReportBulk(
+    courseId:      string,
+    institutionId: string,
+    schoolYearId:  string,
+  ): Promise<Buffer> {
+    const config = await this.getReportConfig(institutionId);
+
+    const enrollments = await this.prisma.courseStudent.findMany({
+      where:   { courseId, status: 'ACTIVE' },
+      include: { student: true },
+      orderBy: { student: { lastName: 'asc' } },
+    });
+
+    const puppeteer = await import('puppeteer');
+    const browser   = await puppeteer.default.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    });
+
+    const allPdfs: { buffer: Buffer; filename: string }[] = [];
+
+    try {
+      for (const enrollment of enrollments) {
+        const data   = await this.buildValoracionData(enrollment.studentId, institutionId, schoolYearId);
+        const html   = valoracionesTemplate(data, config);
+        const buffer = await this.generatePdfWithBrowser(html, browser);
+        const filename = this.buildFilename('valoraciones', data.student, data.course, data.schoolYear);
+        allPdfs.push({ buffer, filename });
+      }
+    } finally {
+      await browser.close();
+    }
+
+    return this.createZip(allPdfs);
+  }
+
   // ── Informe cualitativo — un alumno ──────────
   async generatePrimaryReport(
     studentId:     string,
@@ -357,6 +434,403 @@ export class ReportsService {
         total:     attendanceSummary.total,
         rate,
       },
+    };
+  }
+
+  // ── Builder: RITE ────────────────────────────
+  private async buildRiteData(
+    studentId:     string,
+    institutionId: string,
+    schoolYearId:  string,
+  ): Promise<RiteReport> {
+    const [student, schoolYear, grades, evaluations, attendance, pendings, convivencias, observations] =
+      await Promise.all([
+        this.prisma.student.findFirst({
+          where:   { id: studentId, institutionId },
+          include: {
+            courseStudents: {
+              where:   { status: 'ACTIVE', course: { schoolYearId } },
+              include: { course: true },
+            },
+            studentAssignments: {
+              where:   { schoolYearId },
+              include: { courseSubject: true },
+            },
+          },
+        }),
+        this.prisma.schoolYear.findUnique({
+          where:   { id: schoolYearId },
+          include: { periods: { orderBy: { order: 'asc' } } },
+        }),
+        this.prisma.grade.findMany({
+          where:   { studentId, period: { schoolYearId } },
+          include: {
+            courseSubject: { include: { subject: true } },
+            period:        true,
+          },
+        }),
+        this.prisma.indicatorEvaluation.findMany({
+          where: { studentId, indicator: { schoolYearId } },
+          include: {
+            indicator: { include: { subject: { select: { id: true, name: true } } } },
+            period:    { select: { id: true, order: true } },
+          },
+        }),
+        this.prisma.attendance.findMany({
+          where:  { studentId, course: { schoolYearId } },
+          select: { status: true, date: true },
+        }),
+        this.prisma.pendingSubject.findMany({
+          where: { studentId, schoolYearId, institutionId },
+          include: { subject: { select: { id: true, name: true, code: true } } },
+        }),
+        this.prisma.convivencia.findMany({
+          where:   { studentId, institutionId, deletedAt: null },
+          orderBy: { date: 'desc' },
+          take:    20,
+          select:  { date: true, type: true, reason: true },
+        }),
+        this.prisma.studentObservation.findMany({
+          where: { studentId, course: { schoolYearId }, subjectId: { not: null } },
+          include: { subject: true },
+        }),
+      ]);
+
+    if (!student) throw new NotFoundException('Alumno no encontrado');
+    if (!schoolYear) throw new NotFoundException('Ciclo lectivo no encontrado');
+
+    const courseStudent = student.courseStudents[0];
+    if (!courseStudent) throw new NotFoundException('El alumno no está inscripto en ningún curso');
+
+    const sortedPeriods = schoolYear.periods;
+    const period1 = sortedPeriods[0];
+    const period2 = sortedPeriods.length > 1 ? sortedPeriods[1] : null;
+
+    // Map courseSubjects by subjectId for quick lookup
+    const courseSubjects = await this.prisma.courseSubject.findMany({
+      where: { courseId: courseStudent.courseId },
+      include: { subject: true },
+    });
+
+    const courseSubjectBySubjectId = new Map(courseSubjects.map((cs) => [cs.subjectId, cs]));
+    const subjectIds = courseSubjects.map((cs) => cs.subjectId);
+
+    // Grades grouped by subjectId + period
+    const subjectPeriodGrades = new Map<string, Map<string, number[]>>();
+    for (const grade of grades) {
+      const subjId = grade.courseSubject.subjectId;
+      if (!subjectPeriodGrades.has(subjId)) {
+        subjectPeriodGrades.set(subjId, new Map());
+      }
+      const periodGrades = subjectPeriodGrades.get(subjId)!;
+      if (!periodGrades.has(grade.periodId)) {
+        periodGrades.set(grade.periodId, []);
+      }
+      periodGrades.get(grade.periodId)!.push(Number(grade.score));
+    }
+
+    // Indicator evaluations grouped by subjectId + period
+    const subjectPeriodEvals = new Map<string, Map<string, { value: string }[]>>();
+    for (const ev of evaluations) {
+      const subjId = ev.indicator.subject.id;
+      if (!subjectPeriodEvals.has(subjId)) {
+        subjectPeriodEvals.set(subjId, new Map());
+      }
+      const periodEvals = subjectPeriodEvals.get(subjId)!;
+      if (!periodEvals.has(ev.periodId)) {
+        periodEvals.set(ev.periodId, []);
+      }
+      periodEvals.get(ev.periodId)!.push({ value: ev.value });
+    }
+
+    // Map studentCourseSubject for C/R type
+    const scsBySubjectId = new Map(
+      student.studentAssignments.map((scs: any) => [scs.courseSubject.subjectId, scs]),
+    );
+
+    // Map pending subjects by subjectId
+    const pendingBySubjectId = new Map(pendings.map((p) => [p.subjectId, p]));
+
+    // Map observations by subjectId
+    const obsBySubjectId = new Map<string, { type: 'PEDAGOGICAL' | 'DISCIPLINARY' | 'GENERAL'; text: string }[]>();
+    for (const ob of observations) {
+      if (!ob.subjectId) continue;
+      if (!obsBySubjectId.has(ob.subjectId)) {
+        obsBySubjectId.set(ob.subjectId, []);
+      }
+      obsBySubjectId.get(ob.subjectId)!.push({ type: 'PEDAGOGICAL', text: ob.observation });
+    }
+
+    // Build subjects
+    const subjects = subjectIds.map((subjectId) => {
+      const cs = courseSubjectBySubjectId.get(subjectId)!;
+      const subjectGrades1 = period1 ? subjectPeriodGrades.get(subjectId)?.get(period1.id) ?? [] : [];
+      const subjectGrades2 = period2 ? subjectPeriodGrades.get(subjectId)?.get(period2.id) ?? [] : [];
+
+      const avg1 = subjectGrades1.length > 0
+        ? Math.round((subjectGrades1.reduce((a, b) => a + b, 0) / subjectGrades1.length) * 100) / 100
+        : null;
+      const avg2 = subjectGrades2.length > 0
+        ? Math.round((subjectGrades2.reduce((a, b) => a + b, 0) / subjectGrades2.length) * 100) / 100
+        : null;
+
+      const evals1 = period1 ? subjectPeriodEvals.get(subjectId)?.get(period1.id) ?? [] : [];
+      const evals2 = period2 ? subjectPeriodEvals.get(subjectId)?.get(period2.id) ?? [] : [];
+
+      const preliminary1 = evals1.length > 0
+        ? computeTrayectoria({ indicators: evals1, strategy: 'MAJORITY' })
+        : null;
+      const preliminary2 = evals2.length > 0
+        ? computeTrayectoria({ indicators: evals2, strategy: 'MAJORITY' })
+        : null;
+
+      const scs = scsBySubjectId.get(subjectId);
+      const cursada: 'C' | 'R' = scs?.type === 'RECURSE' ? 'R' : 'C';
+
+      const pending = pendingBySubjectId.get(subjectId);
+      const intensificacionDec = pending?.december ?? null;
+      const intensificacionFeb = pending?.february ?? null;
+
+      const allScores = [...subjectGrades1, ...subjectGrades2];
+      const finalGrade = allScores.length > 0
+        ? Math.round((allScores.reduce((a, b) => a + b, 0) / allScores.length) * 100) / 100
+        : null;
+
+      return {
+        subjectId: cs.subject.id,
+        courseSubjectId: cs.id,
+        subjectName: cs.subject.name,
+        code: cs.subject.code,
+        cursada,
+        preliminary1,
+        grade1: avg1,
+        preliminary2,
+        grade2: avg2,
+        intensificacionDec,
+        intensificacionFeb,
+        finalGrade,
+        observations: obsBySubjectId.get(subjectId),
+      };
+    });
+
+    // Build attendance by period (using date range from period start/end)
+    const groupAttByDate = (records: typeof attendance, start: Date, end: Date) => {
+      const sum = { present: 0, absent: 0, late: 0, justified: 0, total: 0 };
+      for (const a of records) {
+        if (a.date >= start && a.date <= end) {
+          const key = a.status.toLowerCase() as keyof typeof sum;
+          if (key in sum) sum[key]++;
+          sum.total++;
+        }
+      }
+      const rate = sum.total > 0 ? Math.round(((sum.present + sum.late) / sum.total) * 100) : 0;
+      return { ...sum, rate };
+    };
+
+    const attFirstC = period1 ? groupAttByDate(attendance as any, period1.startDate, period1.endDate) : { present: 0, absent: 0, late: 0, justified: 0, total: 0, rate: 0 };
+    const attSecondC = period2 ? groupAttByDate(attendance as any, period2.startDate, period2.endDate) : { present: 0, absent: 0, late: 0, justified: 0, total: 0, rate: 0 };
+
+    const allAtt = attendance.reduce(
+      (acc, a) => {
+        const key = a.status.toLowerCase() as 'present' | 'absent' | 'late' | 'justified';
+        acc[key]++;
+        acc.total++;
+        return acc;
+      },
+      { present: 0, absent: 0, late: 0, justified: 0, total: 0 },
+    );
+
+    const attendanceResult: AttendanceByPeriod = {
+      firstC:  attFirstC,
+      secondC: attSecondC,
+      total: {
+        ...allAtt,
+        rate: allAtt.total > 0 ? Math.round(((allAtt.present + allAtt.late) / allAtt.total) * 100) : 0,
+      },
+    };
+
+    return {
+      student: {
+        firstName:      student.firstName,
+        lastName:       student.lastName,
+        documentNumber: student.documentNumber,
+      },
+      course: {
+        name:     courseStudent.course.name,
+        grade:    courseStudent.course.grade,
+        division: courseStudent.course.division,
+        level:    courseStudent.course.level,
+      },
+      schoolYear: schoolYear.year,
+      variant: 'DEFAULT' as ReportVariant,
+      subjects,
+      attendance: attendanceResult,
+      convivencias: convivencias.map((c) => ({
+        date:   c.date.toISOString().split('T')[0],
+        type:   c.type === 'suspension' || c.type === 'warning' || c.type === 'reprimand' ? 'APERCIBIMIENTO' as const : 'OBSERVACION' as const,
+        description: c.reason,
+      })),
+    };
+  }
+
+  // ── Builder: Valoración Preliminar ───────────
+  private async buildValoracionData(
+    studentId:     string,
+    institutionId: string,
+    schoolYearId:  string,
+  ): Promise<ValoracionReport> {
+    const [student, schoolYear, evaluations, courseSubjects, observations] =
+      await Promise.all([
+        this.prisma.student.findFirst({
+          where:   { id: studentId, institutionId },
+          include: {
+            courseStudents: {
+              where:   { status: 'ACTIVE', course: { schoolYearId } },
+              include: { course: true },
+            },
+          },
+        }),
+        this.prisma.schoolYear.findUnique({
+          where:   { id: schoolYearId },
+          include: { periods: { orderBy: { order: 'asc' } } },
+        }),
+        this.prisma.indicatorEvaluation.findMany({
+          where: { studentId, indicator: { schoolYearId } },
+          include: {
+            indicator: {
+              include: { subject: { select: { id: true, name: true, code: true } } },
+            },
+            period: { select: { id: true, order: true } },
+          },
+        }),
+        this.prisma.courseSubject.findMany({
+          where: {
+            course: {
+              schoolYearId,
+              courseStudents: { some: { studentId, status: 'ACTIVE' } },
+            },
+          },
+          include: { subject: true },
+        }),
+        this.prisma.studentObservation.findMany({
+          where: {
+            studentId,
+            course: { schoolYearId },
+            subjectId: { not: null },
+          },
+          include: { subject: true },
+        }),
+      ]);
+
+    if (!student) throw new NotFoundException('Alumno no encontrado');
+    if (!schoolYear) throw new NotFoundException('Ciclo lectivo no encontrado');
+
+    const courseStudent = student.courseStudents[0];
+    if (!courseStudent) throw new NotFoundException('El alumno no está inscripto en ningún curso');
+
+    // Use the most recent period (or all periods) for indicators
+    const latestPeriod = schoolYear.periods[schoolYear.periods.length - 1];
+
+    // Group evaluations + indicators by subject
+    const subjectMap = new Map<string, {
+      subjectId: string;
+      subjectName: string;
+      code: string;
+      indicators: { description: string; value: string }[];
+      observations?: { type: 'PEDAGOGICAL' | 'DISCIPLINARY' | 'GENERAL'; text: string }[];
+    }>();
+
+    for (const cs of courseSubjects) {
+      subjectMap.set(cs.subjectId, {
+        subjectId: cs.subjectId,
+        subjectName: cs.subject.name,
+        code: cs.subject.code,
+        indicators: [],
+      });
+    }
+
+    for (const ev of evaluations) {
+      const subjId = ev.indicator.subject.id;
+      if (!subjectMap.has(subjId)) {
+        subjectMap.set(subjId, {
+          subjectId: subjId,
+          subjectName: ev.indicator.subject.name,
+          code: ev.indicator.subject.code,
+          indicators: [],
+        });
+      }
+      const subject = subjectMap.get(subjId)!;
+      const existing = subject.indicators.find((i) => i.description === ev.indicator.description);
+      if (!existing) {
+        subject.indicators.push({
+          description: ev.indicator.description,
+          value: ev.value,
+        });
+      }
+    }
+
+    // Add indicators without evaluations
+    const allIndicators = await this.prisma.indicator.findMany({
+      where:   { schoolYearId },
+      include: { subject: { select: { id: true, name: true, code: true } } },
+      orderBy: { order: 'asc' },
+    });
+
+    for (const ind of allIndicators) {
+      const subjId = ind.subject.id;
+      if (!subjectMap.has(subjId)) {
+        subjectMap.set(subjId, {
+          subjectId: subjId,
+          subjectName: ind.subject.name,
+          code: ind.subject.code,
+          indicators: [],
+        });
+      }
+      const subject = subjectMap.get(subjId)!;
+      const existing = subject.indicators.find((i) => i.description === ind.description);
+      if (!existing) {
+        subject.indicators.push({ description: ind.description, value: '' });
+      }
+    }
+
+    // Map observations by subjectId
+    const obsBySubjectId = new Map<string, { type: 'PEDAGOGICAL' | 'DISCIPLINARY' | 'GENERAL'; text: string }[]>();
+    for (const ob of observations) {
+      if (!ob.subjectId) continue;
+      if (!obsBySubjectId.has(ob.subjectId)) {
+        obsBySubjectId.set(ob.subjectId, []);
+      }
+      obsBySubjectId.get(ob.subjectId)!.push({ type: 'PEDAGOGICAL', text: ob.observation });
+    }
+
+    // Compute trayectoria per subject
+    const subjects = Array.from(subjectMap.values()).map((s) => {
+      const evals = s.indicators.filter((ind) => ['LFD', 'LS', 'LP', 'ANL'].includes(ind.value));
+      const trayectoria = evals.length > 0
+        ? computeTrayectoria({ indicators: evals, strategy: 'MAJORITY' })
+        : 'TED';
+      return {
+        ...s,
+        trayectoria,
+        observations: obsBySubjectId.get(s.subjectId),
+      };
+    });
+
+    return {
+      student: {
+        firstName:      student.firstName,
+        lastName:       student.lastName,
+        documentNumber: student.documentNumber,
+      },
+      course: {
+        name:     courseStudent.course.name,
+        grade:    courseStudent.course.grade,
+        division: courseStudent.course.division,
+        level:    courseStudent.course.level,
+      },
+      schoolYear: schoolYear.year,
+      variant: 'DEFAULT' as ReportVariant,
+      subjects,
     };
   }
 

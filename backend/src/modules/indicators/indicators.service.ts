@@ -207,10 +207,13 @@ async upsertObservation(
     courseId:    string;
     authorId:    string;
     observation: string;
+    subjectId?:  string;
   },
   user: RequestUser,
 ) {
-  if (user.role === 'TEACHER') {
+  if (data.subjectId && user.role === 'TEACHER') {
+    await this.assertTeacherOwnsSubject(data.subjectId, data.courseId, user.id, user.institutionId ?? '');
+  } else if (user.role === 'TEACHER') {
     const ownsAny = await this.prisma.courseSubject.findFirst({
       where: { courseId: data.courseId, teacherId: user.id },
     });
@@ -220,10 +223,11 @@ async upsertObservation(
   }
   return this.prisma.studentObservation.upsert({
     where: {
-      studentId_periodId_courseId: {
+      studentId_periodId_courseId_subjectId: {
         studentId: data.studentId,
         periodId:  data.periodId,
         courseId:  data.courseId,
+        subjectId: data.subjectId ?? null,
       },
     },
     create: data as any,

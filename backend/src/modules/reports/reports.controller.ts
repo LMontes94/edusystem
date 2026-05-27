@@ -63,6 +63,98 @@ export class ReportsController {
     res.end(buffer);
   }
 
+  // ── RITE — un alumno ─────────────────────────
+  @Get('rite/:studentId')
+  @CheckAbility({ action: Action.Read, subject: 'Grade' })
+  @ApiOperation({ summary: 'Generar RITE (Registro Institucional de Trayectorias Educativas) para un alumno' })
+  async generateRite(
+    @Param('studentId') studentId: string,
+    @Query('schoolYearId') schoolYearId: string,
+    @InstitutionId() institutionId: string,
+    @Res() res: Response,
+  ) {
+    const { buffer, filename } = await this.reportsService.generateRiteReport(
+      studentId, institutionId, schoolYearId,
+    );
+
+    res.set({
+      'Content-Type':        'application/pdf',
+      'Content-Disposition': `attachment; filename="${filename}"`,
+      'Content-Length':      buffer.length,
+      'Access-Control-Expose-Headers': 'Content-Disposition',
+    });
+    res.end(buffer);
+  }
+
+  // ── RITE — curso completo ────────────────────
+  @Get('rite/bulk/:courseId')
+  @CheckAbility({ action: Action.Read, subject: 'Grade' })
+  @ApiOperation({ summary: 'Generar RITE para todo un curso (ZIP)' })
+  async generateRiteBulk(
+    @Param('courseId') courseId: string,
+    @Query('schoolYearId') schoolYearId: string,
+    @InstitutionId() institutionId: string,
+    @Res() res: Response,
+  ) {
+    const buffer = await this.reportsService.generateRiteReportBulk(
+      courseId, institutionId, schoolYearId,
+    );
+
+    res.set({
+      'Content-Type':        'application/zip',
+      'Content-Disposition': `attachment; filename="rite_curso.zip"`,
+      'Content-Length':      buffer.length,
+      'Access-Control-Expose-Headers': 'Content-Disposition',
+    });
+    res.end(buffer);
+  }
+
+  // ── Valoración Preliminar — un alumno ────────
+  @Get('valoraciones/:studentId')
+  @CheckAbility({ action: Action.Read, subject: 'Grade' })
+  @ApiOperation({ summary: 'Generar Informe de Valoración Preliminar para un alumno' })
+  async generateValoraciones(
+    @Param('studentId') studentId: string,
+    @Query('schoolYearId') schoolYearId: string,
+    @InstitutionId() institutionId: string,
+    @Res() res: Response,
+  ) {
+    const { buffer, filename } = await this.reportsService.generateValoracionesReport(
+      studentId, institutionId, schoolYearId,
+    );
+
+    res.set({
+      'Content-Type':        'application/pdf',
+      'Content-Disposition': `attachment; filename="${filename}"`,
+      'Content-Length':      buffer.length,
+      'Access-Control-Expose-Headers': 'Content-Disposition',
+    });
+    res.end(buffer);
+  }
+
+  // ── Valoración Preliminar — curso completo ───
+  @Get('valoraciones/bulk/:courseId')
+  @CheckAbility({ action: Action.Read, subject: 'Grade' })
+  @ApiOperation({ summary: 'Generar Informes de Valoración Preliminar para todo un curso (ZIP)' })
+  async generateValoracionesBulk(
+    @Param('courseId') courseId: string,
+    @Query('schoolYearId') schoolYearId: string,
+    @InstitutionId() institutionId: string,
+    @Res() res: Response,
+  ) {
+    const buffer = await this.reportsService.generateValoracionesReportBulk(
+      courseId, institutionId, schoolYearId,
+    );
+
+    res.set({
+      'Content-Type':        'application/zip',
+      'Content-Disposition': `attachment; filename="valoraciones_curso.zip"`,
+      'Content-Length':      buffer.length,
+      'Access-Control-Expose-Headers': 'Content-Disposition',
+    });
+    res.end(buffer);
+  }
+
   // ── Informe cualitativo — un alumno ──────────
   @Get('primary/:studentId')
   @CheckAbility({ action: Action.Read, subject: 'Grade' })
