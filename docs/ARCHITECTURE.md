@@ -155,6 +155,36 @@ The frontend is a **Next.js 16** application using the **App Router**. It target
 - **File Downloads:** PDF downloads require `Access-Control-Expose-Headers: Content-Disposition` from the backend so the frontend can derive filenames from the response header.
 - **CSV/Excel Export:** Frontend generates BOM-prefixed (`0xEF 0xBB 0xBF`) UTF-8 CSVs with `sep=;\n` for Spanish Excel compatibility.
 - **Date Display:** Argentine timezone (UTC-3) is handled by splitting ISO strings and reversing the date parts (`DD/MM/YYYY`) without timezone conversion libraries.
+- **Layout & Navigation:** Route layouts (`admin/layout.tsx`, `teacher/layout.tsx`, `guardian/layout.tsx`) are simple wrappers around `AppLayout`. Navigation is resolved within `AppSidebar` via `getNavConfig(role)` from the config-driven navigation system.
+
+### 5.6 Navigation Architecture
+
+EduSystem navigation follows a **config-driven, domain-grouped** architecture built on shadcn Sidebar primitives.
+
+**Architecture Layers:**
+
+| Layer | File | Responsibility |
+|-------|------|----------------|
+| Types | `navigation/types.ts` | `NavItem`, `NavGroup`, `NavigationConfig` interfaces |
+| Config | `navigation/config.ts` | 5 role-specific configs (admin, preceptor, teacher, guardian, superadmin) |
+| Helpers | `navigation/helpers.ts` | Active state detection, config resolution |
+| Rendering | `components/sidebar.tsx` | shadcn `Sidebar` component tree |
+| Provider | `app-layout.tsx` | `SidebarProvider` wrapping the entire layout |
+
+**Key Decisions:**
+
+- **Groups represent functional domains, not roles.** A "GESTIÓN DOCENTE" group contains Temario, Notas, Pendientes — regardless of whether the user is ADMIN or TEACHER.
+- **Dashboard is standalone.** It renders outside any group, separated by a visual divider.
+- **Chat is excluded from the sidebar.** Access exists via the header icon only.
+- **Nested navigation uses `children`.** Only nested items are collapsible; groups are always visible.
+- **shadcn Sidebar primitives are the only sidebar implementation.** The previous custom `AppSidebar` was replaced to eliminate parallel implementation debt.
+
+**Sidebar Infrastructure:**
+
+- `SidebarProvider` wraps `AppLayout` providing expand/collapse state, cookie persistence, and keyboard shortcut (Ctrl+B).
+- `collapsible="icon"` enables icon-only mode with automatic tooltips.
+- Mobile uses a Sheet overlay (built into shadcn `Sidebar`).
+- Active state uses `border-l-2 border-l-primary` indicator + `bg-sidebar-accent` for subtle highlighting.
 
 ---
 

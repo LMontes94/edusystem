@@ -2559,6 +2559,90 @@ All EduSystem frontend code MUST meet these quality standards:
 
 ---
 
+## 34. Navigation System
+
+### 34.1 Navigation Principles
+
+- Navigation is **config-driven**. All nav items are defined in `navigation/config.ts`, not in components.
+- Sidebar groups represent **functional domains**, not user roles. A "GESTIÓN DOCENTE" group is always named the same regardless of who sees it.
+- **Dashboard is standalone** — it renders above groups with a visual separator.
+- **Chat is intentionally excluded** from the sidebar. Access is via the header icon.
+- **Nested items use `children`** on `NavItem`. Parent items can be clickable (have `href`) or act as containers only.
+- **Only nested items are collapsible.** Groups are always visible and not accordions.
+- `SidebarProvider` is required at the layout level.
+
+### 34.2 Navigation Structure
+
+```typescript
+// navigation/types.ts
+export type NavItem = {
+  name: string;
+  href?: string;         // optional for container-only parents
+  icon?: LucideIcon;
+  children?: NavItem[];  // nested sub-items
+  roles?: string[];      // future: permission filtering
+};
+
+export type NavGroup = {
+  title: string;
+  items: NavItem[];
+  roles?: string[];
+};
+
+export type NavigationConfig = {
+  dashboard: NavItem;     // standalone top item
+  groups: NavGroup[];
+};
+```
+
+### 34.3 Active State Strategy
+
+- **Dashboard**: exact match only (`pathname === href`)
+- **Regular items**: `pathname === href || pathname.startsWith(href + '/')`
+- **Parent items**: active if any child is active
+- **Nested items**: same as regular items
+- **Key**: `pathname.startsWith(href + '/')` prevents false positives (e.g. `/admin/attendance` matching `/admin/attendance-detail`)
+
+### 34.4 Sidebar Architecture
+
+```
+<SidebarProvider>              // app-layout.tsx
+  <Sidebar collapsible="icon"> // AppSidebar
+    <SidebarHeader>            // SidebarBrand
+    <SidebarContent>           // scrollable nav area
+      <SidebarMenu>            // Dashboard item (standalone)
+      <SidebarSeparator />
+      <SidebarGroup>           // per domain
+        <SidebarGroupLabel>    // "ADMINISTRACIÓN"
+        <SidebarMenu>          // items
+          <Collapsible>        // only for items with children
+    <SidebarFooter>            // SidebarUser (avatar + dropdown)
+    <SidebarRail />            // drag handle for resize
+```
+
+### 34.5 Anti-patterns
+
+Do NOT:
+- Hardcode sidebar items inside components
+- Create role-specific sidebar components
+- Use string separators as fake section labels (`'— Panel del docente —'`)
+- Duplicate route definitions in multiple places
+- Create sidebar implementations outside shadcn Sidebar primitives
+- Distribute navigation logic across multiple components
+- Add Chat to the sidebar (header-only entry point)
+- Make groups collapsible/accordion (groups are always visible)
+
+### 34.6 Future Extensibility
+
+The architecture is prepared for:
+- `roles?: string[]` per item/group for granular filtering
+- `SidebarMenuBadge` for notification counters
+- SuperAdmin navigation with platform-wide modules
+- Analytics/metrics sections in dedicated groups
+- Multi-tenant administrative routes
+
+---
+
 ## References
 
 - `docs/ARCHITECTURE.md` — High-level system design

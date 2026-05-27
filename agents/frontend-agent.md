@@ -708,22 +708,27 @@ export const config = {
 
 ### 10.5 Role-Based Navigation
 
-Navigation items are role-specific:
+Navigation is **config-driven and domain-grouped** — items are defined once per role in `src/components/layouts/navigation/config.ts` and rendered by a single `AppSidebar` using shadcn Sidebar primitives. Groups represent functional domains (e.g., "GESTIÓN DOCENTE"), not user roles.
 
 ```typescript
-// src/components/layouts/navigation.ts
-export const navigationByRole: Record<string, NavItem[]> = {
+// src/components/layouts/navigation/config.ts
+export const navigationByRole: Record<string, NavigationConfig> = {
   ADMIN: adminNav,
   DIRECTOR: adminNav,
   SECRETARY: adminNav,
   PRECEPTOR: preceptorNav,
   TEACHER: teacherNav,
+  GUARDIAN: guardianNav,
+  SUPER_ADMIN: superadminNav,
 };
 
-export function getNavigation(role: string | undefined): NavItem[] {
+// Navigation is resolved via helpers
+export function getNavConfig(role: string | undefined): NavigationConfig {
   return navigationByRole[role ?? ''] ?? teacherNav;
 }
 ```
+
+**Structure:** Each config contains a standalone `dashboard` item and an array of domain `groups`, each with typed `NavItem` entries. See `docs/frontend/sidebar-navigation-architecture.md` for full documentation.
 
 ### 10.6 ON_LEAVE Handling
 
@@ -1585,6 +1590,15 @@ frontend/src/
 │   └── login/
 ├── components/
 │   ├── layouts/            # AppLayout, Sidebar, Header
+│   │   ├── navigation/     # Nav config, types, helpers
+│   │   │   ├── config.ts
+│   │   │   ├── types.ts
+│   │   │   └── helpers.ts
+│   │   └── components/
+│   │       ├── sidebar.tsx
+│   │       ├── sidebar-brand.tsx
+│   │       ├── sidebar-user.tsx
+│   │       └── app-header.tsx
 │   ├── ui/                 # shadcn/ui primitives
 │   └── [shared]/          # Shared feature components
 ├── lib/
@@ -1811,6 +1825,17 @@ import { cn } from '@/lib/utils';
 | Missing memoization | Unnecessary re-renders |
 | Large bundle sizes | Slow loading |
 
+### 24.10 Navigation System
+
+| Forbidden | Reason |
+|-----------|--------|
+| Hardcoded sidebar items in components | Breaks config-driven architecture |
+| String separators as section labels | Use `SidebarGroupLabel` |
+| Chat in sidebar | Access exists via header icon |
+| Custom sidebar implementations | Must use shadcn `Sidebar` primitives |
+| Role-specific sidebar components | One `AppSidebar` with config-driven `getNavConfig()` |
+| Making groups collapsible/accordion | Groups are always visible |
+
 ---
 
 ## 25. Development Workflow Expectations
@@ -1985,7 +2010,11 @@ Every PR must meet:
 | `src/lib/api/students.ts` | React Query hooks for students |
 | `src/lib/api/grades.ts` | React Query hooks for grades |
 | `src/components/layouts/app-layout.tsx` | Main app layout |
-| `src/components/layouts/navigation.ts` | Role-based navigation |
+| `src/components/layouts/navigation/config.ts` | Role-based navigation config |
+| `src/components/layouts/navigation/types.ts` | Navigation type definitions |
+| `src/components/layouts/navigation/helpers.ts` | Navigation helper utilities |
+| `src/components/layouts/components/sidebar.tsx` | shadcn Sidebar rendering |
+| `src/components/layouts/components/sidebar-user.tsx` | Sidebar footer user menu |
 | `src/middleware/middleware.ts` | Route protection |
 | `src/app/admin/layout.tsx` | Admin role layout |
 | `src/app/teacher/layout.tsx` | Teacher role layout |
