@@ -178,6 +178,10 @@ export class GradesService {
   if (!courseSubject) throw new NotFoundException('Materia/curso no encontrado');
 
   if (user.role === 'TEACHER') {
+    if (courseSubject.teacherId !== user.id) {
+      throw new ForbiddenException('Solo podés cargar notas de tus propias materias');
+    }
+
     const activeIds = await this.studentSubjectsService.getActiveSubjectIds(dto.studentId);
     if (!activeIds.includes(dto.courseSubjectId)) {
       throw new ForbiddenException(

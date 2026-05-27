@@ -1,9 +1,11 @@
 // src/modules/indicators/indicators.service.ts
 import {
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { RequestUser } from '../../common/decorators/current-user.decorator';
 
 @Injectable()
 export class IndicatorsService {
@@ -84,12 +86,35 @@ export class IndicatorsService {
   }
 
   // ── Guardar evaluaciones masivas ──────────────
-  async bulkUpsertEvaluations(evaluations: {
-    indicatorId: string;
-    studentId:   string;
-    periodId:    string;
-    value:       string;
-  }[]) {
+  async bulkUpsertEvaluations(
+    evaluations: {
+      indicatorId: string;
+      studentId:   string;
+      periodId:    string;
+      value:       string;
+    }[],
+    user: RequestUser,
+  ) {
+    if (user.role === 'TEACHER' && evaluations.length > 0) {
+      const indicatorIds = [...new Set(evaluations.map((e) => e.indicatorId))];
+      const indicators = await this.prisma.indicator.findMany({
+        where: { id: { in: indicatorIds } },
+        select: { id: true, subjectId: true },
+      });
+      const subjectIds = [...new Set(indicators.map((i) => i.subjectId))];
+      if (subjectIds.length > 0) {
+        const teacherSubjects = await this.prisma.courseSubject.findMany({
+          where: { teacherId: user.id, subjectId: { in: subjectIds } },
+          select: { subjectId: true },
+        });
+        const owned = new Set(teacherSubjects.map((ts) => ts.subjectId));
+        const unauthorized = indicators.filter((i) => !owned.has(i.subjectId));
+        if (unauthorized.length > 0) {
+          throw new ForbiddenException('No tenés permisos para algunas evaluaciones');
+        }
+      }
+    }
+
     await Promise.all(evaluations.map((e) => this.upsertEvaluation(e)));
     return { message: 'Evaluaciones guardadas', total: evaluations.length };
   }
@@ -113,11 +138,17 @@ export class IndicatorsService {
   // ── Obtener evaluaciones de un curso ──────────
   // Para que el docente complete las evaluaciones de todo el curso
   async getCourseEvaluations(
-    courseId:    string,
-    subjectId:   string,
-    schoolYearId: string,
-    periodId:    string,
+    courseId:      string,
+    subjectId:     string,
+    schoolYearId:  string,
+    periodId:      string,
+    institutionId: string,
+    user:          RequestUser,
   ) {
+    if (user.role === 'TEACHER') {
+      await this.assertTeacherOwnsSubject(subjectId, courseId, user.id, institutionId);
+    }
+
     // Obtener el grado del curso
   const course = await this.prisma.course.findUnique({
     where:  { id: courseId },
@@ -169,13 +200,24 @@ export class IndicatorsService {
   }
 
   // ── Guardar observación ───────────────────────
-async upsertObservation(data: {
-  studentId:   string;
-  periodId:    string;
-  courseId:    string;
-  authorId:    string;
-  observation: string;
-}) {
+async upsertObservation(
+  data: {
+    studentId:   string;
+    periodId:    string;
+    courseId:    string;
+    authorId:    string;
+    observation: string;
+  },
+  user: RequestUser,
+) {
+  if (user.role === 'TEACHER') {
+    const ownsAny = await this.prisma.courseSubject.findFirst({
+      where: { courseId: data.courseId, teacherId: user.id },
+    });
+    if (!ownsAny) {
+      throw new ForbiddenException('No enseñás ninguna materia en este curso');
+    }
+  }
   return this.prisma.studentObservation.upsert({
     where: {
       studentId_periodId_courseId: {
@@ -200,5 +242,20 @@ async getCourseObservations(courseId: string, periodId: string) {
       author: { select: { firstName: true, lastName: true } },
     },
   });
+}
+
+// ── Helper: validar ownership docente ─────────
+private async assertTeacherOwnsSubject(
+  subjectId:     string,
+  courseId:      string,
+  teacherId:     string,
+  institutionId: string,
+) {
+  const assignment = await this.prisma.courseSubject.findFirst({
+    where: { courseId, subjectId, teacherId, course: { institutionId } },
+  });
+  if (!assignment) {
+    throw new ForbiddenException('No enseñás esta materia en este curso');
+  }
 }
 }

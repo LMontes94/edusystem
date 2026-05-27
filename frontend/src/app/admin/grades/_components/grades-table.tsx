@@ -1,8 +1,9 @@
 'use client';
 
-import { useMemo, useState,  } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery }  from '@tanstack/react-query';
 import { api }       from '@/lib/api';
+import { useAppSession } from '@/lib/hooks/use-app-session';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -32,6 +33,8 @@ export function GradesTable() {
   const [selectedPeriod, setSelectedPeriod] = useState('');
   const [selectedSubject, setSelectedSubject] = useState('');
 
+  const { data: session } = useAppSession();
+
   const { data: courseDetail } = useQuery({
     queryKey: ['courses', selectedCourse],
     queryFn:  async () => {
@@ -54,13 +57,15 @@ export function GradesTable() {
   );
 
   // ── Materias ───────────────────────────────
+  const isTeacher = session?.user?.role === 'TEACHER';
+
   const subjects = useMemo(() => {
     return (
-      courseDetail?.courseSubjects?.map(
-        (cs: any) => cs.subject,
-      ) ?? []
+      courseDetail?.courseSubjects
+        ?.filter((cs: any) => !isTeacher || cs.teacherId === session?.user?.id)
+        ?.map((cs: any) => cs.subject) ?? []
     );
-  }, [courseDetail]);
+  }, [courseDetail, courseDetail?.courseSubjects, isTeacher, session?.user?.id]);
 
   // ── Notas ──────────────────────────────────
   const { data: grades, isLoading } = useGrades({

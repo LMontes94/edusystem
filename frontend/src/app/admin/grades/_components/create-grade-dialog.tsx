@@ -1,10 +1,11 @@
 'use client';
 
-import { useState }    from 'react';
+import { useState, useEffect } from 'react';
 import { useForm }     from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery }    from '@tanstack/react-query';
 import { api }         from '@/lib/api';
+import { useAppSession } from '@/lib/hooks/use-app-session';
 import { Button }      from '@/components/ui/button';
 import { Input }       from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -19,6 +20,7 @@ export function CreateGradeDialog() {
   const [open,           setOpen]           = useState(false);
   const [selectedCourse, setSelectedCourse] = useState('');
 
+  const { data: session } = useAppSession();
   const createGrade = useCreateGrade();
   const { data: courses } = useCourses();
 
@@ -34,10 +36,20 @@ export function CreateGradeDialog() {
     enabled: !!selectedCourse,
   });
 
+  const isTeacher = session?.user?.role === 'TEACHER';
+  const filteredSubjects = courseDetail?.courseSubjects
+    ?.filter((cs: any) => isTeacher ? cs.teacherId === session?.user?.id : true) ?? [];
+
   const form = useForm<CreateGradeForm>({
     resolver:      zodResolver(createGradeSchema),
     defaultValues: { type: 'EXAM', date: new Date().toISOString().split('T')[0] },
   });
+
+  useEffect(() => {
+    if (filteredSubjects.length === 1) {
+      form.setValue('courseSubjectId', filteredSubjects[0].id);
+    }
+  }, [selectedCourse, filteredSubjects]);
 
   async function onSubmit(data: CreateGradeForm) {
     await createGrade.mutateAsync(data);
@@ -86,7 +98,7 @@ export function CreateGradeDialog() {
                       <SelectTrigger><SelectValue placeholder="Seleccioná una materia..." /></SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {courseDetail?.courseSubjects?.map((cs: any) => (
+                      {filteredSubjects.map((cs: any) => (
                         <SelectItem key={cs.id} value={cs.id}>{cs.subject.name}</SelectItem>
                       ))}
                     </SelectContent>

@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useCourses } from '@/lib/api/courses';
 import { usePeriods } from '@/lib/api/grades';
+import { useAppSession } from '@/lib/hooks/use-app-session';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -26,6 +27,7 @@ const valueOrder: EvalValue[] = ['achieved', 'in-progress', 'not-achieved', null
 
 export default function EvaluationsPage() {
   const queryClient = useQueryClient();
+  const { data: session } = useAppSession();
 
   const [selectedCourse,     setSelectedCourse]     = useState('');
   const [selectedSubject,    setSelectedSubject]     = useState('');
@@ -57,7 +59,10 @@ export default function EvaluationsPage() {
     enabled: !!selectedCourse,
   });
 
-  const subjects = courseDetail?.courseSubjects ?? [];
+  const isTeacher = session?.user?.role === 'TEACHER';
+  const subjects = courseDetail?.courseSubjects
+    ?.filter((cs: any) => !isTeacher || cs.teacherId === session?.user?.id)
+    ?? [];
 
   // Cargar grilla de evaluaciones
   const { data: grid, isLoading } = useQuery({

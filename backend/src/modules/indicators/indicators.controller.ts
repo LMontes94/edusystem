@@ -9,6 +9,7 @@ import { CaslGuard } from '../casl/guards/casl.guard';
 import { CheckAbility } from '../casl/decorators/check-ability.decorator';
 import { Action } from '../casl/casl.types';
 import { CurrentUser, RequestUser } from '../../common/decorators/current-user.decorator';
+import { InstitutionId } from '../../common/decorators/institution-id.decorator';
 
 @ApiTags('Indicators')
 @ApiBearerAuth('JWT')
@@ -75,9 +76,11 @@ export class IndicatorsController {
     @Query('subjectId')    subjectId:    string,
     @Query('schoolYearId') schoolYearId: string,
     @Query('periodId')     periodId:     string,
+    @InstitutionId()       institutionId: string,
+    @CurrentUser()         user: RequestUser,
   ) {
     return this.indicatorsService.getCourseEvaluations(
-      courseId, subjectId, schoolYearId, periodId,
+      courseId, subjectId, schoolYearId, periodId, institutionId, user,
     );
   }
 
@@ -104,8 +107,9 @@ export class IndicatorsController {
         value:       string;
       }[];
     },
+    @CurrentUser() user: RequestUser,
   ) {
-    return this.indicatorsService.bulkUpsertEvaluations(body.evaluations);
+    return this.indicatorsService.bulkUpsertEvaluations(body.evaluations, user);
   }
 
   @Post('observations')
@@ -123,7 +127,7 @@ upsertObservation(
   return this.indicatorsService.upsertObservation({
     ...body,
     authorId: user.id,
-  });
+  }, user);
 }
 
 @Get('observations/:courseId')
