@@ -69,13 +69,14 @@ function NavItem({
           isActive={isActive}
           tooltip={item.name}
           className={cn(
+            'group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0',
             isActive &&
               'border-l-2 border-l-primary bg-sidebar-accent text-sidebar-accent-foreground font-medium',
           )}
         >
           <Link href={item.href!} onClick={onNavClick}>
             {item.icon && <item.icon className="size-[18px] stroke-[1.5]" />}
-            <span>{item.name}</span>
+            <span className="group-data-[collapsible=icon]:hidden">{item.name}</span>
           </Link>
         </SidebarMenuButton>
       </SidebarMenuItem>
@@ -89,16 +90,16 @@ function NavItem({
           <SidebarMenuButton
             tooltip={item.name}
             className={cn(
-              'group/collapsible',
+              'group/collapsible group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0',
               isParentActive &&
                 'border-l-2 border-l-primary bg-sidebar-accent text-sidebar-accent-foreground font-medium',
             )}
           >
             {item.icon && <item.icon className="size-[18px] stroke-[1.5]" />}
-            <span>{item.name}</span>
+            <span className="group-data-[collapsible=icon]:hidden">{item.name}</span>
             <ChevronDown
               className={cn(
-                'ml-auto h-4 w-4 shrink-0 transition-transform duration-200',
+                'ml-auto h-4 w-4 shrink-0 transition-transform duration-200 group-data-[collapsible=icon]:hidden',
                 open && 'rotate-180',
               )}
             />
@@ -155,7 +156,7 @@ export function AppSidebar() {
         <SidebarBrand />
       </SidebarHeader>
 
-      <SidebarContent>
+      <SidebarContent className="group-data-[collapsible=icon]:overflow-auto">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
@@ -163,6 +164,7 @@ export function AppSidebar() {
               isActive={isDashboardActive}
               tooltip={config.dashboard.name}
               className={cn(
+                'group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0',
                 isDashboardActive &&
                   'border-l-2 border-l-primary bg-sidebar-accent text-sidebar-accent-foreground font-medium',
               )}
@@ -171,7 +173,7 @@ export function AppSidebar() {
                 {config.dashboard.icon && (
                   <config.dashboard.icon className="size-[18px] stroke-[1.5]" />
                 )}
-                <span>{config.dashboard.name}</span>
+                <span className="group-data-[collapsible=icon]:hidden">{config.dashboard.name}</span>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
