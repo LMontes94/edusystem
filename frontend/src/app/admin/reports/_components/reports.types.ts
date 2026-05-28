@@ -32,18 +32,5 @@ export const logoPositionLabels: Record<string, string> = {
   none:   'Sin escudo',
 };
 
-// Helper para descargar un blob desde la API
-export async function downloadBlob(
-  blob: Blob,
-  contentDisposition: string | undefined,
-  fallbackName: string,
-) {
-  const match    = contentDisposition?.match(/filename="(.+)"/);
-  const filename = match?.[1] ?? fallbackName;
-  const url      = window.URL.createObjectURL(blob);
-  const link     = document.createElement('a');
-  link.href      = url;
-  link.download  = filename;
-  link.click();
-  window.URL.revokeObjectURL(url);
-}
+// Re-export desde el helper global
+export { downloadBlob } from '@/lib/utils/download/download-blob';

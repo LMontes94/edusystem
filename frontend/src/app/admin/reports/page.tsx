@@ -13,7 +13,7 @@ export default function ReportsPage() {
       <div>
         <h1 className="text-xl font-semibold">Reportes</h1>
         <p className="text-sm text-muted-foreground">
-          Generá boletines en PDF y configurá el diseño institucional
+          Generá RITE, Valoraciones Preliminares e informes cualitativos en PDF
         </p>
       </div>
 

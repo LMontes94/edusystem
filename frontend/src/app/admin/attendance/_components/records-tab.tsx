@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/table';
 import { Settings, FileText, Download, Plus, X, AlertTriangle } from 'lucide-react';
 import { formatDate } from './attendance.types';
+import { downloadBlob } from '@/lib/utils/download/download-blob';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -41,16 +42,7 @@ async function downloadRecordPdf(record: AbsenceRecord) {
     const res = await api.get(`/reports/absence-record/${record.id}`, {
       responseType: 'blob',
     });
-    const disposition = res.headers['content-disposition'] ?? '';
-    const match       = disposition.match(/filename="?([^"]+)"?/);
-    const filename    = match?.[1] ?? `acta-${record.student.lastName}-${record.threshold}.pdf`;
-
-    const url  = URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
-    const link = document.createElement('a');
-    link.href     = url;
-    link.download = filename;
-    link.click();
-    URL.revokeObjectURL(url);
+    await downloadBlob(res.data, res.headers['content-disposition'], 'ausencia.pdf');
   } catch {
     toast.error('Error al descargar el PDF');
   }

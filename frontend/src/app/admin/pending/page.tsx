@@ -16,6 +16,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import { Plus, Trash2, Save, AlertCircle, Download } from 'lucide-react';
+import { downloadBlob } from '@/lib/utils/download/download-blob';
 
 interface PendingSubject {
   id:             string;
@@ -167,14 +168,7 @@ export default function PendingSubjectsPage() {
       params:       { courseId: selectedCourse, schoolYearId: selectedSchoolYear },
       responseType: 'blob',
     });
-    const contentDisposition = res.headers['content-disposition'];
-    const filenameMatch      = contentDisposition?.match(/filename="(.+)"/);
-    const url  = window.URL.createObjectURL(new Blob([res.data]));
-    const link = document.createElement('a');
-    link.href     = url;
-    link.download = filenameMatch?.[1] ?? `pendientes_${studentId}.pdf`;
-    link.click();
-    window.URL.revokeObjectURL(url);
+    await downloadBlob(res.data, res.headers['content-disposition'], 'pendientes.pdf');
     toast.success('PDF generado');
   } catch {
     toast.error('Error al generar el PDF');
@@ -190,12 +184,7 @@ async function handleDownloadBulk() {
       params:       { schoolYearId: selectedSchoolYear },
       responseType: 'blob',
     });
-    const url  = window.URL.createObjectURL(new Blob([res.data]));
-    const link = document.createElement('a');
-    link.href     = url;
-    link.download = `pendientes_curso.zip`;
-    link.click();
-    window.URL.revokeObjectURL(url);
+    await downloadBlob(res.data, res.headers['content-disposition'], 'pendientes_curso.zip');
     toast.success('ZIP generado');
   } catch {
     toast.error('Error al generar el ZIP');

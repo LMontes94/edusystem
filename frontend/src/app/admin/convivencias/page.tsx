@@ -25,6 +25,7 @@ import {
   Star, Eye, Users, MessageSquare, Ban, Phone,
 } from 'lucide-react';
 import { useIsOnLeave } from '@/lib/hooks/use-is-on-leave';
+import { downloadBlob } from '@/lib/utils/download/download-blob';
 
 interface Convivencia {
   id:           string;
@@ -180,14 +181,7 @@ export default function ConvivenciasPage() {
     setGenerating(studentId);
     try {
       const res = await api.get(`/reports/convivencias/${studentId}`, { responseType: 'blob' });
-      const contentDisposition = res.headers['content-disposition'];
-      const filenameMatch      = contentDisposition?.match(/filename="(.+)"/);
-      const url  = window.URL.createObjectURL(new Blob([res.data]));
-      const link = document.createElement('a');
-      link.href     = url;
-      link.download = filenameMatch?.[1] ?? `convivencias_${studentName}.pdf`;
-      link.click();
-      window.URL.revokeObjectURL(url);
+      await downloadBlob(res.data, res.headers['content-disposition'], 'convivencias.pdf');
       toast.success('PDF generado');
     } catch {
       toast.error('Error al generar el PDF');

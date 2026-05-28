@@ -11,6 +11,8 @@ import Link from 'next/link';
 import {
   Star, ClipboardList, Megaphone, ChevronRight,
 } from 'lucide-react';
+import { ReportActionsDropdown } from '@/features/reports/components/report-actions-dropdown';
+import { useSchoolYears } from '@/lib/api/courses';
 
 const statusLabel: Record<string, string> = {
   PRESENT: 'Presente',
@@ -29,7 +31,9 @@ const statusColor: Record<string, string> = {
 export default function GuardianDashboardPage() {
   const { data: children, isLoading: childrenLoading } = useMyChildren();
   const { data: announcements } = useAnnouncements();
+  const { data: schoolYears } = useSchoolYears();
   const recentAnnouncements = announcements?.slice(0, 3) ?? [];
+  const activeYear = (schoolYears as any[])?.find((sy: any) => sy.isActive);
 
   if (childrenLoading) {
     return (
@@ -68,7 +72,7 @@ export default function GuardianDashboardPage() {
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {children.map((child) => (
-          <ChildDashboardCard key={child.id} child={child} />
+          <ChildDashboardCard key={child.id} child={child} activeSchoolYearId={activeYear?.id} />
         ))}
       </div>
 
@@ -103,7 +107,7 @@ export default function GuardianDashboardPage() {
   );
 }
 
-function ChildDashboardCard({ child }: { child: any }) {
+function ChildDashboardCard({ child, activeSchoolYearId }: { child: any; activeSchoolYearId?: string }) {
   const course = child.courseStudents?.find(
     (cs: any) => cs.status === 'ACTIVE',
   );
@@ -184,6 +188,17 @@ function ChildDashboardCard({ child }: { child: any }) {
             <p className="text-sm font-medium">{attendancePct}% presente</p>
           )}
         </div>
+
+        {/* Descargar reportes */}
+        {activeSchoolYearId && (
+          <div className="pt-1">
+            <ReportActionsDropdown
+              studentId={child.id}
+              schoolYearId={activeSchoolYearId}
+              size="sm"
+            />
+          </div>
+        )}
       </CardContent>
     </Card>
   );

@@ -1,20 +1,30 @@
 'use client';
 
+import { useState, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Badge }   from '@/components/ui/badge';
 import { Button }  from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import { useStudent } from '@/lib/api/students';
+import { useSchoolYears } from '@/lib/api/courses';
 import { PersonalInfoCard } from './_components/personal-info-card';
 import { CoursesCard }      from './_components/courses-card';
 import { GuardiansCard }    from './_components/guardians-card';
 import { SubjectsCard }     from './_components/subjects-card';
+import { ReportActionsDropdown } from '@/features/reports/components/report-actions-dropdown';
 
 export default function StudentDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const [schoolYearId, setSchoolYearId] = useState<string | undefined>(undefined);
 
   const { data: student, isLoading } = useStudent(id);
+  const { data: schoolYears } = useSchoolYears();
+
+  const activeCourse = student?.courseStudents?.find((cs: any) => cs.status === 'ACTIVE');
+  const activeYear = (schoolYears as any[])?.find((sy: any) => sy.isActive);
+
+  const derivedSchoolYearId = schoolYearId ?? (activeCourse?.course as any)?.schoolYearId ?? activeYear?.id;
 
   if (isLoading) return (
     <div className="flex items-center justify-center h-64 text-muted-foreground">Cargando...</div>
@@ -40,6 +50,12 @@ export default function StudentDetailPage() {
         <Badge variant={student.isActive ? 'default' : 'secondary'}>
           {student.isActive ? 'Activo' : 'Inactivo'}
         </Badge>
+        {derivedSchoolYearId && (
+          <ReportActionsDropdown
+            studentId={id}
+            schoolYearId={derivedSchoolYearId}
+          />
+        )}
       </div>
 
       <PersonalInfoCard student={student} />

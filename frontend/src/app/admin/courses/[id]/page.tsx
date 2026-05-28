@@ -7,6 +7,7 @@ import { ArrowLeft } from 'lucide-react';
 import { useCourseDetail } from '@/lib/api/courses';
 import { CourseSubjectsCard } from './_components/course-subject-card';
 import { CourseStudentsCard } from './_components/course-student-card';
+import { BulkReportDownload } from '@/features/reports/components/bulk-report-download';
 
 const levelLabel: Record<string, string> = {
   INICIAL:    'Inicial',
@@ -32,6 +33,9 @@ export default function CourseDetailPage() {
     </div>
   );
 
+  const activeStudents = course.courseStudents?.filter((cs: any) => cs.status === 'ACTIVE') ?? [];
+  const isSecondary = course.level === 'SECUNDARIA';
+
   return (
     <div className="space-y-6 max-w-4xl">
 
@@ -46,7 +50,25 @@ export default function CourseDetailPage() {
             {levelLabel[course.level] ?? course.level} · Año {course.schoolYear.year}
           </p>
         </div>
-        {course.schoolYear.isActive && <Badge>Año activo</Badge>}
+        <div className="flex items-center gap-2">
+          {course.schoolYear.isActive && <Badge>Año activo</Badge>}
+          {isSecondary && (
+            <>
+              <BulkReportDownload
+                reportType="RITE"
+                courseId={id}
+                schoolYearId={course.schoolYearId}
+                studentCount={activeStudents.length}
+              />
+              <BulkReportDownload
+                reportType="VALORACIONES"
+                courseId={id}
+                schoolYearId={course.schoolYearId}
+                studentCount={activeStudents.length}
+              />
+            </>
+          )}
+        </div>
       </div>
 
       <CourseSubjectsCard
