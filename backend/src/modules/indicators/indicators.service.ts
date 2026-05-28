@@ -80,7 +80,7 @@ export class IndicatorsService {
           periodId:    data.periodId,
         },
       },
-      create: data as any,
+    create: data,
       update: { value: data.value },
     });
   }
