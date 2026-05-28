@@ -4,7 +4,7 @@ import {
   ClipboardList, ClipboardCheck, ListChecks,
   FileText, Megaphone, BookText, Star, Clock,
   ShieldAlert, DoorOpenIcon, CalendarIcon,
-  SportShoe,
+  SportShoe, Dumbbell,
 } from 'lucide-react';
 
 const adminNav: NavigationConfig = {
@@ -60,14 +60,8 @@ const adminNav: NavigationConfig = {
     {
       title: 'ACTIVIDADES',
       items: [
-        {
-          name: 'Deportes',
-          href: '/admin/sport',
-          icon: SportShoe,
-          children: [
-            { name: 'Grupos Edu. Física', href: '/admin/sport/groups' },
-          ],
-        },
+        { name: 'Deportes', href: '/admin/sport', icon: Dumbbell },
+        { name: 'Grupos Edu. Física', href: '/admin/sport/groups', icon: SportShoe },
       ],
     },
   ],
