@@ -142,6 +142,12 @@ const teacherNav: NavigationConfig = {
         { name: 'Comunicados', href: '/teacher/announcements', icon: Megaphone },
       ],
     },
+    {
+      title: 'ACTIVIDADES',
+      items: [
+        { name: 'Grupos Edu. Física', href: '/admin/sport/groups', icon: SportShoe },
+      ],
+    },
   ],
 };
 

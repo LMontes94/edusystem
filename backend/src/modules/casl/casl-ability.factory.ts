@@ -114,6 +114,14 @@ export class AbilityFactory {
         } as any);
         can(Action.Read,'Sport', inst);
         can(Action.Read,'SportGroup', inst);
+
+        const isPeTeacher = await this.prisma.sportGroupTeacher.count({
+          where: { userId: user.id },
+        });
+        if (isPeTeacher > 0) {
+          can(Action.Update, 'SportGroup', inst);
+        }
+
         can(Action.Read, 'ChatRoom', inst);
         can(Action.Create, 'ChatRoom', inst);
         can(Action.Read, 'ChatMessage', inst);

@@ -34,7 +34,7 @@ export default function SportGroupDetailPage() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-start gap-3">
-          <Link href="/admin/sports/groups">
+          <Link href="/admin/sport/groups">
             <Button variant="ghost" size="icon" className="h-8 w-8 mt-0.5">
               <ChevronLeftIcon className="h-4 w-4" />
             </Button>
