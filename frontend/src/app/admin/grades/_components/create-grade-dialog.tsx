@@ -42,7 +42,15 @@ export function CreateGradeDialog() {
 
   const form = useForm<CreateGradeForm>({
     resolver:      zodResolver(createGradeSchema),
-    defaultValues: { type: 'EXAM', date: new Date().toISOString().split('T')[0] },
+    defaultValues: {
+      type: 'EXAM',
+      date: new Date().toISOString().split('T')[0],
+      studentId: '',
+      courseSubjectId: '',
+      periodId: '',
+      score: undefined,
+      description: undefined,
+    },
   });
 
   useEffect(() => {
@@ -156,7 +164,12 @@ export function CreateGradeDialog() {
                   <FormItem>
                     <FormLabel>Nota (0-10)</FormLabel>
                     <FormControl>
-                      <Input type="number" min={0} max={10} step={0.01} {...field} />
+                      <Input type="number" min={0} max={10} step={0.01}
+                        value={field.value ?? ''}
+                        onChange={field.onChange}
+                        onBlur={field.onBlur}
+                        ref={field.ref}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
