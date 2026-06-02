@@ -36,6 +36,7 @@ import { SportGroupsModule } from './modules/sport-groups/sport-groups.module';
 import { StudentCourseSubjectsModule } from './modules/student-course-subjects/student-course-subjects.module';
 import { ChatModule } from './modules/chat/chat.module';
 import { GuardiansModule } from './modules/guardians/guardians.module';
+import { ClosingGradesModule } from './modules/closing-grades/closing-grades.module';
 
 
 @Module({
@@ -77,6 +78,7 @@ import { GuardiansModule } from './modules/guardians/guardians.module';
     StudentCourseSubjectsModule,
     ChatModule,
     GuardiansModule,
+    ClosingGradesModule,
   ],
   providers:[
     {

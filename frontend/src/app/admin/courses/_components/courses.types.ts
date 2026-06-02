@@ -59,7 +59,7 @@ export type CreateSchoolYearForm = z.infer<typeof createSchoolYearSchema>;
 export const createPeriodSchema = z.object({
   schoolYearId: z.string().min(1, 'Requerido'),
   name:         z.string().min(1, 'Requerido'),
-  type:         z.enum(['TRIMESTRE', 'BIMESTRE', 'CUATRIMESTRE', 'SEMESTRE']),
+  type:         z.enum(['TRIMESTRE', 'BIMESTRE', 'CUATRIMESTRE', 'SEMESTRE', 'ANUAL']),
   order:        z.coerce.number().int().min(1),
   startDate:    z.string().min(1, 'Requerido'),
   endDate:      z.string().min(1, 'Requerido'),

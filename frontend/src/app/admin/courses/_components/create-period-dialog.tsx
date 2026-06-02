@@ -87,6 +87,7 @@ export function CreatePeriodDialog() {
                       <SelectItem value="BIMESTRE">Bimestre</SelectItem>
                       <SelectItem value="CUATRIMESTRE">Cuatrimestre</SelectItem>
                       <SelectItem value="SEMESTRE">Semestre</SelectItem>
+                      <SelectItem value="ANUAL">Anual</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />

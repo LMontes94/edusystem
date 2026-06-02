@@ -33,7 +33,7 @@ export type AssignTeacherDto = z.infer<typeof AssignTeacherSchema>;
 export const CreatePeriodSchema = z.object({
   schoolYearId: z.string().uuid(),
   name: z.string().min(1).max(50),
-  type: z.enum(['BIMESTRE', 'TRIMESTRE', 'SEMESTRE', 'ANUAL']),
+  type: z.enum(['BIMESTRE', 'TRIMESTRE', 'CUATRIMESTRE', 'SEMESTRE', 'ANUAL']),
   order: z.number().int().min(1).max(10),
   startDate: z.string().date(),
   endDate: z.string().date(),

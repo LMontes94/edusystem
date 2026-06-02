@@ -4,7 +4,7 @@ import { GradesController } from './grades.controller';
 import { GradesService } from './grades.service';
 import { QUEUES } from '../../queues/queue.constants';
 import { StudentCourseSubjectsModule } from '../student-course-subjects/student-course-subjects.module';
-
+import { ClosingGradesModule } from '../closing-grades/closing-grades.module';
 
 @Module({
   imports: [
@@ -13,6 +13,7 @@ import { StudentCourseSubjectsModule } from '../student-course-subjects/student-
       { name: QUEUES.AUDIT },
       { name: QUEUES.GRADES },
     ),StudentCourseSubjectsModule,
+    ClosingGradesModule,
   ],
   controllers: [GradesController],
   providers: [GradesService],

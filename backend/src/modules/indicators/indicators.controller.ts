@@ -10,6 +10,8 @@ import { CheckAbility } from '../casl/decorators/check-ability.decorator';
 import { Action } from '../casl/casl.types';
 import { CurrentUser, RequestUser } from '../../common/decorators/current-user.decorator';
 import { InstitutionId } from '../../common/decorators/institution-id.decorator';
+import { ZodPipe } from '../../common/pipes/zod.pipe';
+import { BulkEvaluationSchema, CreateObservationSchema } from './dto/indicator.dto';
 
 @ApiTags('Indicators')
 @ApiBearerAuth('JWT')
@@ -99,14 +101,7 @@ export class IndicatorsController {
   @CheckAbility({ action: Action.Create, subject: 'Grade' })
   @ApiOperation({ summary: 'Guardar evaluaciones de indicadores para un curso' })
   bulkUpsertEvaluations(
-    @Body() body: {
-      evaluations: {
-        indicatorId: string;
-        studentId:   string;
-        periodId:    string;
-        value:       string;
-      }[];
-    },
+    @Body(new ZodPipe(BulkEvaluationSchema)) body: { evaluations: { indicatorId: string; studentId: string; periodId: string; value: 'LFD' | 'LS' | 'LP' | 'ANL' }[] },
     @CurrentUser() user: RequestUser,
   ) {
     return this.indicatorsService.bulkUpsertEvaluations(body.evaluations, user);
@@ -116,7 +111,7 @@ export class IndicatorsController {
 @CheckAbility({ action: Action.Create, subject: 'Grade' })
 @ApiOperation({ summary: 'Guardar observación de un alumno' })
 upsertObservation(
-  @Body() body: {
+  @Body(new ZodPipe(CreateObservationSchema)) body: {
     studentId:   string;
     periodId:    string;
     courseId:    string;

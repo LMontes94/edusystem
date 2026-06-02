@@ -10,11 +10,22 @@ type TrayectoriaResult = 'TEA' | 'TEP' | 'TED';
 
 const VALID_VALUES = new Set(['LFD', 'LS', 'LP', 'ANL']);
 
+const LEGACY_MAP: Record<string, string> = {
+  'achieved':     'LFD',
+  'in-progress':  'LP',
+  'not-achieved': 'ANL',
+};
+
+function mapValue(value: string): string {
+  return LEGACY_MAP[value] ?? value;
+}
+
 function countByValue(indicators: { value: string }[]): { LFD: number; LS: number; LP: number; ANL: number } {
   const counts = { LFD: 0, LS: 0, LP: 0, ANL: 0 };
   for (const ind of indicators) {
-    if (VALID_VALUES.has(ind.value)) {
-      counts[ind.value as keyof typeof counts]++;
+    const mapped = mapValue(ind.value);
+    if (VALID_VALUES.has(mapped)) {
+      counts[mapped as keyof typeof counts]++;
     }
   }
   return counts;

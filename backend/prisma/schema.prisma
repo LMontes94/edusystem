@@ -93,6 +93,7 @@ enum Platform {
 enum PeriodType {
   BIMESTRE
   TRIMESTRE
+  CUATRIMESTRE
   SEMESTRE
   ANUAL
 }
@@ -276,6 +277,8 @@ model User {
   chatRoomsCreated ChatRoom[] @relation("ChatRoomCreator")
   addedMembers ChatRoomMember[] @relation("ChatRoomMemberAddedBy")
   chatAuditLogs ChatAuditLog[]
+  closingGradesClosed  ClosingGrade[] @relation("ClosedBy")
+  closingGradesReopened ClosingGrade[] @relation("ReopenedBy")
   
   @@unique([email, institutionId])
 
@@ -436,6 +439,7 @@ model CourseSubject {
   grades   Grade[]
   syllabuses Syllabus[]
   studentAssignments StudentCourseSubject[]
+  closingGrades ClosingGrade[]
 
   @@unique([courseId, subjectId])
   @@index([teacherId]) // índice clave para ABAC: filtrar materias del docente
@@ -474,6 +478,7 @@ model Student {
   absenceRecords  AbsenceRecord[]
   sportGroups SportGroupStudent[]
   studentAssignments StudentCourseSubject[]
+  closingGrades ClosingGrade[]
 
   @@unique([institutionId, documentNumber]) // DNI único por institución (no global)
   @@index([institutionId])
@@ -531,6 +536,7 @@ model Period {
   indicatorEvaluations IndicatorEvaluation[]
   observations StudentObservation[]
   syllabuses Syllabus[]
+  closingGrades ClosingGrade[]
   
   @@map("periods")
 }
@@ -556,6 +562,33 @@ model Grade {
   @@index([courseSubjectId])
   @@unique([studentId, courseSubjectId, periodId, type, date])
   @@map("grades")
+}
+
+model ClosingGrade {
+  id              String    @id @default(uuid())
+  studentId       String    @map("student_id")
+  courseSubjectId String    @map("course_subject_id")
+  periodId        String    @map("period_id")
+  closingScore    Decimal?  @map("closing_score") @db.Decimal(5, 2)
+  isClosed        Boolean   @default(false) @map("is_closed")
+  closedAt        DateTime? @map("closed_at")
+  closedById      String?   @map("closed_by_id")
+  reopenedAt      DateTime? @map("reopened_at")
+  reopenedById    String?   @map("reopened_by_id")
+  reopenReason    String?   @map("reopen_reason") @db.VarChar(500)
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  student       Student       @relation(fields: [studentId], references: [id])
+  courseSubject CourseSubject @relation(fields: [courseSubjectId], references: [id])
+  period        Period        @relation(fields: [periodId], references: [id])
+  closedBy      User?         @relation("ClosedBy", fields: [closedById], references: [id])
+  reopenedBy    User?         @relation("ReopenedBy", fields: [reopenedById], references: [id])
+
+  @@unique([studentId, courseSubjectId, periodId])
+  @@index([periodId])
+  @@index([courseSubjectId])
+  @@map("closing_grades")
 }
 
 model Attendance {

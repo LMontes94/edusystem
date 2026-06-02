@@ -13,17 +13,18 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { Save, CheckCircle, MinusCircle, XCircle } from 'lucide-react';
+import { Save, CheckCircle, MinusCircle, XCircle, AlertCircle } from 'lucide-react';
 
-type EvalValue = 'achieved' | 'in-progress' | 'not-achieved' | null;
+type EvalValue = 'LFD' | 'LS' | 'LP' | 'ANL' | null;
 
 const valueConfig: Record<string, { label: string; color: string; bg: string; icon: React.ElementType }> = {
-  'achieved':     { label: 'Logrado',      color: 'text-emerald-700', bg: 'bg-emerald-50 border-emerald-300', icon: CheckCircle  },
-  'in-progress':  { label: 'Med. Logrado', color: 'text-amber-700',   bg: 'bg-amber-50 border-amber-300',     icon: MinusCircle  },
-  'not-achieved': { label: 'No logrado',   color: 'text-red-700',     bg: 'bg-red-50 border-red-300',         icon: XCircle      },
+  'LFD': { label: 'Logrado',      color: 'text-emerald-700', bg: 'bg-emerald-50 border-emerald-300', icon: CheckCircle  },
+  'LS':  { label: 'Logrado S.',   color: 'text-blue-700',    bg: 'bg-blue-50 border-blue-300',       icon: CheckCircle  },
+  'LP':  { label: 'Med. Logrado', color: 'text-amber-700',   bg: 'bg-amber-50 border-amber-300',     icon: MinusCircle  },
+  'ANL': { label: 'No logrado',   color: 'text-red-700',     bg: 'bg-red-50 border-red-300',         icon: XCircle      },
 };
 
-const valueOrder: EvalValue[] = ['achieved', 'in-progress', 'not-achieved', null];
+const valueOrder: EvalValue[] = ['LFD', 'LS', 'LP', 'ANL', null];
 
 export default function EvaluationsPage() {
   const queryClient = useQueryClient();

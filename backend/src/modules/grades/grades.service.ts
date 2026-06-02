@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -10,12 +11,14 @@ import { RequestUser } from '../../common/decorators/current-user.decorator';
 import { CreateGradeDto, UpdateGradeDto, GradeQueryDto } from './dto/grade.dto';
 import { QUEUES, JOBS, JOB_OPTIONS } from '../../queues/queue.constants';
 import { StudentCourseSubjectsService } from '../student-course-subjects/student-course-subjects.service';
+import { ClosingGradesService } from '../closing-grades/closing-grades.service';
 
 @Injectable()
 export class GradesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly studentSubjectsService: StudentCourseSubjectsService,
+    private readonly closingGradesService: ClosingGradesService,
     @InjectQueue(QUEUES.NOTIFICATIONS) private readonly notificationQueue: Queue,
     @InjectQueue(QUEUES.AUDIT)         private readonly auditQueue: Queue,
     @InjectQueue(QUEUES.GRADES)        private readonly gradeQueue: Queue,
@@ -200,6 +203,11 @@ export class GradesService {
   });
   if (!period) throw new NotFoundException('Período no encontrado');
 
+  const closed = await this.closingGradesService.isPeriodClosed(
+    dto.studentId, dto.courseSubjectId, dto.periodId,
+  );
+  if (closed) throw new BadRequestException('El período se encuentra cerrado');
+
   const grade = await this.prisma.grade.upsert({
     where: {
       studentId_courseSubjectId_periodId_type_date: {
@@ -255,6 +263,11 @@ export class GradesService {
     if (!grade) throw new NotFoundException('Nota no encontrada');
     await this.verifyWriteAccess(grade, user);
 
+    const closed = await this.closingGradesService.isPeriodClosed(
+      grade.studentId, grade.courseSubjectId, grade.periodId,
+    );
+    if (closed) throw new BadRequestException('El período se encuentra cerrado');
+
     const updated = await this.prisma.grade.update({
       where: { id },
       data: {
@@ -301,6 +314,12 @@ export class GradesService {
     });
     if (!grade) throw new NotFoundException('Nota no encontrada');
     await this.verifyWriteAccess(grade, user);
+
+    const closed = await this.closingGradesService.isPeriodClosed(
+      grade.studentId, grade.courseSubjectId, grade.periodId,
+    );
+    if (closed) throw new BadRequestException('El período se encuentra cerrado');
+
     await this.prisma.grade.delete({ where: { id } });
   }
 

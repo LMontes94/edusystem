@@ -35,7 +35,7 @@ export interface RiteSubjectEntry {
   courseSubjectId?: string;
   subjectName: string;
   code: string;
-  cursada: 'C' | 'R';
+  cursada: 'C' | 'R' | 'E';
   preliminary1: 'TEA' | 'TEP' | 'TED' | null;
   grade1: number | null;
   preliminary2: 'TEA' | 'TEP' | 'TED' | null;

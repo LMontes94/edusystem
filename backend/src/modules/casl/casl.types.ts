@@ -26,6 +26,7 @@ export type Subjects =
   | 'SportGroup'
   | 'ChatRoom'
   | 'ChatMessage'
+  | 'ClosingGrade'
   | 'all';
 
 export type AppAbility = MongoAbility<[Action, Subjects]>;

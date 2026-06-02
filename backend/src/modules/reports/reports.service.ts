@@ -14,6 +14,8 @@ import {
   AttendanceByPeriod,
 } from './report.types';
 import { computeTrayectoria } from './trayectoria.helper';
+import { aggregatePeriods, DEFAULT_AGGREGATION } from './report.aggregation';
+import type { PeriodAggregationEntry } from './report.aggregation';
 import {
   secondaryGradesTemplate,
   primaryQualitativeTemplate,
@@ -80,6 +82,26 @@ export class ReportsService {
       logoPosition: (reportSettings.logoPosition ?? 'center') as LogoPosition,
       layout:       (reportSettings.layout       ?? 'classic') as ReportLayout,
     };
+  }
+
+  // ── Resolver agregación de períodos ──────────
+  private async resolvePeriodAggregation(
+    institutionId: string,
+    level: string,
+  ): Promise<PeriodAggregationEntry[]> {
+    const institution = await this.prisma.institution.findUnique({
+      where: { id: institutionId },
+      select: { settings: true },
+    });
+
+    const settings = (institution?.settings as any) ?? {};
+    const config = settings.reportPeriodAggregation?.[level];
+
+    if (Array.isArray(config) && config.length > 0) {
+      return config;
+    }
+
+    return DEFAULT_AGGREGATION[level] ?? DEFAULT_AGGREGATION.SECUNDARIA;
   }
 
   // ── Generar PDF desde HTML ────────────────────
@@ -503,12 +525,23 @@ export class ReportsService {
     if (!courseStudent) throw new NotFoundException('El alumno no está inscripto en ningún curso');
 
     const sortedPeriods = schoolYear.periods;
-    const period1 = sortedPeriods[0];
-    const period2 = sortedPeriods.length > 1 ? sortedPeriods[1] : null;
+
+    // Resolve period aggregation config
+    const aggregation = await this.resolvePeriodAggregation(institutionId, courseStudent.course.level);
 
     // Map courseSubjects by subjectId for quick lookup
+    // Include RECURSE/EXEMPT subjects from studentAssignments (cross-course)
+    const assignmentSubjectIds = student.studentAssignments
+      .filter((scs) => scs.courseSubject.courseId !== courseStudent.courseId)
+      .map((scs) => scs.courseSubject.id);
+
     const courseSubjects = await this.prisma.courseSubject.findMany({
-      where: { courseId: courseStudent.courseId },
+      where: {
+        OR: [
+          { courseId: courseStudent.courseId },
+          { id: { in: assignmentSubjectIds } },
+        ],
+      },
       include: { subject: true },
     });
 
@@ -561,39 +594,61 @@ export class ReportsService {
       obsBySubjectId.get(ob.subjectId)!.push({ type: 'PEDAGOGICAL', text: ob.observation });
     }
 
+    // Load ClosingGrades for congelamiento
+    const closingGrades = await this.prisma.closingGrade.findMany({
+      where: {
+        studentId: student.id,
+        courseSubject: { course: { schoolYearId: schoolYearId } },
+        isClosed: true,
+      },
+    });
+    const closingGradeByKey = new Map(
+      closingGrades.map((cg: any) => [`${cg.courseSubjectId}:${cg.periodId}`, cg]),
+    );
+
     // Build subjects
+    const period1 = sortedPeriods[0];
+    const period2 = sortedPeriods.length > 1 ? sortedPeriods[1] : null;
+
     const subjects = subjectIds.map((subjectId) => {
       const cs = courseSubjectBySubjectId.get(subjectId)!;
-      const subjectGrades1 = period1 ? subjectPeriodGrades.get(subjectId)?.get(period1.id) ?? [] : [];
-      const subjectGrades2 = period2 ? subjectPeriodGrades.get(subjectId)?.get(period2.id) ?? [] : [];
 
-      const avg1 = subjectGrades1.length > 0
-        ? Math.round((subjectGrades1.reduce((a, b) => a + b, 0) / subjectGrades1.length) * 100) / 100
-        : null;
-      const avg2 = subjectGrades2.length > 0
-        ? Math.round((subjectGrades2.reduce((a, b) => a + b, 0) / subjectGrades2.length) * 100) / 100
-        : null;
+      // Build per-period score overrides from ClosingGrade
+      const scoreOverrides = new Map<string, number>();
+      for (const period of sortedPeriods) {
+        const cg = closingGradeByKey.get(`${cs.id}:${period.id}`);
+        if (cg) {
+          scoreOverrides.set(period.id, cg.closingScore);
+        }
+      }
 
-      const evals1 = period1 ? subjectPeriodEvals.get(subjectId)?.get(period1.id) ?? [] : [];
-      const evals2 = period2 ? subjectPeriodEvals.get(subjectId)?.get(period2.id) ?? [] : [];
+      const columnInput = {
+        subjectGrades: subjectPeriodGrades.get(subjectId) ?? new Map(),
+        subjectEvals: subjectPeriodEvals.get(subjectId) ?? new Map(),
+      };
 
-      const preliminary1 = evals1.length > 0
-        ? computeTrayectoria({ indicators: evals1, strategy: 'MAJORITY' })
-        : null;
-      const preliminary2 = evals2.length > 0
-        ? computeTrayectoria({ indicators: evals2, strategy: 'MAJORITY' })
-        : null;
+      const columns = aggregatePeriods(
+        columnInput,
+        sortedPeriods,
+        aggregation,
+        scoreOverrides.size > 0 ? scoreOverrides : undefined,
+      );
+
+      const grade1 = columns[0]?.avgScore ?? null;
+      const preliminary1 = columns[0]?.trayectoria ?? null;
+      const grade2 = columns[1]?.avgScore ?? null;
+      const preliminary2 = columns[1]?.trayectoria ?? null;
 
       const scs = scsBySubjectId.get(subjectId);
-      const cursada: 'C' | 'R' = scs?.type === 'RECURSE' ? 'R' : 'C';
+      const cursada: 'C' | 'R' | 'E' = scs?.type === 'RECURSE' ? 'R' : scs?.type === 'EXEMPT' ? 'E' : 'C';
 
       const pending = pendingBySubjectId.get(subjectId);
       const intensificacionDec = pending?.december ?? null;
       const intensificacionFeb = pending?.february ?? null;
 
-      const allScores = [...subjectGrades1, ...subjectGrades2];
-      const finalGrade = allScores.length > 0
-        ? Math.round((allScores.reduce((a, b) => a + b, 0) / allScores.length) * 100) / 100
+      const effectiveGrades = [grade1, grade2].filter((g): g is number => g !== null);
+      const finalGrade = effectiveGrades.length > 0
+        ? Math.round((effectiveGrades.reduce((a, b) => a + b, 0) / effectiveGrades.length) * 100) / 100
         : null;
 
       return {
@@ -603,9 +658,9 @@ export class ReportsService {
         code: cs.subject.code,
         cursada,
         preliminary1,
-        grade1: avg1,
+        grade1,
         preliminary2,
-        grade2: avg2,
+        grade2,
         intensificacionDec,
         intensificacionFeb,
         finalGrade,
