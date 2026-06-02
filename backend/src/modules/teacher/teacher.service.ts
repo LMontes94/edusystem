@@ -1,6 +1,6 @@
-// src/modules/teacher/teacher.service.ts
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ConflictException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import type { CreatePendingSubjectDto, UpdatePendingStatusDto, UpdatePendingProgressDto } from './dto/teacher.dto';
 
 @Injectable()
 export class TeacherService {
@@ -58,7 +58,6 @@ async updateSyllabus(
     schoolYearId: string,
     institutionId: string,
   ) {
-    // Obtener alumnos del curso
     const enrollments = await this.prisma.courseStudent.findMany({
       where:   { courseId, status: 'ACTIVE' },
       include: {
@@ -71,7 +70,6 @@ async updateSyllabus(
 
     const studentIds = enrollments.map((e) => e.studentId);
 
-    // Obtener pendientes existentes
     const pendingSubjects = await this.prisma.pendingSubject.findMany({
       where: {
         studentId:    { in: studentIds },
@@ -81,6 +79,12 @@ async updateSyllabus(
       include: {
         subject: { select: { id: true, name: true } },
         student: { select: { id: true, firstName: true, lastName: true } },
+        closingGrade: {
+          include: {
+            period: { select: { id: true, name: true } },
+            courseSubject: { include: { subject: { select: { id: true, name: true } } } },
+          },
+        },
       },
     });
 
@@ -103,25 +107,132 @@ async updateSyllabus(
     february?:      string;
     finalScore?:    string;
     closingSabers?: string;
+    closingGradeId?: string;
   }) {
-    return this.prisma.pendingSubject.upsert({
+    const existing = await this.prisma.pendingSubject.findFirst({
       where: {
-        studentId_subjectId_schoolYearId: {
-          studentId:    data.studentId,
-          subjectId:    data.subjectId,
-          schoolYearId: data.schoolYearId,
+        studentId:    data.studentId,
+        subjectId:    data.subjectId,
+        schoolYearId: data.schoolYearId,
+      },
+    });
+
+    if (existing) {
+      return this.prisma.pendingSubject.update({
+        where: { id: existing.id },
+        data: {
+          initialSabers:  data.initialSabers,
+          march:          data.march,
+          august:         data.august,
+          november:       data.november,
+          december:       data.december,
+          february:       data.february,
+          finalScore:     data.finalScore,
+          closingSabers:  data.closingSabers,
+          closingGradeId: data.closingGradeId,
+        },
+        include: {
+          subject: { select: { id: true, name: true } },
+          student: { select: { id: true, firstName: true, lastName: true } },
+        },
+      });
+    }
+
+    return this.prisma.pendingSubject.create({
+      data: {
+        studentId:      data.studentId,
+        subjectId:      data.subjectId,
+        institutionId:  data.institutionId,
+        schoolYearId:   data.schoolYearId,
+        initialSabers:  data.initialSabers,
+        march:          data.march,
+        august:         data.august,
+        november:       data.november,
+        december:       data.december,
+        february:       data.february,
+        finalScore:     data.finalScore,
+        closingSabers:  data.closingSabers,
+        closingGradeId: data.closingGradeId,
+      },
+      include: {
+        subject: { select: { id: true, name: true } },
+        student: { select: { id: true, firstName: true, lastName: true } },
+      },
+    });
+  }
+
+  async createPendingSubject(dto: CreatePendingSubjectDto, institutionId: string) {
+    const cg = await this.prisma.closingGrade.findUnique({
+      where: { id: dto.closingGradeId },
+      include: {
+        courseSubject: {
+          include: { course: true, subject: true },
+        },
+        period: true,
+      },
+    });
+
+    if (!cg) throw new NotFoundException('ClosingGrade no encontrado');
+    if (!cg.isClosed) throw new BadRequestException('El período no está cerrado');
+    if (Number(cg.closingScore) >= 7) {
+      throw new BadRequestException('La nota es >= 7, no requiere intensificación');
+    }
+
+    // Tenant validation
+    if (cg.courseSubject.course.institutionId !== institutionId) {
+      throw new ForbiddenException('El ClosingGrade no pertenece a esta institución');
+    }
+
+    // Check existing PendingSubject for this closingGradeId
+    const existing = await this.prisma.pendingSubject.findUnique({
+      where: { closingGradeId: dto.closingGradeId },
+    });
+    if (existing) throw new ConflictException('Ya existe una intensificación para este período');
+
+    return this.prisma.pendingSubject.create({
+      data: {
+        institutionId,
+        studentId:     cg.studentId,
+        subjectId:     cg.courseSubject.subjectId,
+        schoolYearId:  cg.courseSubject.course.schoolYearId,
+        closingGradeId: cg.id,
+        status:        'ENROLLED',
+      },
+      include: {
+        closingGrade: {
+          include: {
+            period: true,
+            courseSubject: { include: { subject: true } },
+          },
         },
       },
-      create: data as any,
-      update: {
-        initialSabers: data.initialSabers,
-        march:         data.march,
-        august:        data.august,
-        november:      data.november,
-        december:      data.december,
-        february:      data.february,
-        finalScore:    data.finalScore,
-        closingSabers: data.closingSabers,
+    });
+  }
+
+  async updatePendingStatus(id: string, dto: UpdatePendingStatusDto) {
+    const existing = await this.prisma.pendingSubject.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException('PendingSubject no encontrado');
+
+    return this.prisma.pendingSubject.update({
+      where: { id },
+      data: { status: dto.status },
+    });
+  }
+
+  async updatePendingProgress(id: string, dto: UpdatePendingProgressDto) {
+    const existing = await this.prisma.pendingSubject.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException('PendingSubject no encontrado');
+
+    return this.prisma.pendingSubject.update({
+      where: { id },
+      data: {
+        march:        dto.march,
+        august:       dto.august,
+        november:     dto.november,
+        december:     dto.december,
+        february:     dto.february,
+        finalScore:   dto.finalScore,
+        closingSabers: dto.closingSabers,
       },
       include: {
         subject: { select: { id: true, name: true } },
@@ -137,7 +248,41 @@ async updateSyllabus(
   async getStudentPendingSubjects(studentId: string, schoolYearId: string) {
     return this.prisma.pendingSubject.findMany({
       where: { studentId, schoolYearId },
-      include: { subject: { select: { id: true, name: true } } },
+      include: {
+        subject: { select: { id: true, name: true } },
+        closingGrade: {
+          include: {
+            period: { select: { id: true, name: true } },
+          },
+        },
+      },
     });
+  }
+
+  async getEligibleSubjects(studentId: string, schoolYearId: string) {
+    const closingGrades = await this.prisma.closingGrade.findMany({
+      where: {
+        studentId,
+        isClosed: true,
+        closingScore: { lt: 7 },
+        courseSubject: { course: { schoolYearId } },
+        pendingSubject: null,
+      },
+      include: {
+        courseSubject: {
+          include: { subject: true },
+        },
+        period: true,
+      },
+    });
+
+    return closingGrades.map((cg) => ({
+      closingGradeId: cg.id,
+      subjectId:      cg.courseSubject.subjectId,
+      subjectName:    cg.courseSubject.subject.name,
+      periodId:       cg.periodId,
+      periodName:     cg.period.name,
+      closingScore:   Number(cg.closingScore),
+    }));
   }
 }

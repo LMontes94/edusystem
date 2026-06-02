@@ -143,6 +143,12 @@ enum StudentSubjectType {
   EXEMPT
 }
 
+enum PendingSubjectStatus {
+  ENROLLED
+  COMPLETED
+  NOT_COMPLETED
+}
+
 // ──────────────────────────────────────────────
 // MULTI-TENANCY — INSTITUCIÓN
 // ──────────────────────────────────────────────
@@ -583,7 +589,8 @@ model ClosingGrade {
   courseSubject CourseSubject @relation(fields: [courseSubjectId], references: [id])
   period        Period        @relation(fields: [periodId], references: [id])
   closedBy      User?         @relation("ClosedBy", fields: [closedById], references: [id])
-  reopenedBy    User?         @relation("ReopenedBy", fields: [reopenedById], references: [id])
+  reopenedBy    User?             @relation("ReopenedBy", fields: [reopenedById], references: [id])
+  pendingSubject PendingSubject?
 
   @@unique([studentId, courseSubjectId, periodId])
   @@index([periodId])
@@ -866,28 +873,33 @@ model Syllabus {
 }
 
 model PendingSubject {
-  id              String   @id @default(uuid())
-  studentId       String   @map("student_id")
-  subjectId       String   @map("subject_id")
-  institutionId   String   @map("institution_id")
-  schoolYearId    String   @map("school_year_id")
-  initialSabers   String?  @map("initial_sabers")
+  id              String                    @id @default(uuid())
+  studentId       String                    @map("student_id")
+  subjectId       String                    @map("subject_id")
+  institutionId   String                    @map("institution_id")
+  schoolYearId    String                    @map("school_year_id")
+  initialSabers   String?                   @map("initial_sabers")
   march           String?
   august          String?
   november        String?
   december        String?
   february        String?
-  finalScore      String?  @map("final_score")
-  closingSabers   String?  @map("closing_sabers")
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
+  finalScore      String?                   @map("final_score")
+  closingSabers   String?                   @map("closing_sabers")
+  closingGradeId  String?                   @map("closing_grade_id")
+  status          PendingSubjectStatus      @default(ENROLLED) @map("status")
+  createdAt       DateTime                  @default(now()) @map("created_at")
+  updatedAt       DateTime                  @updatedAt @map("updated_at")
 
-  student     Student     @relation(fields: [studentId], references: [id])
-  subject     Subject     @relation(fields: [subjectId], references: [id])
-  institution Institution @relation(fields: [institutionId], references: [id])
-  schoolYear  SchoolYear  @relation(fields: [schoolYearId], references: [id])
+  student      Student      @relation(fields: [studentId], references: [id])
+  subject      Subject      @relation(fields: [subjectId], references: [id])
+  institution  Institution  @relation(fields: [institutionId], references: [id])
+  schoolYear   SchoolYear   @relation(fields: [schoolYearId], references: [id])
+  closingGrade ClosingGrade? @relation(fields: [closingGradeId], references: [id])
 
-  @@unique([studentId, subjectId, schoolYearId])
+  @@index([studentId])
+  @@index([schoolYearId])
+  @@unique([closingGradeId])
   @@map("pending_subjects")
 }
 

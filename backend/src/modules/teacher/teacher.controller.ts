@@ -1,4 +1,3 @@
-// src/modules/teacher/teacher.controller.ts
 import {
   Body, Controller, Delete, Get, Param,
   Post, Query, UseGuards, Patch
@@ -10,6 +9,17 @@ import { CheckAbility } from '../casl/decorators/check-ability.decorator';
 import { Action } from '../casl/casl.types';
 import { CurrentUser, RequestUser } from '../../common/decorators/current-user.decorator';
 import { InstitutionId } from '../../common/decorators/institution-id.decorator';
+import { ZodPipe } from '../../common/pipes/zod.pipe';
+import {
+  CreatePendingSubjectSchema,
+  UpdatePendingStatusSchema,
+  UpdatePendingProgressSchema,
+} from './dto/teacher.dto';
+import type {
+  CreatePendingSubjectDto,
+  UpdatePendingStatusDto,
+  UpdatePendingProgressDto,
+} from './dto/teacher.dto';
 
 @ApiTags('Teacher')
 @ApiBearerAuth('JWT')
@@ -75,24 +85,32 @@ updateSyllabus(
 
   @Post('pending')
   @CheckAbility({ action: Action.Create, subject: 'Grade' })
-  @ApiOperation({ summary: 'Guardar materia pendiente de un alumno' })
-  upsertPendingSubject(
-    @Body() body: {
-      studentId:      string;
-      subjectId:      string;
-      schoolYearId:   string;
-      initialSabers?: string;
-      march?:         string;
-      august?:        string;
-      november?:      string;
-      december?:      string;
-      february?:      string;
-      finalScore?:    string;
-      closingSabers?: string;
-    },
+  @ApiOperation({ summary: 'Crear intensificación desde un ClosingGrade' })
+  createPendingSubject(
+    @Body(new ZodPipe(CreatePendingSubjectSchema)) dto: CreatePendingSubjectDto,
     @InstitutionId() institutionId: string,
   ) {
-    return this.teacherService.upsertPendingSubject({ ...body, institutionId });
+    return this.teacherService.createPendingSubject(dto, institutionId);
+  }
+
+  @Patch('pending/:id/status')
+  @CheckAbility({ action: Action.Update, subject: 'Grade' })
+  @ApiOperation({ summary: 'Actualizar estado de una intensificación' })
+  updatePendingStatus(
+    @Param('id') id: string,
+    @Body(new ZodPipe(UpdatePendingStatusSchema)) dto: UpdatePendingStatusDto,
+  ) {
+    return this.teacherService.updatePendingStatus(id, dto);
+  }
+
+  @Patch('pending/:id')
+  @CheckAbility({ action: Action.Update, subject: 'Grade' })
+  @ApiOperation({ summary: 'Actualizar seguimiento pedagógico de intensificación' })
+  updatePendingProgress(
+    @Param('id') id: string,
+    @Body(new ZodPipe(UpdatePendingProgressSchema)) dto: UpdatePendingProgressDto,
+  ) {
+    return this.teacherService.updatePendingProgress(id, dto);
   }
 
   @Delete('pending/:id')
@@ -108,5 +126,15 @@ updateSyllabus(
     @Query('schoolYearId') schoolYearId: string,
   ) {
     return this.teacherService.getStudentPendingSubjects(studentId, schoolYearId);
+  }
+
+  @Get('pending/eligible/:studentId')
+  @CheckAbility({ action: Action.Read, subject: 'Grade' })
+  @ApiOperation({ summary: 'Obtener períodos elegibles para intensificación' })
+  getEligibleSubjects(
+    @Param('studentId')    studentId:    string,
+    @Query('schoolYearId') schoolYearId: string,
+  ) {
+    return this.teacherService.getEligibleSubjects(studentId, schoolYearId);
   }
 }

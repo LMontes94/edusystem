@@ -1128,7 +1128,12 @@ private async buildPendingData(
     }),
     this.prisma.pendingSubject.findMany({
       where: { studentId, schoolYearId, institutionId },
-      include: { subject: { select: { name: true } } },
+      include: {
+        subject: { select: { name: true } },
+        closingGrade: {
+          include: { period: { select: { id: true, name: true } } },
+        },
+      },
     }),
   ]);
  
@@ -1166,6 +1171,9 @@ private async buildPendingData(
       february:       p.february      ?? undefined,
       finalScore:     p.finalScore    ?? undefined,
       closingSabers:  p.closingSabers ?? undefined,
+      closingGradeId: p.closingGradeId ?? undefined,
+      status:         p.status,
+      periodName:     p.closingGrade?.period?.name ?? undefined,
     })),
   };
 }

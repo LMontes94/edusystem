@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useCourses } from '@/lib/api/courses';
+import { useEligibleSubjects, useCreatePendingSubject, useUpdatePendingStatus, useUpdatePendingProgress, useDeletePendingSubject } from '@/lib/api/pending';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,27 +13,10 @@ import { Badge } from '@/components/ui/badge';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle,
-} from '@/components/ui/dialog';
-import { Plus, Trash2, Save, AlertCircle, Download } from 'lucide-react';
+import { Plus, Trash2, Save, AlertCircle, Download, ChevronDown, ChevronRight } from 'lucide-react';
 import { downloadBlob } from '@/lib/utils/download/download-blob';
-
-interface PendingSubject {
-  id:             string;
-  studentId:      string;
-  subjectId:      string;
-  initialSabers?: string;
-  march?:         string;
-  august?:        string;
-  november?:      string;
-  december?:      string;
-  february?:      string;
-  finalScore?:    string;
-  closingSabers?: string;
-  subject:        { id: string; name: string };
-  student:        { id: string; firstName: string; lastName: string };
-}
+import type { PendingSubject, EligiblePeriod, PendingSubjectStatus } from './_components/pending.types';
+import { statusLabels, statusColors } from './_components/pending.types';
 
 const periodColumns = [
   { key: 'march',    label: 'Marzo'     },
@@ -49,26 +33,16 @@ export default function PendingSubjectsPage() {
 
   const [selectedCourse,     setSelectedCourse]     = useState('');
   const [selectedSchoolYear, setSelectedSchoolYear]  = useState('');
-  const [addDialog,          setAddDialog]           = useState(false);
-  const [selectedStudent,    setSelectedStudent]     = useState('');
-  const [selectedSubject,    setSelectedSubject]     = useState('');
   const [localData,          setLocalData]           = useState<Record<string, Partial<PendingSubject>>>({});
   const [generating, setGenerating] = useState<string | null>(null);
   const [generatingBulk, setGeneratingBulk] = useState(false);
+  const [expandedEligible, setExpandedEligible] = useState<Set<string>>(new Set());
 
   const { data: courses }     = useCourses();
   const { data: schoolYears } = useQuery({
     queryKey: ['school-years'],
     queryFn:  async () => {
       const res = await api.get('/courses/school-years');
-      return res.data;
-    },
-  });
-
-  const { data: subjects } = useQuery({
-    queryKey: ['subjects'],
-    queryFn:  async () => {
-      const res = await api.get('/subjects');
       return res.data;
     },
   });
@@ -84,7 +58,11 @@ export default function PendingSubjectsPage() {
     enabled: !!selectedCourse && !!selectedSchoolYear,
   });
 
-  // Inicializar datos locales
+  const createPending = useCreatePendingSubject();
+  const updateStatus = useUpdatePendingStatus();
+  const deleteMutation = useDeletePendingSubject();
+  const progressMutation = useUpdatePendingProgress();
+
   useEffect(() => {
     if (data?.pendingSubjects) {
       const initial: Record<string, Partial<PendingSubject>> = {};
@@ -95,103 +73,107 @@ export default function PendingSubjectsPage() {
     }
   }, [data]);
 
-  const saveMutation = useMutation({
-    mutationFn: async (pending: Partial<PendingSubject> & { id: string }) => {
-      await api.post('/teacher/pending', {
-        studentId:      pending.studentId,
-        subjectId:      pending.subjectId,
-        schoolYearId:   selectedSchoolYear,
-        initialSabers:  pending.initialSabers,
-        march:          pending.march,
-        august:         pending.august,
-        november:       pending.november,
-        december:       pending.december,
-        february:       pending.february,
-        finalScore:     pending.finalScore,
-        closingSabers:  pending.closingSabers,
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['pending-subjects'] });
-      toast.success('Guardado');
-    },
-    onError: () => toast.error('Error al guardar'),
-  });
-
-  const addMutation = useMutation({
-    mutationFn: async () => {
-      await api.post('/teacher/pending', {
-        studentId:    selectedStudent,
-        subjectId:    selectedSubject,
-        schoolYearId: selectedSchoolYear,
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['pending-subjects'] });
-      setAddDialog(false);
-      setSelectedStudent('');
-      setSelectedSubject('');
-      toast.success('Materia pendiente agregada');
-    },
-    onError: () => toast.error('Error al agregar'),
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      await api.delete(`/teacher/pending/${id}`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['pending-subjects'] });
-      toast.success('Eliminado');
-    },
-    onError: () => toast.error('Error al eliminar'),
-  });
-
   function updateLocal(id: string, field: string, value: string) {
     setLocalData((prev) => ({
       ...prev,
       [id]: { ...prev[id], [field]: value },
     }));
   }
-  
-  // Agrupar pendientes por alumno
+
+  function handleSave(pending: Partial<PendingSubject> & { id: string }) {
+    const local = localData[pending.id] ?? pending;
+    progressMutation.mutate({
+      id: pending.id,
+      initialSabers: (local as any).initialSabers,
+      march:         (local as any).march,
+      august:        (local as any).august,
+      november:      (local as any).november,
+      december:      (local as any).december,
+      february:      (local as any).february,
+      finalScore:    (local as any).finalScore,
+      closingSabers: (local as any).closingSabers,
+    });
+  }
+
+  function toggleEligible(studentId: string) {
+    setExpandedEligible((prev) => {
+      const next = new Set(prev);
+      if (next.has(studentId)) next.delete(studentId);
+      else next.add(studentId);
+      return next;
+    });
+  }
+
   const pendingByStudent = data?.students?.map((student: any) => ({
     student,
     pendings: data.pendingSubjects.filter((p: PendingSubject) => p.studentId === student.id),
   })).filter((s: any) => s.pendings.length > 0) ?? [];
-  
-  async function handleDownloadPdf(studentId: string) {
-  if (!selectedCourse || !selectedSchoolYear) return;
-  setGenerating(studentId);
-  try {
-    const res = await api.get(`/reports/pending/${studentId}`, {
-      params:       { courseId: selectedCourse, schoolYearId: selectedSchoolYear },
-      responseType: 'blob',
-    });
-    await downloadBlob(res.data, res.headers['content-disposition'], 'pendientes.pdf');
-    toast.success('PDF generado');
-  } catch {
-    toast.error('Error al generar el PDF');
-  } finally {
-    setGenerating(null);
-  }
-}
 
-async function handleDownloadBulk() {
-  setGeneratingBulk(true);
-  try {
-    const res = await api.get(`/reports/pending/bulk/${selectedCourse}`, {
-      params:       { schoolYearId: selectedSchoolYear },
-      responseType: 'blob',
-    });
-    await downloadBlob(res.data, res.headers['content-disposition'], 'pendientes_curso.zip');
-    toast.success('ZIP generado');
-  } catch {
-    toast.error('Error al generar el ZIP');
-  } finally {
-    setGeneratingBulk(false);
+  async function handleDownloadPdf(studentId: string) {
+    if (!selectedCourse || !selectedSchoolYear) return;
+    setGenerating(studentId);
+    try {
+      const res = await api.get(`/reports/pending/${studentId}`, {
+        params:       { courseId: selectedCourse, schoolYearId: selectedSchoolYear },
+        responseType: 'blob',
+      });
+      await downloadBlob(res.data, res.headers['content-disposition'], 'pendientes.pdf');
+      toast.success('PDF generado');
+    } catch {
+      toast.error('Error al generar el PDF');
+    } finally {
+      setGenerating(null);
+    }
   }
-}
+
+  async function handleDownloadBulk() {
+    setGeneratingBulk(true);
+    try {
+      const res = await api.get(`/reports/pending/bulk/${selectedCourse}`, {
+        params:       { schoolYearId: selectedSchoolYear },
+        responseType: 'blob',
+      });
+      await downloadBlob(res.data, res.headers['content-disposition'], 'pendientes_curso.zip');
+      toast.success('ZIP generado');
+    } catch {
+      toast.error('Error al generar el ZIP');
+    } finally {
+      setGeneratingBulk(false);
+    }
+  }
+
+  function EligiblePanel({ studentId }: { studentId: string }) {
+    const { data: eligible, isLoading: loadingEligible } = useEligibleSubjects(studentId, selectedSchoolYear);
+
+    if (loadingEligible) return <p className="text-xs text-muted-foreground">Cargando...</p>;
+    if (!eligible || eligible.length === 0) return <p className="text-xs text-muted-foreground">No hay períodos elegibles</p>;
+
+    return (
+      <div className="space-y-2">
+        {eligible.map((ep) => (
+          <div key={ep.closingGradeId} className="flex items-center justify-between rounded border p-2">
+            <div className="text-xs">
+              <span className="font-medium">{ep.subjectName}</span>
+              {' — '}
+              <span className="text-muted-foreground">{ep.periodName}</span>
+              {' — '}
+              <span className="font-mono">Nota de cierre: {ep.closingScore}</span>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs"
+              onClick={() => createPending.mutate({ closingGradeId: ep.closingGradeId })}
+              disabled={createPending.isPending}
+            >
+              <Plus className="h-3 w-3 mr-1" />
+              Agregar
+            </Button>
+          </div>
+        ))}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -201,27 +183,18 @@ async function handleDownloadBulk() {
         <div>
           <h1 className="text-xl font-semibold">Materias pendientes</h1>
           <p className="text-sm text-muted-foreground">
-            Registro de materias pendientes de aprobación
+            Intensificación de materias pendientes de aprobación
           </p>
         </div>
         <Button
           size="sm"
-          onClick={() => setAddDialog(true)}
-          disabled={!selectedCourse || !selectedSchoolYear}
+          variant="outline"
+          onClick={handleDownloadBulk}
+          disabled={generatingBulk || !selectedCourse || !selectedSchoolYear || pendingByStudent.length === 0}
         >
-          <Plus className="h-4 w-4 mr-2" />
-          Agregar pendiente
+          <Download className="h-4 w-4 mr-2" />
+          {generatingBulk ? 'Generando...' : 'Descargar todos (ZIP)'}
         </Button>
-        <Button
-  size="sm"
-  variant="outline"
-  onClick={handleDownloadBulk}
-  disabled={generatingBulk || !selectedCourse || !selectedSchoolYear || pendingByStudent.length === 0}
->
-  <Download className="h-4 w-4 mr-2" />
-  {generatingBulk ? 'Generando...' : 'Descargar todos (ZIP)'}
-</Button>
-
       </div>
 
       {/* Filtros */}
@@ -269,10 +242,6 @@ async function handleDownloadBulk() {
         <div className="flex flex-col items-center justify-center h-48 text-muted-foreground text-sm border rounded-lg border-dashed gap-2">
           <AlertCircle className="h-8 w-8 opacity-30" />
           <p>No hay materias pendientes en este curso</p>
-          <Button size="sm" variant="outline" onClick={() => setAddDialog(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Agregar primera pendiente
-          </Button>
         </div>
       ) : (
         <div className="space-y-4">
@@ -282,19 +251,19 @@ async function handleDownloadBulk() {
                 <CardTitle className="text-sm font-medium">
                   {student.lastName}, {student.firstName}
                   <div className="flex items-center gap-2">
-  <Badge variant="secondary" className="text-xs">
-    {pendings.length} pendiente{pendings.length > 1 ? 's' : ''}
-  </Badge>
-  <Button
-    size="sm"
-    variant="outline"
-    onClick={() => handleDownloadPdf(student.id)}
-    disabled={generating === student.id}
-  >
-    <Download className="h-3.5 w-3.5 mr-1.5" />
-    {generating === student.id ? 'Generando...' : 'PDF'}
-  </Button>
-</div>
+                    <Badge variant="secondary" className="text-xs">
+                      {pendings.length} pendiente{pendings.length > 1 ? 's' : ''}
+                    </Badge>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleDownloadPdf(student.id)}
+                      disabled={generating === student.id}
+                    >
+                      <Download className="h-3.5 w-3.5 mr-1.5" />
+                      {generating === student.id ? 'Generando...' : 'PDF'}
+                    </Button>
+                  </div>
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -303,16 +272,41 @@ async function handleDownloadBulk() {
                   return (
                     <div key={pending.id} className="rounded-lg border p-4 space-y-3">
                       <div className="flex items-center justify-between">
-                        <p className="text-sm font-medium text-primary">
-                          {pending.subject.name}
-                        </p>
-                        <Button
-                          size="icon" variant="ghost"
-                          className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                          onClick={() => deleteMutation.mutate(pending.id)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-medium text-primary">
+                            {pending.subject.name}
+                          </p>
+                          <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${statusColors[pending.status]}`}>
+                            {statusLabels[pending.status]}
+                          </span>
+                          {pending.closingGrade && (
+                            <span className="text-xs text-muted-foreground">
+                              ({pending.closingGrade.period.name})
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Select
+                            value={pending.status}
+                            onValueChange={(v) => updateStatus.mutate({ id: pending.id, status: v as PendingSubjectStatus })}
+                          >
+                            <SelectTrigger className="h-7 w-32 text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="ENROLLED">En curso</SelectItem>
+                              <SelectItem value="COMPLETED">Completado</SelectItem>
+                              <SelectItem value="NOT_COMPLETED">No completado</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <Button
+                            size="icon" variant="ghost"
+                            className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                            onClick={() => deleteMutation.mutate(pending.id)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
                       </div>
 
                       {/* Saberes iniciales */}
@@ -387,8 +381,8 @@ async function handleDownloadBulk() {
                       <div className="flex justify-end">
                         <Button
                           size="sm"
-                          onClick={() => saveMutation.mutate({ ...local, id: pending.id } as any)}
-                          disabled={saveMutation.isPending}
+                          onClick={() => handleSave(pending)}
+                          disabled={progressMutation.isPending}
                         >
                           <Save className="h-3.5 w-3.5 mr-1.5" />
                           Guardar
@@ -397,55 +391,32 @@ async function handleDownloadBulk() {
                     </div>
                   );
                 })}
+
+                {/* Eligible subjects panel */}
+                <div className="border-t pt-3">
+                  <button
+                    type="button"
+                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                    onClick={() => toggleEligible(student.id)}
+                  >
+                    {expandedEligible.has(student.id) ? (
+                      <ChevronDown className="h-3 w-3" />
+                    ) : (
+                      <ChevronRight className="h-3 w-3" />
+                    )}
+                    Períodos elegibles para intensificación
+                  </button>
+                  {expandedEligible.has(student.id) && (
+                    <div className="mt-2">
+                      <EligiblePanel studentId={student.id} />
+                    </div>
+                  )}
+                </div>
               </CardContent>
             </Card>
           ))}
         </div>
       )}
-
-      {/* Dialog agregar pendiente */}
-      <Dialog open={addDialog} onOpenChange={setAddDialog}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Agregar materia pendiente</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 pt-2">
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">Alumno</label>
-              <Select value={selectedStudent} onValueChange={setSelectedStudent}>
-                <SelectTrigger><SelectValue placeholder="Seleccioná un alumno..." /></SelectTrigger>
-                <SelectContent>
-                  {data?.students?.map((s: any) => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.lastName}, {s.firstName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">Materia pendiente</label>
-              <Select value={selectedSubject} onValueChange={setSelectedSubject}>
-                <SelectTrigger><SelectValue placeholder="Seleccioná la materia..." /></SelectTrigger>
-                <SelectContent>
-                  {(subjects as any[])?.map((s: any) => (
-                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setAddDialog(false)}>Cancelar</Button>
-              <Button
-                onClick={() => addMutation.mutate()}
-                disabled={!selectedStudent || !selectedSubject || addMutation.isPending}
-              >
-                {addMutation.isPending ? 'Agregando...' : 'Agregar'}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
