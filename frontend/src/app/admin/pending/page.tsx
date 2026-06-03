@@ -104,10 +104,10 @@ export default function PendingSubjectsPage() {
     });
   }
 
-  const pendingByStudent = data?.students?.map((student: any) => ({
+  const students = data?.students?.map((student: any) => ({
     student,
     pendings: data.pendingSubjects.filter((p: PendingSubject) => p.studentId === student.id),
-  })).filter((s: any) => s.pendings.length > 0) ?? [];
+  })) ?? [];
 
   async function handleDownloadPdf(studentId: string) {
     if (!selectedCourse || !selectedSchoolYear) return;
@@ -190,7 +190,7 @@ export default function PendingSubjectsPage() {
           size="sm"
           variant="outline"
           onClick={handleDownloadBulk}
-          disabled={generatingBulk || !selectedCourse || !selectedSchoolYear || pendingByStudent.length === 0}
+          disabled={generatingBulk || !selectedCourse || !selectedSchoolYear || students.length === 0}
         >
           <Download className="h-4 w-4 mr-2" />
           {generatingBulk ? 'Generando...' : 'Descargar todos (ZIP)'}
@@ -238,36 +238,37 @@ export default function PendingSubjectsPage() {
         <div className="flex items-center justify-center h-48 text-muted-foreground text-sm">
           Cargando...
         </div>
-      ) : pendingByStudent.length === 0 ? (
+      ) : students.length === 0 ? (
         <div className="flex flex-col items-center justify-center h-48 text-muted-foreground text-sm border rounded-lg border-dashed gap-2">
           <AlertCircle className="h-8 w-8 opacity-30" />
-          <p>No hay materias pendientes en este curso</p>
+          <p>No hay alumnos en este curso</p>
         </div>
       ) : (
         <div className="space-y-4">
-          {pendingByStudent.map(({ student, pendings }: any) => (
+          {students.map(({ student, pendings }: any) => (
             <Card key={student.id}>
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium">
-                  {student.lastName}, {student.firstName}
-                  <div className="flex items-center gap-2">
-                    <Badge variant="secondary" className="text-xs">
-                      {pendings.length} pendiente{pendings.length > 1 ? 's' : ''}
-                    </Badge>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleDownloadPdf(student.id)}
-                      disabled={generating === student.id}
-                    >
-                      <Download className="h-3.5 w-3.5 mr-1.5" />
-                      {generating === student.id ? 'Generando...' : 'PDF'}
-                    </Button>
-                  </div>
+                <CardTitle className="flex items-center justify-between text-sm font-medium">
+                  <span>{student.lastName}, {student.firstName}</span>
+                  {pendings.length > 0 && (
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary" className="text-xs">
+                        {pendings.length} pendiente{pendings.length > 1 ? 's' : ''}
+                      </Badge>
+                      <Button
+                        size="sm" variant="outline"
+                        onClick={() => handleDownloadPdf(student.id)}
+                        disabled={generating === student.id}
+                      >
+                        <Download className="h-3.5 w-3.5 mr-1.5" />
+                        {generating === student.id ? 'Generando...' : 'PDF'}
+                      </Button>
+                    </div>
+                  )}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {pendings.map((pending: PendingSubject) => {
+                {pendings.length > 0 ? pendings.map((pending: PendingSubject) => {
                   const local = localData[pending.id] ?? pending;
                   return (
                     <div key={pending.id} className="rounded-lg border p-4 space-y-3">
@@ -308,12 +309,8 @@ export default function PendingSubjectsPage() {
                           </Button>
                         </div>
                       </div>
-
-                      {/* Saberes iniciales */}
                       <div className="space-y-1">
-                        <label className="text-xs text-muted-foreground">
-                          Saberes iniciales pendientes
-                        </label>
+                        <label className="text-xs text-muted-foreground">Saberes iniciales pendientes</label>
                         <textarea
                           className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-xs resize-none min-h-16 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                           placeholder="Describí los saberes iniciales pendientes..."
@@ -321,25 +318,14 @@ export default function PendingSubjectsPage() {
                           onChange={(e) => updateLocal(pending.id, 'initialSabers', e.target.value)}
                         />
                       </div>
-
-                      {/* Períodos de intensificación */}
                       <div>
-                        <label className="text-xs text-muted-foreground mb-2 block">
-                          Períodos de intensificación
-                        </label>
+                        <label className="text-xs text-muted-foreground mb-2 block">Períodos de intensificación</label>
                         <div className="grid grid-cols-5 gap-2">
                           {periodColumns.map((col) => (
                             <div key={col.key} className="space-y-1">
-                              <label className="text-xs text-center block text-muted-foreground">
-                                {col.label}
-                              </label>
-                              <Select
-                                value={(local as any)[col.key] ?? ''}
-                                onValueChange={(v) => updateLocal(pending.id, col.key, v)}
-                              >
-                                <SelectTrigger className="h-8 text-xs">
-                                  <SelectValue placeholder="—" />
-                                </SelectTrigger>
+                              <label className="text-xs text-center block text-muted-foreground">{col.label}</label>
+                              <Select value={(local as any)[col.key] ?? ''} onValueChange={(v) => updateLocal(pending.id, col.key, v)}>
+                                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="—" /></SelectTrigger>
                                 <SelectContent>
                                   <SelectItem value="none">—</SelectItem>
                                   {scoreOptions.filter(Boolean).map((opt) => (
@@ -351,46 +337,26 @@ export default function PendingSubjectsPage() {
                           ))}
                         </div>
                       </div>
-
-                      {/* Nota final y saberes cierre */}
                       <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-1">
-                          <label className="text-xs text-muted-foreground">
-                            Calificación final
-                          </label>
-                          <Input
-                            className="h-8 text-xs"
-                            placeholder="Ej: 6"
-                            value={(local as any).finalScore ?? ''}
-                            onChange={(e) => updateLocal(pending.id, 'finalScore', e.target.value)}
-                          />
+                          <label className="text-xs text-muted-foreground">Calificación final</label>
+                          <Input className="h-8 text-xs" placeholder="Ej: 6" value={(local as any).finalScore ?? ''} onChange={(e) => updateLocal(pending.id, 'finalScore', e.target.value)} />
                         </div>
                         <div className="space-y-1">
-                          <label className="text-xs text-muted-foreground">
-                            Saberes pendientes al cierre
-                          </label>
-                          <Input
-                            className="h-8 text-xs"
-                            placeholder="Opcional"
-                            value={(local as any).closingSabers ?? ''}
-                            onChange={(e) => updateLocal(pending.id, 'closingSabers', e.target.value)}
-                          />
+                          <label className="text-xs text-muted-foreground">Saberes pendientes al cierre</label>
+                          <Input className="h-8 text-xs" placeholder="Opcional" value={(local as any).closingSabers ?? ''} onChange={(e) => updateLocal(pending.id, 'closingSabers', e.target.value)} />
                         </div>
                       </div>
-
                       <div className="flex justify-end">
-                        <Button
-                          size="sm"
-                          onClick={() => handleSave(pending)}
-                          disabled={progressMutation.isPending}
-                        >
-                          <Save className="h-3.5 w-3.5 mr-1.5" />
-                          Guardar
+                        <Button size="sm" onClick={() => handleSave(pending)} disabled={progressMutation.isPending}>
+                          <Save className="h-3.5 w-3.5 mr-1.5" />Guardar
                         </Button>
                       </div>
                     </div>
                   );
-                })}
+                }) : (
+                  <p className="text-sm text-muted-foreground">Sin materias pendientes registradas</p>
+                )}
 
                 {/* Eligible subjects panel */}
                 <div className="border-t pt-3">
@@ -399,11 +365,7 @@ export default function PendingSubjectsPage() {
                     className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
                     onClick={() => toggleEligible(student.id)}
                   >
-                    {expandedEligible.has(student.id) ? (
-                      <ChevronDown className="h-3 w-3" />
-                    ) : (
-                      <ChevronRight className="h-3 w-3" />
-                    )}
+                    {expandedEligible.has(student.id) ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
                     Períodos elegibles para intensificación
                   </button>
                   {expandedEligible.has(student.id) && (
