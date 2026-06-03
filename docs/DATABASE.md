@@ -885,15 +885,61 @@ The `type` field determines how grades are computed and displayed in reports. A 
 
 ### PendingSubject — materias pendientes
 
-A separate model from `Grade` for tracking failed subjects (materias pendientes). Stores:
-- `initialSabers`: what the student didn't know initially
-- `march`, `august`, `november`, `december`, `february`: scores at each evaluation point
-- `finalScore`: computed or manually set final score
-- `closingSabers`: what the student knows at the end
+A separate model from `Grade` for tracking failed subjects (materias pendientes). Stores intensification scores across the special calendar (march → august → november → december → february) with a state machine for progression.
 
-This is distinct from `Grade` because:
-- Pending subjects span multiple school years.
-- The evaluation periods are non-standard (March, August, November, December, February — Argentina's "materia libre" calendar).
+**Schema:**
+
+```prisma
+enum PendingSubjectStatus {
+  ENROLLED       // Inscripto en intensificación
+  COMPLETED      // Acreditó la materia (finalizado con éxito)
+  NOT_COMPLETED  // No acreditó (cursó pero no aprobó)
+}
+
+model PendingSubject {
+  id              String                @id @default(uuid())
+  studentId       String                @map("student_id")
+  subjectId       String                @map("subject_id")
+  institutionId   String                @map("institution_id")
+  schoolYearId    String                @map("school_year_id")
+  initialSabers   String?               @map("initial_sabers")
+  march           String?               // AA | CCA | CSA
+  august          String?               // AA | CCA | CSA
+  november        String?               // AA | CCA | CSA
+  december        String?               // AA | CCA | CSA
+  february        String?               // AA | CCA | CSA
+  finalScore      String?               @map("final_score")     // Textual — "APROBADO", etc.
+  closingSabers   String?               @map("closing_sabers")
+  closingGradeId  String?               @map("closing_grade_id")
+  status          PendingSubjectStatus  @default(ENROLLED) @map("status")
+  createdAt       DateTime              @default(now()) @map("created_at")
+  updatedAt       DateTime              @updatedAt @map("updated_at")
+
+  student      Student      @relation(fields: [studentId], references: [id])
+  subject      Subject      @relation(fields: [subjectId], references: [id])
+  institution  Institution  @relation(fields: [institutionId], references: [id])
+  schoolYear   SchoolYear   @relation(fields: [schoolYearId], references: [id])
+  closingGrade ClosingGrade? @relation(fields: [closingGradeId], references: [id])
+
+  @@index([studentId])
+  @@index([schoolYearId])
+  @@unique([closingGradeId])
+  @@unique([studentId, subjectId, schoolYearId])
+  @@map("pending_subjects")
+}
+```
+
+**Differences from `Grade`:**
+
+| Aspect | Grade | PendingSubject |
+|--------|-------|----------------|
+| Calendar | Período escolar standard (trimestres) | Calendario especial: March, August, November, December, February |
+| Score type | Numérico (0-10) | Textual: AA (Acreditación Automática), CCA (Cursada para Completar Aprendizajes), CSA (Cursado Sin Aprobar) |
+| State machine | Sin estado — registro puntual | ENROLLED → COMPLETED / NOT_COMPLETED |
+| Subject scope | Materia regular del curso | Materia previa de cualquier año anterior |
+| Relationship | — | Opcional: 1:1 con ClosingGrade (cierre de acta) |
+
+> **See also:** [`docs/modules/pending-subjects.md`](./modules/pending-subjects.md) — full module documentation (states, edition rules, security, API).
 
 ---
 

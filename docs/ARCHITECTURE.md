@@ -118,7 +118,8 @@ The backend is built on **NestJS 10** with **TypeScript**. It uses a standard th
 | `SpaceReservationsModule` | Booking calendar with conflict detection | `GET/POST/PATCH /space-reservations` |
 | `SportsModule` / `SportGroupsModule` | Sports catalog and student/teacher grouping | `GET/POST/PATCH /sports` |
 | `StudentCourseSubjectsModule` | Subject assignment per student/year (regular/recurse/exempt) | `GET/POST/PATCH /student-course-subjects` |
-| `TeacherModule` | Syllabus management, pending subjects view | `GET/POST/PATCH /teacher` |
+| `TeacherModule` | Syllabus management, pending subjects CRUD, CSV export | `GET/POST/PATCH /teacher` |
+| `PendingSubjectsModule` | Intensification period validation, config read, mutualizado por TeacherModule | `(sin HTTP — exporta PendingSubjectsService)` · [docs](./modules/pending-subjects.md) |
 | `IndicatorsModule` | Curriculum indicator definitions and evaluations | `GET/POST/PATCH /indicators` |
 | `AnnouncementsModule` | Draft/publish workflow for institutional communications | `GET/POST/PATCH /announcements` |
 | `HealthModule` | Liveness/readiness probe | `GET /health` |

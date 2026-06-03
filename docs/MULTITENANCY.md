@@ -622,6 +622,7 @@ async findOne(id: string, user: RequestUser) {
 | `AttendanceService.findAll()` | `institutionId` | `date`, `courseId` |
 | `ConvivenciasService.findAll()` | `institutionId` | `deletedAt` |
 | `AnnouncementsService.findAll()` | `institutionId` | `schoolYearId`, status |
+| `PendingSubjectsService.getIntensificationConfig()` | `institutionId` | settings → pendingSubjects |
 
 ### 9.3 Write Operations Matrix
 
@@ -632,6 +633,8 @@ async findOne(id: string, user: RequestUser) {
 | `GradesService.create()` | courseSubject belongs to institution | Join check on `course.institutionId` |
 | `AttendanceService.create()` | course belongs to institution | Join check on `course.institutionId` |
 | `AnnouncementsService.create()` | Title uniqueness per institution + year | `institutionId` from params |
+| `PendingSubjectsService.validateEnabled()` | Config enabled per institution | `institutionId` from params |
+| `PendingSubjectsService.validatePeriodEdition()` | Active period + previous period per config | `institutionId` from params + entity match |
 
 ---
 
@@ -693,22 +696,25 @@ CASL subjects registered in the factory:
 // casl/casl-ability.factory.ts
 export type AppSubjects =
   'Institution' | 'User' | 'Student' | 'Course' |
-  'Grade' | 'Attendance' | 'Announcement' | 'Convivencia' | 'all';
+  'Grade' | 'Attendance' | 'Announcement' | 'Convivencia' |
+  'PendingSubject' | 'all';
 ```
+
+`PendingSubject` was added to support fine-grained ABAC: TEACHER can create/read/update (no delete) while SECRETARY/PRECEPTOR can only read. GUARDIAN inherits access via `can(Read, 'all')`.
 
 Only entities that need fine-grained ABAC permissions are registered. Administrative entities (Subject, CourseSubject, SchoolYear, etc.) are protected through service-layer role checks rather than CASL.
 
 ### 11.2 Role Permission Matrix
 
-| Role | Institution | User | Student | Course | Grade | Attendance | Announcement | Convivencia |
-|------|-------------|------|---------|--------|-------|------------|--------------|-------------|
-| `SUPER_ADMIN` | Manage (all) | Manage (all) | Manage (all) | Manage (all) | Manage (all) | Manage (all) | Manage (all) | Manage (all) |
-| `ADMIN` | Read | Manage | Manage | Manage | Manage | Manage | Manage | Manage |
-| `DIRECTOR` | Read | Manage | Manage | Manage | Manage | Manage | Manage | Manage |
-| `SECRETARY` | — | Read (TEACHER/PRECEPTOR) | Manage | Manage | Read | Read | Manage | Read |
-| `PRECEPTOR` | — | — | Read | Read | — | Manage | — | Manage |
-| `TEACHER` | — | — | Read | Read | Manage (own) | Manage (own) | — | Read |
-| `GUARDIAN` | — | — | Read (own children) | — | Read (own children) | Read (own children) | Read | Read (own children) |
+| Role | Institution | User | Student | Course | Grade | Attendance | Announcement | Convivencia | PendingSubject |
+|------|-------------|------|---------|--------|-------|------------|--------------|-------------|----------------|
+| `SUPER_ADMIN` | Manage (all) | Manage (all) | Manage (all) | Manage (all) | Manage (all) | Manage (all) | Manage (all) | Manage (all) | Manage (all) |
+| `ADMIN` | Read | Manage | Manage | Manage | Manage | Manage | Manage | Manage | Manage |
+| `DIRECTOR` | Read | Manage | Manage | Manage | Manage | Manage | Manage | Manage | Manage |
+| `SECRETARY` | — | Read (TEACHER/PRECEPTOR) | Manage | Manage | Read | Read | Manage | Read | Read |
+| `PRECEPTOR` | — | — | Read | Read | — | Manage | — | Manage | Read |
+| `TEACHER` | — | — | Read | Read | Manage (own) | Manage (own) | — | Read | Create, Read, Update |
+| `GUARDIAN` | — | — | Read (own children) | — | Read (own children) | Read (own children) | Read | Read (own children) | — (hereda `Read all`) |
 
 ### 11.3 Effective Role Resolution
 
@@ -1419,6 +1425,7 @@ Feature flags enable progressive rollout, A/B testing, and plan-tier restriction
 | `AbsenceRecord` | Yes | No | — | No |
 | `Invitation` | Yes | No | `[token]` | No |
 | `Space` | Yes | No | `[institutionId, name]` | No |
+| `PendingSubject` | Yes | No | `[studentId, subjectId, schoolYearId]` | Yes · [docs](./modules/pending-subjects.md) |
 | `AuditLog` | Yes | No | — | No |
 | `Notification` | Yes | No | — | No |
 | `RefreshToken` | No (user-scoped) | No | `[token]` | No |
