@@ -28,6 +28,9 @@ export type Subjects =
   | 'ChatMessage'
   | 'PendingSubject'
   | 'ClosingGrade'
+  | 'Indicator'
+  | 'StudentObservation'
+  | 'IndicatorEvaluation'
   | 'all';
 
 export type AppAbility = MongoAbility<[Action, Subjects]>;

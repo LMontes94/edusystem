@@ -1561,7 +1561,45 @@ Feature-based modules with clear dependency boundaries.
 
 Queue-driven async, predictable patterns, consistent error handling.
 
+### 24.11 Tenant Validation Through Ownership Chains
+
+When a model has no direct `institutionId` column, validate tenant ownership through relation joins before any mutation.
+
+**Ownership chains in the codebase:**
+
+```
+Indicator               → Subject          → institutionId
+StudentObservation      → Course           → institutionId
+IndicatorEvaluation     → Indicator        → Subject → institutionId
+```
+
+```typescript
+// CORRECT: Validate tenant via join before mutation
+private async assertIndicatorBelongsToInstitution(
+  indicatorId: string,
+  institutionId: string,
+): Promise<Indicator> {
+  const indicator = await this.prisma.indicator.findFirst({
+    where: {
+      id: indicatorId,
+      subject: { institutionId },  // Join through Subject → Institution
+    },
+  });
+  if (!indicator) throw new NotFoundException('Indicator not found');
+  return indicator;
+}
+```
+
+**Rules:**
+1. Always validate in the service layer **before** any read or mutation.
+2. Use `findFirst` with a relation `where` filter (never `findUnique` which bypasses the join).
+3. Validate ALL items in bulk operations before performing batch writes — reject the entire batch if any item fails.
+4. Extract a private helper method per chain for reuse across service methods.
+5. Throw `NotFoundException` when the entity does not belong to the tenant (avoid leaking existence information).
+
 ---
+
+
 
 ## 25. Forbidden Patterns
 

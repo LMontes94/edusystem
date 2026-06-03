@@ -941,6 +941,79 @@ model PendingSubject {
 
 > **See also:** [`docs/modules/pending-subjects.md`](./modules/pending-subjects.md) — full module documentation (states, edition rules, security, API).
 
+### Indicator — Curriculum Indicator
+
+Belongs indirectly to an institution through `Subject → Institution`. No direct `institutionId`.
+
+```prisma
+model Indicator {
+  id           String   @id @default(uuid())
+  subjectId    String   @map("subject_id")
+  schoolYearId String   @map("school_year_id")
+  grade        Int?     @db.SmallInt
+  description  String
+  order        Int      @default(0)
+
+  subject     Subject              @relation(fields: [subjectId], references: [id])
+  schoolYear  SchoolYear           @relation(fields: [schoolYearId], references: [id])
+  evaluations IndicatorEvaluation[]
+
+  @@map("indicators")
+}
+```
+
+**Unique constraint:** `[subjectId, schoolYearId, grade]` — one indicator per subject-year-grade.
+
+### IndicatorEvaluation — Qualitative Evaluation
+
+Belongs indirectly through `Indicator → Subject → Institution`. No direct `institutionId`.
+
+```prisma
+model IndicatorEvaluation {
+  id          String   @id @default(uuid())
+  indicatorId String   @map("indicator_id")
+  studentId   String   @map("student_id")
+  periodId    String   @map("period_id")
+  value       String   // "achieved" | "in-progress" | "not-achieved"
+
+  indicator Indicator @relation(fields: [indicatorId], references: [id])
+  student   Student   @relation(fields: [studentId], references: [id])
+  period    Period    @relation(fields: [periodId], references: [id])
+
+  @@unique([indicatorId, studentId, periodId])
+  @@map("indicator_evaluations")
+}
+```
+
+### StudentObservation — Pedagogical Observation
+
+Belongs indirectly through `Course → Institution` (and optionally `Subject → Institution`). No direct `institutionId`.
+
+```prisma
+model StudentObservation {
+  id          String   @id @default(uuid())
+  studentId   String   @map("student_id")
+  periodId    String   @map("period_id")
+  courseId    String   @map("course_id")
+  subjectId   String?  @map("subject_id")
+  authorId    String   @map("author_id")
+  observation String
+
+  student Student  @relation(fields: [studentId], references: [id])
+  period  Period   @relation(fields: [periodId], references: [id])
+  course  Course   @relation(fields: [courseId], references: [id])
+  subject Subject? @relation(fields: [subjectId], references: [id])
+  author  User     @relation(fields: [authorId], references: [id])
+
+  @@unique([studentId, periodId, courseId, subjectId])
+  @@map("student_observations")
+}
+```
+
+> **Note:** No direct `institutionId` is used on `Indicator`, `IndicatorEvaluation`, or `StudentObservation` by architectural decision. Tenant isolation is enforced at the application layer through indirect joins instead of schema-level columns.
+
+> **See also:** [`docs/modules/INDICATORS.md`](./modules/INDICATORS.md) — full module documentation (CASL matrix, audit events, validation rules).
+
 ---
 
 ## 13. Queue & Worker Related Models

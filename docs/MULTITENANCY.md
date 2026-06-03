@@ -636,6 +636,69 @@ async findOne(id: string, user: RequestUser) {
 | `PendingSubjectsService.validateEnabled()` | Config enabled per institution | `institutionId` from params |
 | `PendingSubjectsService.validatePeriodEdition()` | Active period + previous period per config | `institutionId` from params + entity match |
 
+### 9.4 Indirect Tenant Validation (via Joins)
+
+Some domain models do **not** carry a direct `institutionId` column. Instead, they rely on parent or related entities that do. This pattern exists in the Indicators domain and may be used elsewhere when the data model makes direct `institutionId` columns redundant.
+
+**Validation chain examples:**
+
+```
+Indicator  ──→ Subject ──→ Institution                (3-level join)
+IndicatorEvaluation  ──→ Indicator ──→ Subject ──→ Institution  (4-level join)
+StudentObservation   ──→ Course ──→ Institution            (2-level join)
+```
+
+**Implementation pattern:**
+
+```typescript
+// indicators.service.ts
+private async assertIndicatorBelongsToInstitution(
+  indicatorId: string,
+  institutionId: string,
+): Promise<Indicator> {
+  const indicator = await this.prisma.indicator.findFirst({
+    where: {
+      id: indicatorId,
+      subject: { institutionId },  // Indirect tenant validation via relation
+    },
+  });
+  if (!indicator) throw new NotFoundException('Indicator not found');
+  return indicator;
+}
+```
+
+**Rules for indirect validation:**
+
+1. Always validate in the **service layer** — never expose the join in the controller.
+2. Use `findFirst` with a relation filter (not `findUnique`) to verify tenant ownership.
+3. Perform validation **before any mutation**, rejecting early with `NotFoundException`.
+4. For bulk operations, validate ALL related IDs before performing the batch write to prevent partial mutations.
+5. Include a private helper method per model chain for reuse across service methods.
+
+### 9.5 Indicators
+
+Tenant isolation for the Indicators domain relies entirely on indirect joins. No model carries `institutionId` directly.
+
+**Tenant resolution chains:**
+
+```
+Indicator:
+  Indicator ──→ Subject ──→ Institution
+
+IndicatorEvaluation:
+  IndicatorEvaluation ──→ Indicator ──→ Subject ──→ Institution
+
+StudentObservation:
+  StudentObservation ──→ Course ──→ Institution
+```
+
+**Implementation notes:**
+
+- All endpoints receive `@InstitutionId()` from the request context.
+- Service helpers (`assertIndicatorBelongsToInstitution`, etc.) perform a `findFirst` with a relation `where` filter before any mutation.
+- Bulk operations validate every ID in the batch before performing writes (rejects entire batch on failure).
+- No direct `institutionId` column was added; validation is architectural, not schema-driven.
+
 ---
 
 ## 10. Authorization & Tenant Boundaries
@@ -1419,7 +1482,9 @@ Feature flags enable progressive rollout, A/B testing, and plan-tier restriction
 | `SchoolYear` | Yes | No | `[institutionId, year]` | No |
 | `Period` | Yes | No | — | No |
 | `Enrollment` | Yes (via Course/Student) | No | `[studentId, courseId]` | No |
-| `Indicator` | Yes | No | `[subjectId, schoolYearId, grade]` | No |
+| `Indicator` | Indirect (via Subject) | No | `[subjectId, schoolYearId, grade]` | No |
+| `IndicatorEvaluation` | Indirect (via Indicator→Subject) | No | `[indicatorId, studentId, periodId]` | No |
+| `StudentObservation` | Indirect (via Course) | No | `[studentId, periodId, courseId, subjectId]` | No |
 | `Syllabus` | Yes | No | — | No |
 | `Justification` | Yes | No | `[attendanceId]` | No |
 | `AbsenceRecord` | Yes | No | — | No |

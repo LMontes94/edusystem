@@ -72,6 +72,9 @@ export class AbilityFactory {
         cannot([Action.Create, Action.Update, Action.Delete], 'ClosingGrade');
         can(Action.Read,   'PendingSubject', inst);
         cannot([Action.Create, Action.Update, Action.Delete], 'PendingSubject');
+        can(Action.Read, 'Indicator', inst);
+        cannot([Action.Create, Action.Update, Action.Delete], 'Indicator');
+        can(Action.Manage, 'StudentObservation', inst);
         cannot(Action.Delete, 'User');
         break;
       }
@@ -105,6 +108,9 @@ export class AbilityFactory {
         cannot([Action.Create, Action.Update, Action.Delete], 'ClosingGrade');
         can(Action.Read,   'PendingSubject', inst);
         cannot([Action.Create, Action.Update, Action.Delete], 'PendingSubject');
+        can(Action.Read, 'Indicator', inst);
+        cannot([Action.Create, Action.Update, Action.Delete], 'Indicator');
+        can(Action.Manage, 'StudentObservation', inst);
         break;
       }
 
@@ -141,6 +147,11 @@ export class AbilityFactory {
         cannot([Action.Update, Action.Delete], 'ClosingGrade');
         can([Action.Read, Action.Create, Action.Update], 'PendingSubject', inst);
         cannot(Action.Delete, 'PendingSubject');
+        cannot([Action.Create, Action.Update, Action.Delete], 'Indicator');
+        can([Action.Create, Action.Read, Action.Update], 'StudentObservation', inst);
+        cannot(Action.Delete, 'StudentObservation');
+        can([Action.Create, Action.Read, Action.Update], 'IndicatorEvaluation', inst);
+        cannot(Action.Delete, 'IndicatorEvaluation');
         cannot([Action.Create, Action.Update, Action.Delete], 'User');
         cannot([Action.Create, Action.Update, Action.Delete], 'Student');
         cannot(Action.Manage, 'Institution');

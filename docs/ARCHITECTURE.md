@@ -698,6 +698,77 @@ npm run start:dev
 11. **Data Warehouse / Analytics:** Export anonymized institutional data to a data warehouse (BigQuery, Snowflake) for cross-institution analytics and reporting.
 12. **Disaster Recovery:** Implement automated PostgreSQL backups to S3, cross-region MinIO replication, and documented runbooks for recovery.
 
+## 24. Indicators Module
+
+The Indicators module manages curriculum-based academic tracking through three models. No direct `institutionId` column exists on any of them — tenant isolation is enforced exclusively through indirect joins to parent entities.
+
+### 24.1 Responsibilities
+
+- **Indicadores curriculares** — skill/learning-goal CRUD per subject + school year + grade, with manual ordering.
+- **Evaluaciones cualitativas** — bulk upsert of per-student evaluation values (`achieved`, `in-progress`, `not-achieved`) against indicators.
+- **Observaciones pedagógicas** — free-text observations linked to a student, course, and optionally a subject.
+
+### 24.2 Security
+
+**Multitenancy** — validated via joins (no direct `institutionId`):
+
+```
+Indicator               → Subject          → Institution
+StudentObservation      → Course           → Institution
+IndicatorEvaluation     → Indicator        → Subject → Institution
+```
+
+All endpoints receive `@InstitutionId()`; service-level helpers (`assertIndicatorBelongsToInstitution`, etc.) run before any mutation.
+
+**CASL subjects registered:** `Indicator`, `IndicatorEvaluation`, `StudentObservation`.
+
+| Subject | SUPER_ADMIN | ADMIN | DIRECTOR | SECRETARY | PRECEPTOR | TEACHER | GUARDIAN |
+|---------|-------------|-------|----------|-----------|-----------|---------|----------|
+| `Indicator` | Manage | Manage | Manage | Manage | Manage | Read | Read |
+| `IndicatorEvaluation` | Manage | Manage | Manage | — | — | Create/Update | — |
+| `StudentObservation` | Manage | Manage | Manage | Manage | Manage | Create/Read/Update | Read |
+
+### 24.3 Audit Events
+
+All mutations dispatch a BullMQ job to the `audit-log` queue:
+
+| Event | Action | Resource |
+|-------|--------|----------|
+| Crear indicador | `CREATE` | `Indicator` |
+| Actualizar indicador | `UPDATE` | `Indicator` |
+| Eliminar indicador | `DELETE` | `Indicator` |
+| Reordenar indicadores | `UPDATE` | `Indicator` |
+| Evaluación masiva (bulk) | `UPDATE` | `IndicatorEvaluation` |
+| Crear observación | `CREATE` | `StudentObservation` |
+| Actualizar observación | `UPDATE` | `StudentObservation` |
+
+The `REORDER` event is identifiable by `after.operation === "REORDER"` in the persisted payload:
+
+```json
+{
+  "resourceId": "<subject-uuid>",
+  "before": { "reorderedIds": ["id1", "id2", "id3"] },
+  "after": { "operation": "REORDER", "reorderedIds": ["id3", "id1", "id2"] }
+}
+```
+
+No changes were made to `AuditProcessor`, `AuditLogPayload`, or the Prisma schema.
+
+### 24.4 Key Implementation Details
+
+- **DTOs**: `modules/indicators/dto/` — six Zod schemas covering create, update, reorder, and bulk evaluation upsert.
+- **Bulk atomicity**: `bulkUpsertEvaluations` validates all indicator IDs belong to the institution before any upsert; rejects the entire batch on failure.
+- **Teacher ownership**: for `TEACHER` role, all affected subject IDs are validated against `CourseSubject.teacherId` before any upsert.
+- **Reorder safety**: `reorder` fetches the previous order, validates all IDs, then applies the batch update; audit uses a real `subjectId` as `resourceId`.
+
+### 24.5 Relevant Files
+
+- `modules/indicators/indicators.controller.ts` — 5 endpoints (CRUD + reorder + bulk evaluations + observations)
+- `modules/indicators/indicators.service.ts` — Business logic, tenant validators, audit dispatch
+- `modules/indicators/dto/*.ts` — Zod schemas for all operations
+- `modules/casl/casl-ability.factory.ts` — CASL rules for `Indicator`, `IndicatorEvaluation`, `StudentObservation`
+- `docs/modules/INDICATORS.md` — Full module reference
+
 ---
 
 *Document generated for EduSystem v2.1. For questions or corrections, contact the architecture team.*
