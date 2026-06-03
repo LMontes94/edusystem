@@ -171,7 +171,7 @@ edusystem/
 │       ├── worker-app.module.ts# Worker module registry (minimal imports)
 │       ├── common/             # Shared: decorators, guards, filters, middleware, pipes, utils
 │       ├── config/             # Environment schema (Zod)
-│       ├── modules/            # Feature modules (26 modules)
+│       ├── modules/            # Feature modules (27+ modules)
 │       ├── prisma/            # Prisma service
 │       └── queues/            # BullMQ: constants, module, processors
 ├── frontend/
@@ -780,7 +780,7 @@ findAll() { ... }
 create() { ... }
 ```
 
-CASL subjects registered: `Institution | User | Student | Course | Grade | Attendance | Announcement | Convivencia | Space | SpaceReservation | Sport | SportGroup | all`
+CASL subjects registered: `Institution | User | Student | Course | Grade | Attendance | Announcement | Convivencia | Space | SpaceReservation | Sport | SportGroup | PendingSubject | all`
 
 ### 9.3 Role-Based Access Matrix
 
@@ -1737,6 +1737,8 @@ Vitest is the preferred test runner for NestJS projects at this scale. Migration
 | `backend/src/queues/queue.constants.ts` | Queue names, job names, retry options |
 | `backend/src/modules/notifications/notification-queue.service.ts` | Notify helper (DB + FCM) |
 | `backend/src/common/utils/role-hierarchy.ts` | Role hierarchy and `getHighestRole()` |
+| `backend/src/modules/pending-subjects/pending-subjects.service.ts` | Intensification period validation, config checks |
+| `backend/src/modules/pending-subjects/pending-subjects.module.ts` | PendingSubjects module registration |
 | `backend/prisma/schema.prisma` | Full database schema |
 | `frontend/src/lib/api.ts` | Axios client with interceptors |
 | `frontend/src/components/layouts/app-layout.tsx` | Shared layout for all roles |
@@ -1767,6 +1769,12 @@ interface GradeCreatedPayload {
   gradeId: string;
   studentId: string;
   institutionId: string;
+}
+
+interface PendingSubjectsConfig {
+  enabled: boolean;
+  activeIntensificationPeriod: string;
+  allowPreviousPeriodEditing: boolean;
 }
 
 interface AuditLogPayload {
