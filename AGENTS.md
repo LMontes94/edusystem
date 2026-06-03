@@ -780,7 +780,7 @@ findAll() { ... }
 create() { ... }
 ```
 
-CASL subjects registered: `Institution | User | Student | Course | Grade | Attendance | Announcement | Convivencia | Space | SpaceReservation | Sport | SportGroup | PendingSubject | all`
+CASL subjects registered: `Institution | User | Student | Course | Grade | Attendance | Announcement | Convivencia | Space | SpaceReservation | Sport | SportGroup | PendingSubject | Indicator | IndicatorEvaluation | StudentObservation | all`
 
 ### 9.3 Role-Based Access Matrix
 
@@ -1739,6 +1739,9 @@ Vitest is the preferred test runner for NestJS projects at this scale. Migration
 | `backend/src/common/utils/role-hierarchy.ts` | Role hierarchy and `getHighestRole()` |
 | `backend/src/modules/pending-subjects/pending-subjects.service.ts` | Intensification period validation, config checks |
 | `backend/src/modules/pending-subjects/pending-subjects.module.ts` | PendingSubjects module registration |
+| `backend/src/modules/indicators/indicators.service.ts` | Indicators business logic, tenant validators, audit dispatch |
+| `backend/src/modules/indicators/indicators.controller.ts` | REST endpoints for indicators, evaluations, observations |
+| `backend/src/modules/indicators/dto/*.ts` | Zod schemas for indicators domain |
 | `backend/prisma/schema.prisma` | Full database schema |
 | `frontend/src/lib/api.ts` | Axios client with interceptors |
 | `frontend/src/components/layouts/app-layout.tsx` | Shared layout for all roles |
