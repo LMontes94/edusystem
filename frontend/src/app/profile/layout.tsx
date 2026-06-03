@@ -9,7 +9,7 @@ export default function ProfileLayout({ children }: { children: React.ReactNode 
   const router = useRouter();
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
+    if (status !== 'pending' && !session) {
       router.push('/login');
     }
   }, [status, router]);

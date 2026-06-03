@@ -6,6 +6,7 @@ import { useMyInstitution, useUpdateInstitution, useInvitations, useCreateInvita
 import { Button }   from '@/components/ui/button';
 import { Input }    from '@/components/ui/input';
 import { Badge }    from '@/components/ui/badge';
+
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -19,7 +20,7 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   Building2, Mail, Phone, MapPin, Palette, AlertTriangle,
-  Plus, Trash2, Copy, Check, UserPlus, Clock,
+  Plus, Trash2, Copy, Check, UserPlus, Clock, BookOpen,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { LogoUpload } from '@/components/logo-upload';
@@ -377,6 +378,95 @@ function InvitationsTab({ institution }: { institution: any }) {
   );
 }
 
+// ── Tab: Materias Pendientes ─────────────────
+const periodLabels: Record<string, string> = {
+  MARCH: 'Marzo', AUGUST: 'Agosto', NOVEMBER: 'Noviembre',
+  DECEMBER: 'Diciembre', FEBRUARY: 'Febrero',
+};
+
+function PendingSubjectsTab({ institution }: { institution: any }) {
+  const settings = (institution.settings ?? {}) as any;
+  const pendingCfg = settings.pendingSubjects ?? {};
+  const update = useUpdateInstitution();
+
+  const [enabled, setEnabled] = useState(pendingCfg.enabled ?? false);
+  const [activePeriod, setActivePeriod] = useState(pendingCfg.activeIntensificationPeriod ?? 'MARCH');
+  const [allowEditPrevious, setAllowEditPrevious] = useState(pendingCfg.allowPreviousPeriodEditing ?? false);
+
+  useEffect(() => {
+    const cfg = (institution.settings ?? {}).pendingSubjects ?? {};
+    setEnabled(cfg.enabled ?? false);
+    setActivePeriod(cfg.activeIntensificationPeriod ?? 'MARCH');
+    setAllowEditPrevious(cfg.allowPreviousPeriodEditing ?? false);
+  }, [institution]);
+
+  async function handleSave() {
+    await update.mutateAsync({
+      id: institution.id,
+      data: {
+        settings: {
+          pendingSubjects: {
+            enabled,
+            activeIntensificationPeriod: activePeriod,
+            allowPreviousPeriodEditing: allowEditPrevious,
+          },
+        },
+      },
+    });
+  }
+
+  return (
+    <div className="space-y-4 max-w-lg">
+      <div className="space-y-1.5">
+        <label className="text-sm font-medium">Habilitar carga de materias pendientes</label>
+        <Select value={enabled ? 'yes' : 'no'} onValueChange={(v) => setEnabled(v === 'yes')}>
+          <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="yes">Sí</SelectItem>
+            <SelectItem value="no">No</SelectItem>
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground">
+          Cuando está deshabilitado, toda la información se muestra en modo lectura
+        </p>
+      </div>
+
+      <div className="space-y-1.5">
+        <label className="text-sm font-medium">Período activo de intensificación</label>
+        <Select value={activePeriod} onValueChange={setActivePeriod}>
+          <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            {Object.entries(periodLabels).map(([value, label]) => (
+              <SelectItem key={value} value={value}>{label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground">
+          Solo este período podrá editarse. Los períodos anteriores respetan la opción de abajo
+        </p>
+      </div>
+
+      <div className="space-y-1.5">
+        <label className="text-sm font-medium">Permitir edición de períodos anteriores</label>
+        <Select value={allowEditPrevious ? 'yes' : 'no'} onValueChange={(v) => setAllowEditPrevious(v === 'yes')}>
+          <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="yes">Sí</SelectItem>
+            <SelectItem value="no">No</SelectItem>
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground">
+          Si se activa, los períodos anteriores al activo también podrán editarse
+        </p>
+      </div>
+
+      <Button onClick={handleSave} disabled={update.isPending}>
+        {update.isPending ? 'Guardando...' : 'Guardar configuración'}
+      </Button>
+    </div>
+  );
+}
+
 // ── Página principal ──────────────────────────
 export default function SettingsPage() {
   const { data: institution, isLoading } = useMyInstitution();
@@ -465,6 +555,10 @@ export default function SettingsPage() {
             <UserPlus className="h-3.5 w-3.5 mr-1.5" />
             Invitaciones
           </TabsTrigger>
+          <TabsTrigger value="pending">
+            <BookOpen className="h-3.5 w-3.5 mr-1.5" />
+            Pendientes
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="general" className="mt-4">
@@ -478,6 +572,9 @@ export default function SettingsPage() {
         </TabsContent>
         <TabsContent value="invitations" className="mt-4">
           <InvitationsTab institution={institution} />
+        </TabsContent>
+        <TabsContent value="pending" className="mt-4">
+          <PendingSubjectsTab institution={institution} />
         </TabsContent>
       </Tabs>
     </div>

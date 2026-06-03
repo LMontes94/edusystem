@@ -26,6 +26,7 @@ export type Subjects =
   | 'SportGroup'
   | 'ChatRoom'
   | 'ChatMessage'
+  | 'PendingSubject'
   | 'ClosingGrade'
   | 'all';
 

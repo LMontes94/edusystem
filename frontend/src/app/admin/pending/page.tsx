@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useCourses } from '@/lib/api/courses';
 import { useEligibleSubjects, useCreatePendingSubject, useUpdatePendingStatus, useUpdatePendingProgress, useDeletePendingSubject } from '@/lib/api/pending';
+import { useMyInstitution } from '@/lib/api/institution';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,8 +16,8 @@ import {
 } from '@/components/ui/select';
 import { Plus, Trash2, Save, AlertCircle, Download, ChevronDown, ChevronRight } from 'lucide-react';
 import { downloadBlob } from '@/lib/utils/download/download-blob';
-import type { PendingSubject, EligiblePeriod, PendingSubjectStatus } from './_components/pending.types';
-import { statusLabels, statusColors } from './_components/pending.types';
+import type { PendingSubject, EligiblePeriod, PendingSubjectStatus, PeriodStatus } from './_components/pending.types';
+import { statusLabels, statusColors, PERIOD_ORDER, getPeriodStatus, periodStatusLabels, periodStatusColors } from './_components/pending.types';
 
 const periodColumns = [
   { key: 'march',    label: 'Marzo'     },
@@ -39,6 +40,7 @@ export default function PendingSubjectsPage() {
   const [expandedEligible, setExpandedEligible] = useState<Set<string>>(new Set());
 
   const { data: courses }     = useCourses();
+  const { data: institution } = useMyInstitution();
   const { data: schoolYears } = useQuery({
     queryKey: ['school-years'],
     queryFn:  async () => {
@@ -82,14 +84,15 @@ export default function PendingSubjectsPage() {
 
   function handleSave(pending: Partial<PendingSubject> & { id: string }) {
     const local = localData[pending.id] ?? pending;
+    const toUndef = (v: any): string | undefined => (!v || v === 'none' ? undefined : v);
     progressMutation.mutate({
       id: pending.id,
       initialSabers: (local as any).initialSabers,
-      march:         (local as any).march,
-      august:        (local as any).august,
-      november:      (local as any).november,
-      december:      (local as any).december,
-      february:      (local as any).february,
+      march:         toUndef((local as any).march),
+      august:        toUndef((local as any).august),
+      november:      toUndef((local as any).november),
+      december:      toUndef((local as any).december),
+      february:      toUndef((local as any).february),
       finalScore:    (local as any).finalScore,
       closingSabers: (local as any).closingSabers,
     });
@@ -105,6 +108,16 @@ export default function PendingSubjectsPage() {
   }
 
   const eligibleIds: string[] = data?.eligibleStudentIds ?? [];
+
+  const pendingCfg = (institution?.settings as any)?.pendingSubjects;
+  const enabled = pendingCfg?.enabled ?? true;
+  const activePeriod = pendingCfg?.activeIntensificationPeriod ?? 'MARCH';
+  const allowPrevious = pendingCfg?.allowPreviousPeriodEditing ?? false;
+  const periodStatuses: Record<string, PeriodStatus> = {};
+  for (const p of PERIOD_ORDER) {
+    periodStatuses[p] = getPeriodStatus(p, activePeriod, allowPrevious, enabled);
+  }
+
   const students = (data?.students ?? [])
     .map((student: any) => ({
       student,
@@ -188,16 +201,13 @@ export default function PendingSubjectsPage() {
           <p className="text-sm text-muted-foreground">
             Intensificación de materias pendientes de aprobación
           </p>
+          {!enabled && (
+            <p className="text-xs text-amber-600 font-medium mt-1 flex items-center gap-1">
+              <AlertCircle className="h-3 w-3" />
+              Carga deshabilitada — solo lectura
+            </p>
+          )}
         </div>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={handleDownloadBulk}
-          disabled={generatingBulk || !selectedCourse || !selectedSchoolYear || students.length === 0}
-        >
-          <Download className="h-4 w-4 mr-2" />
-          {generatingBulk ? 'Generando...' : 'Descargar todos (ZIP)'}
-        </Button>
       </div>
 
       {/* Filtros */}
@@ -290,68 +300,101 @@ export default function PendingSubjectsPage() {
                           )}
                         </div>
                         <div className="flex items-center gap-2">
-                          <Select
-                            value={pending.status}
-                            onValueChange={(v) => updateStatus.mutate({ id: pending.id, status: v as PendingSubjectStatus })}
-                          >
-                            <SelectTrigger className="h-7 w-32 text-xs">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="ENROLLED">En curso</SelectItem>
-                              <SelectItem value="COMPLETED">Completado</SelectItem>
-                              <SelectItem value="NOT_COMPLETED">No completado</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <Button
-                            size="icon" variant="ghost"
-                            className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                            onClick={() => deleteMutation.mutate(pending.id)}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
+                          {enabled ? (
+                            <>
+                              <Select
+                                value={pending.status}
+                                onValueChange={(v) => updateStatus.mutate({ id: pending.id, status: v as PendingSubjectStatus })}
+                              >
+                                <SelectTrigger className="h-7 w-32 text-xs">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="ENROLLED">En curso</SelectItem>
+                                  <SelectItem value="COMPLETED">Completado</SelectItem>
+                                  <SelectItem value="NOT_COMPLETED">No completado</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <Button
+                                size="icon" variant="ghost"
+                                className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                                onClick={() => deleteMutation.mutate(pending.id)}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </>
+                          ) : (
+                            <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${statusColors[pending.status]}`}>
+                              {statusLabels[pending.status]}
+                            </span>
+                          )}
                         </div>
                       </div>
                       <div className="space-y-1">
                         <label className="text-xs text-muted-foreground">Saberes iniciales pendientes</label>
                         <textarea
-                          className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-xs resize-none min-h-16 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-xs resize-none min-h-16 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
                           placeholder="Describí los saberes iniciales pendientes..."
                           value={(local as any).initialSabers ?? ''}
                           onChange={(e) => updateLocal(pending.id, 'initialSabers', e.target.value)}
+                          disabled={!enabled}
                         />
                       </div>
                       <div>
                         <label className="text-xs text-muted-foreground mb-2 block">Períodos de intensificación</label>
                         <div className="grid grid-cols-5 gap-2">
-                          {periodColumns.map((col) => (
-                            <div key={col.key} className="space-y-1">
-                              <label className="text-xs text-center block text-muted-foreground">{col.label}</label>
-                              <Select value={(local as any)[col.key] ?? ''} onValueChange={(v) => updateLocal(pending.id, col.key, v)}>
-                                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="—" /></SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="none">—</SelectItem>
-                                  {scoreOptions.filter(Boolean).map((opt) => (
-                                    <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          ))}
+                          {periodColumns.map((col) => {
+                            const status = periodStatuses[col.key];
+                            const value = (local as any)[col.key] ?? '';
+                            const editable = status === 'active';
+                            return (
+                              <div key={col.key} className="space-y-1">
+                                <label className="text-xs text-center block text-muted-foreground">
+                                  {col.label}
+                                </label>
+                                <div className="flex flex-col items-center gap-1">
+                                  <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] leading-none font-medium ${periodStatusColors[status]}`}>
+                                    {periodStatusLabels[status]}
+                                  </span>
+                                  {editable ? (
+                                    <Select value={value} onValueChange={(v) => updateLocal(pending.id, col.key, v === 'none' ? '' : v)}>
+                                      <SelectTrigger className="h-8 text-xs w-full">
+                                        <SelectValue placeholder="—" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="none">—</SelectItem>
+                                        {scoreOptions.filter(Boolean).map((opt) => (
+                                          <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  ) : value ? (
+                                    <span className="h-8 flex items-center text-xs text-muted-foreground font-mono px-2 rounded border border-dashed border-border w-full justify-center">
+                                      {value}
+                                    </span>
+                                  ) : (
+                                    <span className="h-8 flex items-center text-xs text-muted-foreground/40 px-2 w-full justify-center">
+                                      —
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                       <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-1">
                           <label className="text-xs text-muted-foreground">Calificación final</label>
-                          <Input className="h-8 text-xs" placeholder="Ej: 6" value={(local as any).finalScore ?? ''} onChange={(e) => updateLocal(pending.id, 'finalScore', e.target.value)} />
+                          <Input className="h-8 text-xs disabled:opacity-50" placeholder="Ej: 6" value={(local as any).finalScore ?? ''} onChange={(e) => updateLocal(pending.id, 'finalScore', e.target.value)} disabled={!enabled} />
                         </div>
                         <div className="space-y-1">
                           <label className="text-xs text-muted-foreground">Saberes pendientes al cierre</label>
-                          <Input className="h-8 text-xs" placeholder="Opcional" value={(local as any).closingSabers ?? ''} onChange={(e) => updateLocal(pending.id, 'closingSabers', e.target.value)} />
+                          <Input className="h-8 text-xs disabled:opacity-50" placeholder="Opcional" value={(local as any).closingSabers ?? ''} onChange={(e) => updateLocal(pending.id, 'closingSabers', e.target.value)} disabled={!enabled} />
                         </div>
                       </div>
                       <div className="flex justify-end">
-                        <Button size="sm" onClick={() => handleSave(pending)} disabled={progressMutation.isPending}>
+                        <Button size="sm" onClick={() => handleSave(pending)} disabled={progressMutation.isPending || !enabled}>
                           <Save className="h-3.5 w-3.5 mr-1.5" />Guardar
                         </Button>
                       </div>

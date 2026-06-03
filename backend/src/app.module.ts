@@ -37,6 +37,7 @@ import { StudentCourseSubjectsModule } from './modules/student-course-subjects/s
 import { ChatModule } from './modules/chat/chat.module';
 import { GuardiansModule } from './modules/guardians/guardians.module';
 import { ClosingGradesModule } from './modules/closing-grades/closing-grades.module';
+import { PendingSubjectsModule } from './modules/pending-subjects/pending-subjects.module';
 
 
 @Module({
@@ -79,6 +80,7 @@ import { ClosingGradesModule } from './modules/closing-grades/closing-grades.mod
     ChatModule,
     GuardiansModule,
     ClosingGradesModule,
+    PendingSubjectsModule,
   ],
   providers:[
     {

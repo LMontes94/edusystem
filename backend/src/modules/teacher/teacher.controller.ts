@@ -73,7 +73,7 @@ updateSyllabus(
   // ── PENDIENTES ────────────────────────────────
 
   @Get('pending/:courseId')
-  @CheckAbility({ action: Action.Read, subject: 'Grade' })
+  @CheckAbility({ action: Action.Read, subject: 'PendingSubject' })
   @ApiOperation({ summary: 'Obtener materias pendientes de un curso' })
   getPendingSubjects(
     @Param('courseId')     courseId:     string,
@@ -84,57 +84,68 @@ updateSyllabus(
   }
 
   @Post('pending')
-  @CheckAbility({ action: Action.Create, subject: 'Grade' })
+  @CheckAbility({ action: Action.Create, subject: 'PendingSubject' })
   @ApiOperation({ summary: 'Crear intensificación desde un ClosingGrade' })
   createPendingSubject(
     @Body(new ZodPipe(CreatePendingSubjectSchema)) dto: CreatePendingSubjectDto,
     @InstitutionId() institutionId: string,
+    @CurrentUser() user: RequestUser,
   ) {
-    return this.teacherService.createPendingSubject(dto, institutionId);
+    return this.teacherService.createPendingSubject(dto, institutionId, user);
   }
 
   @Patch('pending/:id/status')
-  @CheckAbility({ action: Action.Update, subject: 'Grade' })
+  @CheckAbility({ action: Action.Update, subject: 'PendingSubject' })
   @ApiOperation({ summary: 'Actualizar estado de una intensificación' })
   updatePendingStatus(
     @Param('id') id: string,
     @Body(new ZodPipe(UpdatePendingStatusSchema)) dto: UpdatePendingStatusDto,
+    @InstitutionId() institutionId: string,
+    @CurrentUser() user: RequestUser,
   ) {
-    return this.teacherService.updatePendingStatus(id, dto);
+    return this.teacherService.updatePendingStatus(id, dto, institutionId, user);
   }
 
   @Patch('pending/:id')
-  @CheckAbility({ action: Action.Update, subject: 'Grade' })
+  @CheckAbility({ action: Action.Update, subject: 'PendingSubject' })
   @ApiOperation({ summary: 'Actualizar seguimiento pedagógico de intensificación' })
   updatePendingProgress(
     @Param('id') id: string,
     @Body(new ZodPipe(UpdatePendingProgressSchema)) dto: UpdatePendingProgressDto,
+    @InstitutionId() institutionId: string,
+    @CurrentUser() user: RequestUser,
   ) {
-    return this.teacherService.updatePendingProgress(id, dto);
+    return this.teacherService.updatePendingProgress(id, dto, institutionId, user);
   }
 
   @Delete('pending/:id')
-  @CheckAbility({ action: Action.Delete, subject: 'Grade' })
-  deletePendingSubject(@Param('id') id: string) {
-    return this.teacherService.deletePendingSubject(id);
+  @CheckAbility({ action: Action.Delete, subject: 'PendingSubject' })
+  deletePendingSubject(
+    @Param('id') id: string,
+    @InstitutionId() institutionId: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.teacherService.deletePendingSubject(id, institutionId, user);
   }
 
   @Get('pending/student/:studentId')
-  @CheckAbility({ action: Action.Read, subject: 'Grade' })
+  @CheckAbility({ action: Action.Read, subject: 'PendingSubject' })
   getStudentPendingSubjects(
     @Param('studentId')    studentId:    string,
     @Query('schoolYearId') schoolYearId: string,
+    @InstitutionId()       institutionId: string,
   ) {
-    return this.teacherService.getStudentPendingSubjects(studentId, schoolYearId);
+    return this.teacherService.getStudentPendingSubjects(studentId, schoolYearId, institutionId);
   }
 
   @Get('pending/eligible/:studentId')
-  @CheckAbility({ action: Action.Read, subject: 'Grade' })
+  @CheckAbility({ action: Action.Read, subject: 'PendingSubject' })
   @ApiOperation({ summary: 'Obtener períodos elegibles para intensificación' })
   getEligibleSubjects(
     @Param('studentId')    studentId:    string,
     @Query('schoolYearId') schoolYearId: string,
+    @InstitutionId()       institutionId: string,
   ) {
-    return this.teacherService.getEligibleSubjects(studentId, schoolYearId);
+    return this.teacherService.getEligibleSubjects(studentId, schoolYearId, institutionId);
   }
 }

@@ -3,6 +3,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { api }  from '@/lib/api';
 
+export interface PendingSubjectsConfig {
+  enabled: boolean;
+  activeIntensificationPeriod: 'MARCH' | 'AUGUST' | 'NOVEMBER' | 'DECEMBER' | 'FEBRUARY';
+  allowPreviousPeriodEditing: boolean;
+}
+
 export interface Institution {
   id:          string;
   name:        string;
@@ -23,6 +29,7 @@ export interface Institution {
     };
     absenceThresholds?: number[];
     district?:          string;
+    pendingSubjects?:   PendingSubjectsConfig;
   } | null;
   _count: { users: number; students: number; courses: number };
 }

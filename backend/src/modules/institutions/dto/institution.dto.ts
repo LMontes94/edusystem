@@ -32,7 +32,7 @@ export const UpdateInstitutionSchema = z.object({
   status:   z.enum(['ACTIVE', 'SUSPENDED', 'TRIAL']).optional(),
   trialEndsAt: z.string().datetime().optional(),
  
-  // Settings JSON — colores PDF, umbrales actas, distrito
+  // Settings JSON — colores PDF, umbrales actas, distrito, intensificaciones
   settings: z.object({
     report: z.object({
       primaryColor:   z.string().optional(),
@@ -43,6 +43,11 @@ export const UpdateInstitutionSchema = z.object({
     }).optional(),
     absenceThresholds: z.array(z.number().int().positive()).optional(),
     district:          z.string().max(100).optional(),
+    pendingSubjects: z.object({
+      enabled: z.boolean(),
+      activeIntensificationPeriod: z.enum(['MARCH', 'AUGUST', 'NOVEMBER', 'DECEMBER', 'FEBRUARY']),
+      allowPreviousPeriodEditing: z.boolean(),
+    }).optional(),
   }).optional(),
 });
 export type UpdateInstitutionDto = z.infer<typeof UpdateInstitutionSchema>;

@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+export const IntensificationResultSchema = z.enum(['AA', 'CCA', 'CSA']);
+
 export const CreatePendingSubjectSchema = z.object({
   closingGradeId: z.string().uuid(),
 }).strict();
@@ -14,11 +16,11 @@ export type UpdatePendingStatusDto = z.infer<typeof UpdatePendingStatusSchema>;
 
 export const UpdatePendingProgressSchema = z.object({
   initialSabers: z.string().max(500).nullable().optional(),
-  march:         z.string().max(10).nullable().optional(),
-  august:        z.string().max(10).nullable().optional(),
-  november:      z.string().max(10).nullable().optional(),
-  december:      z.string().max(10).nullable().optional(),
-  february:      z.string().max(10).nullable().optional(),
+  march:         IntensificationResultSchema.nullable().optional(),
+  august:        IntensificationResultSchema.nullable().optional(),
+  november:      IntensificationResultSchema.nullable().optional(),
+  december:      IntensificationResultSchema.nullable().optional(),
+  february:      IntensificationResultSchema.nullable().optional(),
   finalScore:    z.string().max(10).nullable().optional(),
   closingSabers: z.string().max(255).nullable().optional(),
 }).strict();

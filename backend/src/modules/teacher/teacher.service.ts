@@ -1,10 +1,20 @@
-import { Injectable, NotFoundException, BadRequestException, ConflictException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ConflictException, ForbiddenException, Logger } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bull';
+import { Queue } from 'bull';
 import { PrismaService } from '../../prisma/prisma.service';
+import { PendingSubjectsService } from '../pending-subjects/pending-subjects.service';
+import { QUEUES, JOBS, JOB_OPTIONS } from '../../queues/queue.constants';
+import type { RequestUser } from '../../common/decorators/current-user.decorator';
 import type { CreatePendingSubjectDto, UpdatePendingStatusDto, UpdatePendingProgressDto } from './dto/teacher.dto';
 
 @Injectable()
 export class TeacherService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(TeacherService.name);
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly pendingSubjectsService: PendingSubjectsService,
+    @InjectQueue(QUEUES.AUDIT) private readonly auditQueue: Queue,
+  ) {}
 
   // ── TEMARIO ───────────────────────────────────
 
@@ -177,7 +187,9 @@ async updateSyllabus(
     });
   }
 
-  async createPendingSubject(dto: CreatePendingSubjectDto, institutionId: string) {
+  async createPendingSubject(dto: CreatePendingSubjectDto, institutionId: string, user: RequestUser) {
+    await this.pendingSubjectsService.validateEnabled(institutionId);
+
     const cg = await this.prisma.closingGrade.findUnique({
       where: { id: dto.closingGradeId },
       include: {
@@ -205,7 +217,7 @@ async updateSyllabus(
     });
     if (existing) throw new ConflictException('Ya existe una intensificación para este período');
 
-    return this.prisma.pendingSubject.create({
+    const created = await this.prisma.pendingSubject.create({
       data: {
         institutionId,
         studentId:     cg.studentId,
@@ -223,23 +235,60 @@ async updateSyllabus(
         },
       },
     });
+
+    await this.auditQueue.add(
+      JOBS.AUDIT_LOG,
+      {
+        institutionId,
+        userId:      user.id,
+        action:      'CREATE',
+        resource:    'PendingSubject',
+        resourceId:  created.id,
+        after:       { closingGradeId: dto.closingGradeId, status: 'ENROLLED' },
+      },
+      JOB_OPTIONS.CRITICAL,
+    ).catch((err) => this.logger.error('Audit dispatch failed', err));
+
+    return created;
   }
 
-  async updatePendingStatus(id: string, dto: UpdatePendingStatusDto) {
+  async updatePendingStatus(id: string, dto: UpdatePendingStatusDto, institutionId: string, user: RequestUser) {
+    await this.pendingSubjectsService.validateEnabled(institutionId);
+
     const existing = await this.prisma.pendingSubject.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException('PendingSubject no encontrado');
+    if (existing.institutionId !== institutionId) throw new ForbiddenException();
 
-    return this.prisma.pendingSubject.update({
+    const updated = await this.prisma.pendingSubject.update({
       where: { id },
       data: { status: dto.status },
     });
+
+    await this.auditQueue.add(
+      JOBS.AUDIT_LOG,
+      {
+        institutionId,
+        userId:     user.id,
+        action:     'UPDATE',
+        resource:   'PendingSubject',
+        resourceId: id,
+        before:     { status: existing.status },
+        after:      { status: dto.status },
+      },
+      JOB_OPTIONS.CRITICAL,
+    ).catch((err) => this.logger.error('Audit dispatch failed', err));
+
+    return updated;
   }
 
-  async updatePendingProgress(id: string, dto: UpdatePendingProgressDto) {
+  async updatePendingProgress(id: string, dto: UpdatePendingProgressDto, institutionId: string, user: RequestUser) {
+    await this.pendingSubjectsService.validatePeriodEdition(institutionId, id, dto);
+
     const existing = await this.prisma.pendingSubject.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException('PendingSubject no encontrado');
+    if (existing.institutionId !== institutionId) throw new ForbiddenException();
 
-    return this.prisma.pendingSubject.update({
+    const updated = await this.prisma.pendingSubject.update({
       where: { id },
       data: {
         initialSabers: dto.initialSabers,
@@ -256,15 +305,60 @@ async updateSyllabus(
         student: { select: { id: true, firstName: true, lastName: true } },
       },
     });
+
+    await this.auditQueue.add(
+      JOBS.AUDIT_LOG,
+      {
+        institutionId,
+        userId:     user.id,
+        action:     'UPDATE',
+        resource:   'PendingSubject',
+        resourceId: id,
+        before:     {
+          march: existing.march, august: existing.august,
+          november: existing.november, december: existing.december,
+          february: existing.february, initialSabers: existing.initialSabers,
+          finalScore: existing.finalScore, closingSabers: existing.closingSabers,
+        },
+        after:      {
+          march: dto.march, august: dto.august,
+          november: dto.november, december: dto.december,
+          february: dto.february, initialSabers: dto.initialSabers,
+          finalScore: dto.finalScore, closingSabers: dto.closingSabers,
+        },
+      },
+      JOB_OPTIONS.CRITICAL,
+    ).catch((err) => this.logger.error('Audit dispatch failed', err));
+
+    return updated;
   }
 
-  async deletePendingSubject(id: string) {
+  async deletePendingSubject(id: string, institutionId: string, user: RequestUser) {
+    await this.pendingSubjectsService.validateEnabled(institutionId);
+
+    const existing = await this.prisma.pendingSubject.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException('PendingSubject no encontrado');
+    if (existing.institutionId !== institutionId) throw new ForbiddenException();
+
     await this.prisma.pendingSubject.delete({ where: { id } });
+
+    await this.auditQueue.add(
+      JOBS.AUDIT_LOG,
+      {
+        institutionId,
+        userId:     user.id,
+        action:     'DELETE',
+        resource:   'PendingSubject',
+        resourceId: id,
+        before:     { status: existing.status, subjectId: existing.subjectId },
+      },
+      JOB_OPTIONS.CRITICAL,
+    ).catch((err) => this.logger.error('Audit dispatch failed', err));
   }
 
-  async getStudentPendingSubjects(studentId: string, schoolYearId: string) {
+  async getStudentPendingSubjects(studentId: string, schoolYearId: string, institutionId: string) {
     return this.prisma.pendingSubject.findMany({
-      where: { studentId, schoolYearId },
+      where: { studentId, schoolYearId, institutionId },
       include: {
         subject: { select: { id: true, name: true } },
         closingGrade: {
@@ -276,13 +370,15 @@ async updateSyllabus(
     });
   }
 
-  async getEligibleSubjects(studentId: string, schoolYearId: string) {
+  async getEligibleSubjects(studentId: string, schoolYearId: string, institutionId: string) {
     const closingGrades = await this.prisma.closingGrade.findMany({
       where: {
         studentId,
         isClosed: true,
         closingScore: { lt: 7 },
-        courseSubject: { course: { schoolYearId } },
+        courseSubject: {
+          course: { schoolYearId, institutionId },
+        },
         pendingSubject: null,
       },
       include: {
