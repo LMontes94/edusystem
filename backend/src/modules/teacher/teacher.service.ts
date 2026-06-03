@@ -88,9 +88,25 @@ async updateSyllabus(
       },
     });
 
+    const eligibleStudentIds = [
+      ...new Set(
+        (await this.prisma.closingGrade.findMany({
+          where: {
+            studentId: { in: studentIds },
+            isClosed: true,
+            closingScore: { lt: 7 },
+            pendingSubject: null,
+            courseSubject: { course: { schoolYearId } },
+          },
+          select: { studentId: true },
+        })).map((cg) => cg.studentId),
+      ),
+    ];
+
     return {
       students:       enrollments.map((e) => e.student),
       pendingSubjects,
+      eligibleStudentIds,
     };
   }
 

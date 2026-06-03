@@ -104,10 +104,13 @@ export default function PendingSubjectsPage() {
     });
   }
 
-  const students = data?.students?.map((student: any) => ({
-    student,
-    pendings: data.pendingSubjects.filter((p: PendingSubject) => p.studentId === student.id),
-  })) ?? [];
+  const eligibleIds: string[] = data?.eligibleStudentIds ?? [];
+  const students = (data?.students ?? [])
+    .map((student: any) => ({
+      student,
+      pendings: data.pendingSubjects.filter((p: PendingSubject) => p.studentId === student.id),
+    }))
+    .filter((s: any) => s.pendings.length > 0 || eligibleIds.includes(s.student.id));
 
   async function handleDownloadPdf(studentId: string) {
     if (!selectedCourse || !selectedSchoolYear) return;
@@ -250,21 +253,21 @@ export default function PendingSubjectsPage() {
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center justify-between text-sm font-medium">
                   <span>{student.lastName}, {student.firstName}</span>
-                  {pendings.length > 0 && (
-                    <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2">
+                    {pendings.length > 0 && (
                       <Badge variant="secondary" className="text-xs">
                         {pendings.length} pendiente{pendings.length > 1 ? 's' : ''}
                       </Badge>
-                      <Button
-                        size="sm" variant="outline"
-                        onClick={() => handleDownloadPdf(student.id)}
-                        disabled={generating === student.id}
-                      >
-                        <Download className="h-3.5 w-3.5 mr-1.5" />
-                        {generating === student.id ? 'Generando...' : 'PDF'}
-                      </Button>
-                    </div>
-                  )}
+                    )}
+                    <Button
+                      size="sm" variant="outline"
+                      onClick={() => handleDownloadPdf(student.id)}
+                      disabled={generating === student.id}
+                    >
+                      <Download className="h-3.5 w-3.5 mr-1.5" />
+                      {generating === student.id ? 'Generando...' : 'PDF'}
+                    </Button>
+                  </div>
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
