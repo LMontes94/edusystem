@@ -13,12 +13,13 @@ export const UpdatePendingStatusSchema = z.object({
 export type UpdatePendingStatusDto = z.infer<typeof UpdatePendingStatusSchema>;
 
 export const UpdatePendingProgressSchema = z.object({
-  march:        z.string().max(10).optional(),
-  august:       z.string().max(10).optional(),
-  november:     z.string().max(10).optional(),
-  december:     z.string().max(10).optional(),
-  february:     z.string().max(10).optional(),
-  finalScore:   z.string().max(10).optional(),
+  initialSabers: z.string().max(500).optional(),
+  march:         z.string().max(10).optional(),
+  august:        z.string().max(10).optional(),
+  november:      z.string().max(10).optional(),
+  december:      z.string().max(10).optional(),
+  february:      z.string().max(10).optional(),
+  finalScore:    z.string().max(10).optional(),
   closingSabers: z.string().max(255).optional(),
 }).strict();
 

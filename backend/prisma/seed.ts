@@ -48,6 +48,7 @@ async function main() {
   await prisma.studentObservation.deleteMany();
   await prisma.studentCourseSubject.deleteMany();
   await prisma.pendingSubject.deleteMany();
+  await prisma.closingGrade.deleteMany();
   await prisma.syllabus.deleteMany();
   await prisma.convivencia.deleteMany();
   await prisma.guardian.deleteMany();
@@ -440,6 +441,32 @@ async function main() {
   );
   console.log(`✅ ${gradeEntries.length} notas creadas\n`);
 
+  // ── ClosingGrades ─────────────────────────────
+  console.log('🔒 Creando ClosingGrades de prueba...');
+  const [cg_mateo_mat, cg_mateo_len, cg_emma_mat, cg_santiago_cie, cg_valentina_mat, cg_tomas_len] = await Promise.all([
+    prisma.closingGrade.create({ data: { studentId: mateo.id,     courseSubjectId: cs4B_mat.id, periodId: period1.id, closingScore: 4.5,  isClosed: true, closedAt: new Date(), closedById: admin.id } }),
+    prisma.closingGrade.create({ data: { studentId: mateo.id,     courseSubjectId: cs4B_len.id, periodId: period1.id, closingScore: 8.5,  isClosed: true, closedAt: new Date(), closedById: admin.id } }),
+    prisma.closingGrade.create({ data: { studentId: emma.id,      courseSubjectId: cs4B_mat.id, periodId: period1.id, closingScore: 6.0,  isClosed: true, closedAt: new Date(), closedById: admin.id } }),
+    prisma.closingGrade.create({ data: { studentId: santiago.id,  courseSubjectId: cs3A_cie.id, periodId: period1.id, closingScore: 5.0,  isClosed: true, closedAt: new Date(), closedById: admin.id } }),
+    prisma.closingGrade.create({ data: { studentId: valentina.id, courseSubjectId: cs3A_mat.id, periodId: period1.id, closingScore: 9.5,  isClosed: true, closedAt: new Date(), closedById: admin.id } }),
+    prisma.closingGrade.create({ data: { studentId: tomas.id,     courseSubjectId: cs4B_len.id, periodId: period1.id, closingScore: 9.0,  isClosed: true, closedAt: new Date(), closedById: admin.id } }),
+  ]);
+  console.log(`✅ ${6} ClosingGrades de prueba creados\n`);
+
+  // ── PendingSubject desde ClosingGrade ─────────
+  console.log('📋 Creando PendingSubject desde ClosingGrade...');
+  await prisma.pendingSubject.create({
+    data: {
+      institutionId:  institution.id,
+      studentId:      mateo.id,
+      subjectId:      materia1.id,
+      schoolYearId:   schoolYear.id,
+      closingGradeId: cg_mateo_mat.id,
+      status:         'ENROLLED',
+    },
+  });
+  console.log('✅ 1 PendingSubject vinculado a ClosingGrade (Mateo — Matemáticas 4to B, score 4.5)\n');
+
   // ── Asistencias ───────────────────────────────
   console.log('📋 Creando asistencias...');
   const today = new Date();
@@ -702,6 +729,8 @@ async function main() {
   console.log('  CASOS DE PRUEBA:');
   console.log('    Mateo Fernández  → recursa Mat 3ro A + eximido de Ciencias 4to B');
   console.log('    Emma Torres      → recursa Lengua 3ro A');
+  console.log('    ClosingGrades    → 6 creados, scores < 7 y >= 7');
+  console.log('    Intensificación  → Mateo tiene Matemáticas 4.5 como PendingSubject');
   console.log('    Fútbol A         → Tomás, Mateo, Santiago (docente: Pedro Silva)');
   console.log('    Vóley 3ro/4to   → Valentina, Sofía, Emma (docente: Pedro Silva)');
   console.log('    Reservas         → Sala Reuniones y Gimnasio (mañana), Lab (próx. semana)');

@@ -226,12 +226,13 @@ async updateSyllabus(
     return this.prisma.pendingSubject.update({
       where: { id },
       data: {
-        march:        dto.march,
-        august:       dto.august,
-        november:     dto.november,
-        december:     dto.december,
-        february:     dto.february,
-        finalScore:   dto.finalScore,
+        initialSabers: dto.initialSabers,
+        march:         dto.march,
+        august:        dto.august,
+        november:      dto.november,
+        december:      dto.december,
+        february:      dto.february,
+        finalScore:    dto.finalScore,
         closingSabers: dto.closingSabers,
       },
       include: {
