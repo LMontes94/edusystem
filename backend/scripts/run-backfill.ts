@@ -479,6 +479,8 @@ async function main() {
   log('=== Academic Structure Backfill Phase 2 ===');
   log('');
 
+  // TODO(P2): reporting counters are informational only.
+  // Fix before removing Phase 2 scripts or relying on metrics.
   const report: BackfillReport = {
     educationLevelsCreated: 0,
     levelGradesCreated: 0,
@@ -497,6 +499,8 @@ async function main() {
     settingsSkipped: 0,
   };
 
+  // TODO(P2): educationLevelsCreated and levelGradesCreated are never
+  // updated — seedEducationLevels/seedLevelGrades return Map, not count.
   const eduLevelMap = await seedEducationLevels();
   const lgMap = await seedLevelGrades(eduLevelMap);
 
