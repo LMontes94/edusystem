@@ -224,6 +224,7 @@ model EducationLevel {
   chatRooms ChatRoom[]
   levelCommunicationSettings InstitutionLevelCommunicationSettings[]
 
+  @@unique([institutionId, name])
   @@unique([institutionId, slug])
   @@index([institutionId])
   @@map("education_levels")
@@ -238,7 +239,7 @@ model LevelGrade {
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 
-  educationLevel EducationLevel @relation(fields: [educationLevelId], references: [id], onDelete: Cascade)
+  educationLevel EducationLevel @relation(fields: [educationLevelId], references: [id], onDelete: Restrict)
   courses        Course[]
   indicators     Indicator[]
 
