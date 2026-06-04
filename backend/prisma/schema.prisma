@@ -149,6 +149,16 @@ enum PendingSubjectStatus {
   NOT_COMPLETED
 }
 
+enum EducationLevelStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum LevelGradeStatus {
+  ACTIVE
+  INACTIVE
+}
+
 // ──────────────────────────────────────────────
 // MULTI-TENANCY — INSTITUCIÓN
 // ──────────────────────────────────────────────
@@ -187,10 +197,54 @@ model Institution {
   sportGroups SportGroup[]
   chatPolicy  InstitutionChatPolicy?
   levelCommunicationSettings InstitutionLevelCommunicationSettings[]
+  educationLevels EducationLevel[]
 
   @@index([domain])
   @@index([status])
   @@map("institutions")
+}
+
+// ──────────────────────────────────────────────
+// ACADEMIC STRUCTURE — EDUCATION LEVEL & GRADE
+// ──────────────────────────────────────────────
+
+model EducationLevel {
+  id            String   @id @default(uuid())
+  institutionId String   @map("institution_id")
+  slug          String   @db.VarChar(50)
+  name          String   @db.VarChar(100)
+  displayOrder  Int      @default(0) @map("display_order")
+  status        EducationLevelStatus @default(ACTIVE)
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  institution Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  levelGrades LevelGrade[]
+  userLevelRoles UserLevelRole[]
+  chatRooms ChatRoom[]
+  levelCommunicationSettings InstitutionLevelCommunicationSettings[]
+
+  @@unique([institutionId, slug])
+  @@index([institutionId])
+  @@map("education_levels")
+}
+
+model LevelGrade {
+  id              String   @id @default(uuid())
+  educationLevelId String  @map("education_level_id")
+  name            String   @db.VarChar(100)
+  displayOrder    Int      @default(0) @map("display_order")
+  status          LevelGradeStatus @default(ACTIVE)
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  educationLevel EducationLevel @relation(fields: [educationLevelId], references: [id], onDelete: Cascade)
+  courses        Course[]
+  indicators     Indicator[]
+
+  @@unique([educationLevelId, name])
+  @@index([educationLevelId])
+  @@map("level_grades")
 }
 
 model InstitutionChatPolicy {
@@ -295,16 +349,20 @@ model User {
 }
 
  model UserLevelRole {
-   id        String   @id @default(uuid())
-   userId    String   @map("user_id")
-   level     Level    // INICIAL | PRIMARIA | SECUNDARIA
-   role      Role     // TEACHER | PRECEPTOR | etc.
-   createdAt DateTime @default(now()) @map("created_at")
+   id               String   @id @default(uuid())
+   userId           String   @map("user_id")
+   level            Level    // INICIAL | PRIMARIA | SECUNDARIA
+   educationLevelId String?  @map("education_level_id")
+   role             Role     // TEACHER | PRECEPTOR | etc.
+   createdAt        DateTime @default(now()) @map("created_at")
 
-   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+   user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+   educationLevel EducationLevel? @relation(fields: [educationLevelId], references: [id], onDelete: Restrict)
 
    @@unique([userId, level, role])
+   @@unique([userId, educationLevelId, role])
    @@index([userId])
+   @@index([educationLevelId])
    @@map("user_level_roles")
  }
 
@@ -390,11 +448,13 @@ model Course {
   grade         Int      @db.SmallInt
   division      String   @db.VarChar(10)
   level         Level
+  levelGradeId  String?  @map("level_grade_id")
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 
   institution    Institution     @relation(fields: [institutionId], references: [id])
   schoolYear     SchoolYear      @relation(fields: [schoolYearId], references: [id])
+  levelGrade     LevelGrade?     @relation(fields: [levelGradeId], references: [id], onDelete: Restrict)
   courseStudents CourseStudent[]
   courseSubjects CourseSubject[]
   announcements  Announcement[]
@@ -407,6 +467,7 @@ model Course {
   @@index([institutionId])
   @@index([schoolYearId])
   @@index([level])
+  @@index([levelGradeId])
   @@map("courses")
 }
 
@@ -660,16 +721,19 @@ model ChatRoom {
   createdAt       DateTime     @default(now()) @map("created_at")
   creatorId       String?      @map("creator_id")
   level           Level?       @map("level")
+  educationLevelId String?     @map("education_level_id")
 
   institution Institution                  @relation(fields: [institutionId], references: [id])
   course      Course?                      @relation(fields: [courseId], references: [id])
   creator     User?                        @relation("ChatRoomCreator", fields: [creatorId], references: [id])
+  educationLevel EducationLevel?           @relation(fields: [educationLevelId], references: [id], onDelete: Restrict)
   members     ChatRoomMember[]
   messages    ChatMessage[]
   auditLogs   ChatAuditLog[]
 
   @@index([institutionId])
   @@index([lastMessageAt])
+  @@index([educationLevelId])
   @@map("chat_rooms")
 }
 
@@ -694,16 +758,19 @@ model InstitutionLevelCommunicationSettings {
   id                             String   @id @default(uuid())
   institutionId                  String   @map("institution_id")
   level                          Level
+  educationLevelId               String?  @map("education_level_id")
   guardianCanStartConversation   Boolean  @default(false) @map("guardian_can_start_conversation")
   guardianCanAddParticipants     Boolean  @default(false) @map("guardian_can_add_participants")
   guardianCanExportPdf           Boolean  @default(false) @map("guardian_can_export_pdf")
   createdAt                      DateTime @default(now()) @map("created_at")
   updatedAt                      DateTime @updatedAt @map("updated_at")
 
-  institution Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  institution    Institution    @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  educationLevel EducationLevel? @relation(fields: [educationLevelId], references: [id], onDelete: Restrict)
 
   @@unique([institutionId, level])
   @@index([institutionId])
+  @@index([educationLevelId])
   @@map("institution_level_communication_settings")
 }
 
@@ -772,18 +839,21 @@ model Notification {
 }
 
 model Indicator {
-  id          String   @id @default(uuid())
-  subjectId   String   @map("subject_id")
-  schoolYearId String  @map("school_year_id")
-  grade        Int?    @db.SmallInt
-  description String
-  order       Int      @default(0)
-  createdAt   DateTime @default(now()) @map("created_at")
+  id           String   @id @default(uuid())
+  subjectId    String   @map("subject_id")
+  schoolYearId String   @map("school_year_id")
+  grade        Int?     @db.SmallInt
+  levelGradeId String?  @map("level_grade_id")
+  description  String
+  order        Int      @default(0)
+  createdAt    DateTime @default(now()) @map("created_at")
 
   subject     Subject    @relation(fields: [subjectId], references: [id])
   schoolYear  SchoolYear @relation(fields: [schoolYearId], references: [id])
+  levelGrade  LevelGrade? @relation(fields: [levelGradeId], references: [id], onDelete: Restrict)
   evaluations IndicatorEvaluation[]
 
+  @@index([levelGradeId])
   @@map("indicators")
 }
 

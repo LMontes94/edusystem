@@ -5,8 +5,8 @@ CREATE TYPE "PendingSubjectStatus" AS ENUM ('ENROLLED', 'COMPLETED', 'NOT_COMPLE
 ALTER TABLE "pending_subjects" ADD COLUMN "closing_grade_id" TEXT;
 ALTER TABLE "pending_subjects" ADD COLUMN "status" "PendingSubjectStatus" NOT NULL DEFAULT 'ENROLLED';
 
--- Drop old unique constraint
-ALTER TABLE "pending_subjects" DROP CONSTRAINT "pending_subjects_student_id_subject_id_school_year_id_key";
+-- Drop old unique index (created by Prisma @@unique as index, not constraint)
+DROP INDEX IF EXISTS "pending_subjects_student_id_subject_id_school_year_id_key";
 
 -- Add new unique constraint
 ALTER TABLE "pending_subjects" ADD CONSTRAINT "pending_subjects_closing_grade_id_key" UNIQUE ("closing_grade_id");
