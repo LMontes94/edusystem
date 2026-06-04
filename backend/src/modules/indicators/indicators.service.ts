@@ -372,14 +372,14 @@ export class IndicatorsService {
 
     const course = await this.prisma.course.findUnique({
       where:  { id: courseId },
-      select: { grade: true },
+      select: { levelGradeId: true },
     });
     if (!course) {
       throw new NotFoundException('Curso no encontrado');
     }
 
     const indicators = await this.prisma.indicator.findMany({
-      where:   { subjectId, schoolYearId, grade: course.grade },
+      where:   { subjectId, schoolYearId, levelGradeId: course.levelGradeId },
       orderBy: { order: 'asc' },
     });
 

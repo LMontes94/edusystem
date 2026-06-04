@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -67,9 +68,10 @@ export class CoursesService {
       },
       include: {
         schoolYear: { select: { year: true, isActive: true } },
+        levelGrade: { include: { educationLevel: { select: { slug: true } } } },
         _count: { select: { courseStudents: true, courseSubjects: true } },
       },
-      orderBy: [{ grade: 'asc' }, { division: 'asc' }],
+      orderBy: [{ levelGrade: { displayOrder: 'asc' } }, { division: 'asc' }],
     });
   }
 
@@ -78,6 +80,7 @@ export class CoursesService {
       where: { id, institutionId },
       include: {
         schoolYear: true,
+        levelGrade: { include: { educationLevel: { select: { slug: true } } } },
         courseStudents: {
           where: { status: 'ACTIVE' },
           include: { student: { select: { id: true, firstName: true, lastName: true, documentNumber: true } } },
@@ -100,22 +103,37 @@ export class CoursesService {
     });
     if (!schoolYear) throw new NotFoundException('Año lectivo no encontrado');
 
+    const levelGrade = await this.prisma.levelGrade.findFirst({
+      where: {
+        id: dto.levelGradeId,
+        status: 'ACTIVE',
+        educationLevel: { institutionId, status: 'ACTIVE' },
+      },
+      include: { educationLevel: { select: { slug: true } } },
+    });
+    if (!levelGrade) {
+      throw new BadRequestException(
+        'El nivel/grado especificado no existe, está inactivo o no pertenece a la institución',
+      );
+    }
+
     const course = await this.prisma.course.create({
       data: {
-        name: dto.name!,
-        grade: dto.grade!,
-        division: dto.division!,
-        level: dto.level!,
-        schoolYearId: dto.schoolYearId!,
+        name: dto.name,
+        division: dto.division,
+        levelGradeId: dto.levelGradeId,
+        level: levelGrade.educationLevel.slug.toUpperCase() as any,
+        grade: levelGrade.displayOrder,
+        schoolYearId: dto.schoolYearId,
         institutionId,
-      } as any,
+      },
     });
 
     await this.prisma.chatRoom.create({
       data: {
         institutionId,
         type: 'GROUP',
-        name: `${dto.name} - ${dto.grade}° ${dto.division}`,
+        name: `${dto.name} - ${levelGrade.displayOrder}° ${dto.division}`,
         courseId: course.id,
       },
     });
@@ -125,7 +143,31 @@ export class CoursesService {
 
   async update(id: string, dto: UpdateCourseDto, institutionId: string) {
     await this.findOne(id, institutionId);
-    return this.prisma.course.update({ where: { id }, data: dto });
+
+    const data: any = {};
+    if (dto.name !== undefined) data.name = dto.name;
+    if (dto.division !== undefined) data.division = dto.division;
+
+    if (dto.levelGradeId !== undefined) {
+      const levelGrade = await this.prisma.levelGrade.findFirst({
+        where: {
+          id: dto.levelGradeId,
+          status: 'ACTIVE',
+          educationLevel: { institutionId, status: 'ACTIVE' },
+        },
+        include: { educationLevel: { select: { slug: true } } },
+      });
+      if (!levelGrade) {
+        throw new BadRequestException(
+          'El nivel/grado especificado no existe, está inactivo o no pertenece a la institución',
+        );
+      }
+      data.levelGradeId = dto.levelGradeId;
+      data.level = levelGrade.educationLevel.slug.toUpperCase() as any;
+      data.grade = levelGrade.displayOrder;
+    }
+
+    return this.prisma.course.update({ where: { id }, data });
   }
 
   async remove(id: string, institutionId: string) {
@@ -204,30 +246,34 @@ export class CoursesService {
     });
   }
 
- async getTeacherSubjects(teacherId: string, institutionId: string) {
-  const courseSubjects = await this.prisma.courseSubject.findMany({
-    where: {
-      teacherId,
-      course: { institutionId },
-    },
-    include: {
-      subject: true,
-      course:  {
-        select: {
-          id:       true,
-          name:     true,
-          grade:    true,
-          division: true,
-          courseStudents: {
-            where:  { status: 'ACTIVE' },
-            select: { id: true },
+  async getTeacherSubjects(teacherId: string, institutionId: string) {
+    const courseSubjects = await this.prisma.courseSubject.findMany({
+      where: {
+        teacherId,
+        course: { institutionId },
+      },
+      include: {
+        subject: true,
+        course:  {
+          select: {
+            id:       true,
+            name:     true,
+            grade:    true,
+            division: true,
+            levelGradeId: true,
+            courseStudents: {
+              where:  { status: 'ACTIVE' },
+              select: { id: true },
+            },
+            levelGrade: {
+              include: { educationLevel: { select: { slug: true } } },
+            },
           },
         },
       },
-    },
-  });
+    });
 
-  return courseSubjects.map((cs) => ({
+    return courseSubjects.map((cs) => ({
       ...cs,
       _count: {
         courseStudents: cs.course.courseStudents?.length ?? 0,

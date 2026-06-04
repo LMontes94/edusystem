@@ -12,13 +12,16 @@ export type CreateSchoolYearDto = z.infer<typeof CreateSchoolYearSchema>;
 export const CreateCourseSchema = z.object({
   schoolYearId: z.string().uuid(),
   name: z.string().min(1).max(100),
-  grade: z.number().int().min(1).max(12),
   division: z.string().max(10),
-  level: z.enum(['INICIAL', 'PRIMARIA', 'SECUNDARIA']),
-});
+  levelGradeId: z.string().uuid(),
+}).strict();
 export type CreateCourseDto = z.infer<typeof CreateCourseSchema>;
 
-export const UpdateCourseSchema = CreateCourseSchema.partial().omit({ schoolYearId: true });
+export const UpdateCourseSchema = z.object({
+  name: z.string().min(1).max(100).optional(),
+  division: z.string().max(10).optional(),
+  levelGradeId: z.string().uuid().optional(),
+}).strict();
 export type UpdateCourseDto = z.infer<typeof UpdateCourseSchema>;
 
 // ── Assign Teacher to Subject ─────────────────
