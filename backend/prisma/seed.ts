@@ -95,6 +95,40 @@ async function main() {
   });
   console.log(`✅ Institución: ${institution.name} (${institution.id})\n`);
 
+  // ── EducationLevels ───────────────────────────
+  console.log('📊 Creando niveles educativos...');
+  const educLevels = await Promise.all([
+    prisma.educationLevel.create({ data: { institutionId: institution.id, slug: 'inicial',    name: 'Inicial',    displayOrder: 1, status: 'ACTIVE' } }),
+    prisma.educationLevel.create({ data: { institutionId: institution.id, slug: 'primaria',   name: 'Primaria',   displayOrder: 2, status: 'ACTIVE' } }),
+    prisma.educationLevel.create({ data: { institutionId: institution.id, slug: 'secundaria', name: 'Secundaria', displayOrder: 3, status: 'ACTIVE' } }),
+  ]);
+  const [nivelInicial, nivelPrimaria, nivelSecundaria] = educLevels;
+  console.log(`✅ 3 niveles educativos creados\n`);
+
+  // ── LevelGrades ──────────────────────────────
+  const ordinalSuffix = (n: number) => {
+    const map: Record<number, string> = { 1: 'ro', 2: 'do', 3: 'ro', 4: 'to' };
+    return map[n] ?? 'to';
+  };
+  const levelGradeNames: { slug: string; grade: number }[] = [];
+  for (let g = 1; g <= 5; g++) levelGradeNames.push({ slug: 'secundaria', grade: g });
+
+  const levelGrades = await Promise.all(
+    levelGradeNames.map(({ slug, grade }) => {
+      const el = educLevels.find((e) => e.slug === slug)!;
+      return prisma.levelGrade.create({
+        data: {
+          educationLevelId: el.id,
+          name:             `${grade}${ordinalSuffix(grade)}`,
+          displayOrder:     grade,
+          status:           'ACTIVE',
+        },
+      });
+    }),
+  );
+  const lgByGrade = Object.fromEntries(levelGrades.map((lg) => [lg.displayOrder, lg.id]));
+  console.log(`✅ ${levelGrades.length} LevelGrades creados (${levelGradeNames.map((l) => `${l.slug}/${l.grade}`).join(', ')})\n`);
+
   // ── Contraseñas ──────────────────────────────
   const adminPass     = await bcrypt.hash('Admin123!',    12);
   const teacherPass   = await bcrypt.hash('Docente123!',  12);
@@ -289,6 +323,7 @@ async function main() {
       grade:         3,
       division:      'A',
       level:         'SECUNDARIA',
+      levelGradeId:  lgByGrade[3],
     } as any,
   });
 
@@ -300,6 +335,7 @@ async function main() {
       grade:         4,
       division:      'B',
       level:         'SECUNDARIA',
+      levelGradeId:  lgByGrade[4],
     } as any,
   });
 
