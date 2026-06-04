@@ -855,6 +855,7 @@ model Indicator {
   evaluations IndicatorEvaluation[]
 
   @@index([levelGradeId])
+  @@index([subjectId, schoolYearId, levelGradeId])
   @@map("indicators")
 }
 

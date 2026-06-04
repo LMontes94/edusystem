@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   Logger,
@@ -67,7 +68,12 @@ export class IndicatorsService {
 
   // ── Listar indicadores por materia y año ──────────────────────
 
-  async findAll(subjectId: string, schoolYearId: string, grade: number, institutionId: string) {
+  async findAll(
+    subjectId:     string,
+    schoolYearId:  string,
+    levelGradeId:  string,
+    institutionId: string,
+  ) {
     const subject = await this.prisma.subject.findUnique({
       where: { id: subjectId },
       select: { institutionId: true },
@@ -77,7 +83,7 @@ export class IndicatorsService {
     }
 
     return this.prisma.indicator.findMany({
-      where:   { subjectId, schoolYearId, grade },
+      where:   { subjectId, schoolYearId, levelGradeId },
       orderBy: { order: 'asc' },
     });
   }
@@ -97,6 +103,19 @@ export class IndicatorsService {
       throw new NotFoundException('Materia no encontrada');
     }
 
+    const levelGrade = await this.prisma.levelGrade.findFirst({
+      where: {
+        id: dto.levelGradeId,
+        status: 'ACTIVE',
+        educationLevel: { institutionId, status: 'ACTIVE' },
+      },
+    });
+    if (!levelGrade) {
+      throw new BadRequestException(
+        'El nivel/grado especificado no existe, está inactivo o no pertenece a la institución',
+      );
+    }
+
     const order = dto.order ?? (
       ((await this.prisma.indicator.findFirst({
         where: { subjectId: dto.subjectId, schoolYearId: dto.schoolYearId },
@@ -108,7 +127,8 @@ export class IndicatorsService {
       data: {
         subjectId:    dto.subjectId,
         schoolYearId: dto.schoolYearId,
-        grade:        dto.grade,
+        levelGradeId: dto.levelGradeId,
+        grade:        levelGrade.displayOrder,
         description:  dto.description,
         order,
       },

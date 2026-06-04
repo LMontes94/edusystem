@@ -25,14 +25,14 @@ export class IndicatorsController {
 
   @Get()
   @CheckAbility({ action: Action.Read, subject: 'Indicator' })
-  @ApiOperation({ summary: 'Listar indicadores por materia y año lectivo' })
+  @ApiOperation({ summary: 'Listar indicadores por materia, año lectivo y nivel/grado' })
   findAll(
-    @Query('subjectId')    subjectId:    string,
-    @Query('schoolYearId') schoolYearId: string,
-    @Query('grade')        grade:        string,
-    @InstitutionId()       institutionId: string,
+    @Query('subjectId')     subjectId:     string,
+    @Query('schoolYearId')  schoolYearId:  string,
+    @Query('levelGradeId')  levelGradeId:  string,
+    @InstitutionId()        institutionId: string,
   ) {
-    return this.indicatorsService.findAll(subjectId, schoolYearId, Number(grade), institutionId);
+    return this.indicatorsService.findAll(subjectId, schoolYearId, levelGradeId, institutionId);
   }
 
   @Post()

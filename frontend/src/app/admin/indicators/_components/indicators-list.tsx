@@ -19,13 +19,13 @@ interface Props {
   schoolYear:      number | string | undefined;
   subjectId:       string;
   schoolYearId:    string;
-  grade:           number;
+  levelGradeId:    string;
 }
 
 export function IndicatorsList({
   indicators, isLoading, canManage,
   subjectName, schoolYear,
-  subjectId, schoolYearId, grade,
+  subjectId, schoolYearId, levelGradeId,
 }: Props) {
   const [newText,    setNewText]    = useState('');
   const [editingId,  setEditingId]  = useState<string | null>(null);
@@ -38,7 +38,7 @@ export function IndicatorsList({
   function handleAdd() {
     if (!newText.trim()) return;
     createIndicator.mutate(
-      { subjectId, schoolYearId, grade, description: newText.trim() },
+      { subjectId, schoolYearId, levelGradeId, description: newText.trim() },
       { onSuccess: () => setNewText('') },
     );
   }

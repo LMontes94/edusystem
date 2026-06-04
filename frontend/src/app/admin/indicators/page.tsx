@@ -14,24 +14,23 @@ export default function IndicatorsPage() {
   const { data: session } = useAppSession();
   const canManage = CAN_MANAGE_ROLES.includes((session?.user as any)?.role ?? '');
 
-  const [selectedSchoolYear, setSelectedSchoolYear] = useState('');
-  const [selectedGrade,      setSelectedGrade]      = useState<number | null>(null);
-  const [selectedSubject,    setSelectedSubject]    = useState('');
+  const [selectedSchoolYear,  setSelectedSchoolYear]  = useState('');
+  const [selectedLevelGradeId, setSelectedLevelGradeId] = useState<string | null>(null);
+  const [selectedSubject,     setSelectedSubject]     = useState('');
 
   const { data: subjects }    = useSubjects();
   const { data: schoolYears } = useSchoolYears();
 
-  // ── Fix: desestructurar isLoading correctamente ──
   const { data: indicators, isLoading } = useIndicators({
     subjectId:    selectedSubject    || undefined,
     schoolYearId: selectedSchoolYear || undefined,
-    grade:        selectedGrade,
+    levelGradeId: selectedLevelGradeId,
   });
 
   const subjectName = (subjects as any[])?.find((s) => s.id === selectedSubject)?.name;
   const schoolYear  = (schoolYears as any[])?.find((sy) => sy.id === selectedSchoolYear)?.year;
 
-  const showList = !!selectedSubject && !!selectedSchoolYear && selectedGrade !== null;
+  const showList = !!selectedSubject && !!selectedSchoolYear && !!selectedLevelGradeId;
 
   return (
     <div className="space-y-6">
@@ -47,10 +46,10 @@ export default function IndicatorsPage() {
       {/* Filtros */}
       <IndicatorsFilters
         selectedSchoolYear={selectedSchoolYear}
-        selectedGrade={selectedGrade}
+        selectedLevelGradeId={selectedLevelGradeId}
         selectedSubject={selectedSubject}
         onSchoolYearChange={setSelectedSchoolYear}
-        onGradeChange={setSelectedGrade}
+        onLevelGradeIdChange={setSelectedLevelGradeId}
         onSubjectChange={setSelectedSubject}
       />
 
@@ -64,7 +63,7 @@ export default function IndicatorsPage() {
           schoolYear={schoolYear}
           subjectId={selectedSubject}
           schoolYearId={selectedSchoolYear}
-          grade={selectedGrade!}
+          levelGradeId={selectedLevelGradeId!}
         />
       ) : (
         <div className="flex items-center justify-center h-48 text-muted-foreground text-sm border rounded-lg border-dashed">

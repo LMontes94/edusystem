@@ -9,23 +9,50 @@ export interface Indicator {
   order:        number;
   subjectId:    string;
   schoolYearId: string;
+  levelGradeId: string;
+}
+
+export interface LevelGrade {
+  id:           string;
+  name:         string;
+  displayOrder: number;
+  educationLevelId: string;
+  educationLevel: { id: string; name: string; slug: string };
+}
+
+export function useLevelGrades() {
+  return useQuery<LevelGrade[]>({
+    queryKey: ['level-grades'],
+    queryFn:  async () => {
+      const res = await api.get<any[]>('/education-levels');
+      const levels = res.data;
+      const grades: LevelGrade[] = [];
+      for (const el of levels) {
+        for (const lg of el.levelGrades ?? []) {
+          grades.push({ ...lg, educationLevel: { id: el.id, name: el.name, slug: el.slug } });
+        }
+      }
+      return grades.sort((a, b) => a.displayOrder - b.displayOrder);
+    },
+    staleTime: 5 * 60 * 1000,
+  });
 }
 
 export function useIndicators(params: {
   subjectId?:    string;
   schoolYearId?: string;
-  grade?:        number | null;
+  levelGradeId?: string | null;
 }) {
-  const { subjectId, schoolYearId, grade } = params;
+  const { subjectId, schoolYearId, levelGradeId } = params;
   return useQuery<Indicator[]>({
-    queryKey: ['indicators', subjectId, schoolYearId, grade],
+    queryKey: ['indicators', subjectId, schoolYearId, levelGradeId],
     queryFn:  async () => {
       const res = await api.get<Indicator[]>('/indicators', {
-        params: { subjectId, schoolYearId, grade },
+        params: { subjectId, schoolYearId, levelGradeId },
       });
       return res.data;
     },
-    enabled: !!subjectId && !!schoolYearId && grade !== null && grade !== undefined,
+    enabled: !!subjectId && !!schoolYearId && !!levelGradeId,
   });
 }
 
@@ -35,7 +62,7 @@ export function useCreateIndicator() {
     mutationFn: async (data: {
       subjectId:    string;
       schoolYearId: string;
-      grade:        number;
+      levelGradeId: string;
       description:  string;
     }) => {
       await api.post('/indicators', data);

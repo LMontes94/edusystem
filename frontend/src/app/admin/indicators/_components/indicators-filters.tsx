@@ -4,24 +4,24 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useSchoolYears } from '@/lib/api/courses';
 import { useSubjects }    from '@/lib/api/subjects';
+import { useLevelGrades } from '@/lib/api/indicators';
 
 interface Props {
-  selectedSchoolYear: string;
-  selectedGrade:      number | null;
-  selectedSubject:    string;
-  onSchoolYearChange: (v: string) => void;
-  onGradeChange:      (v: number) => void;
-  onSubjectChange:    (v: string) => void;
+  selectedSchoolYear:  string;
+  selectedLevelGradeId: string | null;
+  selectedSubject:     string;
+  onSchoolYearChange:  (v: string) => void;
+  onLevelGradeIdChange: (v: string) => void;
+  onSubjectChange:     (v: string) => void;
 }
 
-const GRADES = [1, 2, 3, 4, 5, 6, 7];
-
 export function IndicatorsFilters({
-  selectedSchoolYear, selectedGrade, selectedSubject,
-  onSchoolYearChange, onGradeChange, onSubjectChange,
+  selectedSchoolYear, selectedLevelGradeId, selectedSubject,
+  onSchoolYearChange, onLevelGradeIdChange, onSubjectChange,
 }: Props) {
   const { data: schoolYears } = useSchoolYears();
   const { data: subjects }    = useSubjects();
+  const { data: levelGrades } = useLevelGrades();
 
   return (
     <Card>
@@ -43,16 +43,18 @@ export function IndicatorsFilters({
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">Grado</label>
+            <label className="text-sm font-medium">Nivel / Grado</label>
             <Select
-              value={selectedGrade?.toString() ?? ''}
-              onValueChange={(v) => onGradeChange(Number(v))}
+              value={selectedLevelGradeId ?? ''}
+              onValueChange={onLevelGradeIdChange}
               disabled={!selectedSchoolYear}
             >
-              <SelectTrigger><SelectValue placeholder="Seleccioná un grado..." /></SelectTrigger>
+              <SelectTrigger><SelectValue placeholder="Seleccioná un nivel/grado..." /></SelectTrigger>
               <SelectContent>
-                {GRADES.map((g) => (
-                  <SelectItem key={g} value={g.toString()}>{g}° grado</SelectItem>
+                {levelGrades?.map((lg) => (
+                  <SelectItem key={lg.id} value={lg.id}>
+                    {lg.educationLevel.name} — {lg.name}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
