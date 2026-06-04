@@ -19,7 +19,12 @@ const USER_SELECT = {
   role: true, status: true, phone: true, avatarUrl: true,
   institutionId: true, lastLoginAt: true, leaveStartDate: true,
   createdAt: true, updatedAt: true,
-  levelRoles: { select: { id: true, level: true, role: true } },
+  levelRoles: {
+    select: {
+      id: true, level: true, role: true, educationLevelId: true,
+      educationLevel: { select: { id: true, name: true, slug: true } },
+    },
+  },
 };
 
 const LEAVE_ALLOWED_ROLES = ['ADMIN', 'DIRECTOR', 'SECRETARY'];
@@ -31,12 +36,13 @@ export class UsersService {
     private readonly storage: StorageService,
   ) {}
 
-  async findAll(institutionId: string, filters?: { level?: Level; role?: Role }) {
+  async findAll(institutionId: string, filters?: { level?: Level; role?: Role; educationLevelId?: string }) {
     const where: any = { institutionId, deletedAt: null };
-    if (filters?.level || filters?.role) {
+    if (filters?.educationLevelId || filters?.level || filters?.role) {
       const levelRoleWhere: any = {};
-      if (filters.level) levelRoleWhere.level = filters.level;
-      if (filters.role)  levelRoleWhere.role  = filters.role;
+      if (filters.educationLevelId) levelRoleWhere.educationLevelId = filters.educationLevelId;
+      if (filters.level)            levelRoleWhere.level            = filters.level;
+      if (filters.role)             levelRoleWhere.role             = filters.role;
       where.levelRoles = { some: levelRoleWhere };
     }
     return this.prisma.user.findMany({
@@ -126,13 +132,31 @@ export class UsersService {
     }
     await this.findOne(userId, currentUser.institutionId);
 
-    const existing = await this.prisma.userLevelRole.findFirst({
-      where: { userId, level: data.level as Level, role: data.role as Role },
+    const educationLevel = await this.prisma.educationLevel.findFirst({
+      where: { id: data.educationLevelId, institutionId: currentUser.institutionId, status: 'ACTIVE' },
     });
-    if (existing) throw new ConflictException('El usuario ya tiene ese rol en ese nivel');
+    if (!educationLevel) throw new BadRequestException('El nivel educativo no es válido o no pertenece a la institución');
+
+    const level = educationLevel.slug.toUpperCase() as Level;
+
+    if (data.level && data.level !== level) {
+      throw new BadRequestException(
+        `El nivel educativo "${data.level}" no coincide con el nivel "${level}" del EducationLevel seleccionado`,
+      );
+    }
+
+    const existingByEdu = await this.prisma.userLevelRole.findFirst({
+      where: { userId, educationLevelId: data.educationLevelId, role: data.role as Role },
+    });
+    if (existingByEdu) throw new ConflictException('El usuario ya tiene ese rol en ese nivel');
+
+    const existingByLevel = await this.prisma.userLevelRole.findFirst({
+      where: { userId, level, role: data.role as Role },
+    });
+    if (existingByLevel) throw new ConflictException('El usuario ya tiene ese rol en ese nivel');
 
     const levelRole = await this.prisma.userLevelRole.create({
-      data: { userId, level: data.level as Level, role: data.role as Role },
+      data: { userId, educationLevelId: data.educationLevelId, level, role: data.role as Role },
     });
     await this.syncHighestRole(userId);
     return levelRole;

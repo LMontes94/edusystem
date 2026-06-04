@@ -32,13 +32,14 @@ export class UsersController {
 
   @Get()
   @CheckAbility({ action: Action.Read, subject: 'User' })
-  @ApiOperation({ summary: 'Listar usuarios — filtrar por level y/o role' })
+  @ApiOperation({ summary: 'Listar usuarios — filtrar por level, educationLevelId y/o role' })
   findAll(
-    @InstitutionId() institutionId: string,
-    @Query('level')  level?: Level,
-    @Query('role')   role?:  Role,
+    @InstitutionId()          institutionId: string,
+    @Query('level')           level?:              Level,
+    @Query('educationLevelId') educationLevelId?:   string,
+    @Query('role')            role?:               Role,
   ) {
-    return this.usersService.findAll(institutionId, { level, role });
+    return this.usersService.findAll(institutionId, { level, educationLevelId, role });
   }
 
   @Get(':id')

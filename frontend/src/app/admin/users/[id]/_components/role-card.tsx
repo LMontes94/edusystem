@@ -6,7 +6,7 @@ import { Button }    from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Shield, Plus, X } from 'lucide-react';
-import { useAddLevelRole, useRemoveLevelRole, LEVELS, LEVEL_ROLES } from '@/lib/api/user-level-roles';
+import { useAddLevelRole, useRemoveLevelRole, useEducationLevels, LEVEL_ROLES } from '@/lib/api/user-level-roles';
 import { roleLabels, roleVariant } from '../../_components/users.types';
 
 const levelColors: Record<string, string> = {
@@ -24,9 +24,10 @@ const levelRoleLabels: Record<string, string> = {
 };
 
 interface LevelRole {
-  id:    string;
-  level: string;
-  role:  string;
+  id:                string;
+  level:             string;
+  role:              string;
+  educationLevelId?: string;
 }
 
 interface Props {
@@ -39,17 +40,25 @@ interface Props {
 }
 
 export function RoleCard({ user, canManage }: Props) {
-  const [newLevel, setNewLevel] = useState('');
-  const [newRole,  setNewRole]  = useState('');
+  const [newEducationLevelId, setNewEducationLevelId] = useState('');
+  const [newRole,             setNewRole]             = useState('');
 
+  const { data: educationLevels } = useEducationLevels();
+  const educationLevelMap = new Map((educationLevels ?? []).map((el) => [el.id, el.name]));
   const addLevelRole    = useAddLevelRole(user.id);
   const removeLevelRole = useRemoveLevelRole(user.id);
 
   async function handleAdd() {
-    if (!newLevel || !newRole) return;
-    await addLevelRole.mutateAsync({ level: newLevel, role: newRole });
-    setNewLevel('');
+    if (!newEducationLevelId || !newRole) return;
+    await addLevelRole.mutateAsync({ educationLevelId: newEducationLevelId, role: newRole });
+    setNewEducationLevelId('');
     setNewRole('');
+  }
+
+  function levelDisplay(lr: LevelRole): string {
+    return lr.educationLevelId
+      ? (educationLevelMap.get(lr.educationLevelId) ?? lr.level)
+      : lr.level;
   }
 
   return (
@@ -82,7 +91,7 @@ export function RoleCard({ user, canManage }: Props) {
                   key={lr.id}
                   className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border ${levelColors[lr.level] ?? 'bg-gray-100 text-gray-700'}`}
                 >
-                  <span className="opacity-70">{lr.level}</span>
+                  <span className="opacity-70">{levelDisplay(lr)}</span>
                   <span>·</span>
                   <span>{levelRoleLabels[lr.role] ?? lr.role}</span>
                   {canManage && (
@@ -105,13 +114,13 @@ export function RoleCard({ user, canManage }: Props) {
           <div className="border-t pt-3 space-y-2">
             <p className="text-xs font-medium text-muted-foreground">Agregar rol por nivel</p>
             <div className="flex gap-2">
-              <Select value={newLevel} onValueChange={setNewLevel}>
+              <Select value={newEducationLevelId} onValueChange={setNewEducationLevelId}>
                 <SelectTrigger className="flex-1 h-8 text-sm">
                   <SelectValue placeholder="Nivel" />
                 </SelectTrigger>
                 <SelectContent>
-                  {LEVELS.map((l) => (
-                    <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>
+                  {(educationLevels ?? []).map((el) => (
+                    <SelectItem key={el.id} value={el.id}>{el.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -128,7 +137,7 @@ export function RoleCard({ user, canManage }: Props) {
               <Button
                 size="sm" className="h-8 px-2"
                 onClick={handleAdd}
-                disabled={!newLevel || !newRole || addLevelRole.isPending}
+                disabled={!newEducationLevelId || !newRole || addLevelRole.isPending}
               >
                 <Plus className="h-4 w-4" />
               </Button>

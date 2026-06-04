@@ -11,7 +11,7 @@ export interface User {
   avatarUrl?:     string | null;
   lastLoginAt?:   string | null;
   leaveStartDate?: string | null;
-  levelRoles?:    { id: string; level: string; role: string }[];
+  levelRoles?:    { id: string; level: string; role: string; educationLevelId?: string }[];
 }
 
 export const roleLabels: Record<string, string> = {

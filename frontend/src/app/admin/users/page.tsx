@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/table';
 import { Search } from 'lucide-react';
 import { useUsers } from '@/lib/api/users';
-import { LEVELS, LEVEL_ROLES } from '@/lib/api/user-level-roles';
+import { useEducationLevels, LEVEL_ROLES } from '@/lib/api/user-level-roles';
 import { LevelRolesBadges }  from '@/components/users/level-roles-manager';
 import { CreateUserDialog }  from './_components/create-user-dialog';
 import { UserRowActions }    from './_components/user-row-actions';
@@ -29,9 +29,10 @@ export default function UsersPage() {
   const [filterLevel,   setFilterLevel]   = useState('all');
   const [filterLvlRole, setFilterLvlRole] = useState('all');
 
+  const { data: educationLevels } = useEducationLevels();
   const { data: users, isLoading } = useUsers({
-    level: filterLevel   !== 'all' ? filterLevel   : undefined,
-    role:  filterLvlRole !== 'all' ? filterLvlRole : undefined,
+    educationLevelId: filterLevel !== 'all' ? filterLevel : undefined,
+    role:             filterLvlRole !== 'all' ? filterLvlRole : undefined,
   });
 
   const filtered = users?.filter((u) => {
@@ -89,8 +90,8 @@ export default function UsersPage() {
           <SelectTrigger className="w-40"><SelectValue placeholder="Nivel" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos los niveles</SelectItem>
-            {LEVELS.map((l) => (
-              <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>
+            {(educationLevels ?? []).map((el) => (
+              <SelectItem key={el.id} value={el.id}>{el.name}</SelectItem>
             ))}
           </SelectContent>
         </Select>

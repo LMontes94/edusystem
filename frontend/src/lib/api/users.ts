@@ -39,10 +39,11 @@ export function useUser(id: string) {
 }
 
 // ── Listar todos ──────────────────────────────
-export function useUsers(filters?: { level?: string; role?: string }) {
+export function useUsers(filters?: { level?: string; educationLevelId?: string; role?: string }) {
   const params: any = {};
-  if (filters?.level) params.level = filters.level;
-  if (filters?.role)  params.role  = filters.role;
+  if (filters?.level)             params.level             = filters.level;
+  if (filters?.educationLevelId)  params.educationLevelId  = filters.educationLevelId;
+  if (filters?.role)              params.role              = filters.role;
  
   return useQuery<User[]>({
     queryKey: ['users', filters],

@@ -31,7 +31,8 @@ export type LeaveDto = z.infer<typeof LeaveSchema>;
 
 // ── Rol por nivel ─────────────────────────────
 export const LevelRoleSchema = z.object({
-  level: z.enum(['INICIAL', 'PRIMARIA', 'SECUNDARIA']),
-  role:  z.enum(['ADMIN', 'DIRECTOR', 'SECRETARY', 'PRECEPTOR', 'TEACHER', 'GUARDIAN']),
+  educationLevelId: z.string().uuid(),
+  level:           z.enum(['INICIAL', 'PRIMARIA', 'SECUNDARIA']).optional(),
+  role:            z.enum(['ADMIN', 'DIRECTOR', 'SECRETARY', 'PRECEPTOR', 'TEACHER', 'GUARDIAN']),
 });
 export type LevelRoleDto = z.infer<typeof LevelRoleSchema>;

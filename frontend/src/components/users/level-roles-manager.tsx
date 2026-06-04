@@ -19,13 +19,14 @@ import {
 import { Badge }  from '@/components/ui/badge';
 import { Plus, X, Layers } from 'lucide-react';
 import {
-  useAddLevelRole, useRemoveLevelRole, LEVELS, LEVEL_ROLES,
+  useAddLevelRole, useRemoveLevelRole, useEducationLevels, LEVELS, LEVEL_ROLES,
 } from '@/lib/api/user-level-roles';
 
 interface LevelRole {
-  id:    string;
-  level: string;
-  role:  string;
+  id:                string;
+  level:             string;
+  role:              string;
+  educationLevelId?: string;
 }
 
 interface User {
@@ -87,17 +88,27 @@ function LevelRolesDialog({
   user:      User;
   canManage: boolean;
 }) {
-  const [newLevel, setNewLevel] = useState('');
-  const [newRole,  setNewRole]  = useState('');
+  const [newEducationLevelId, setNewEducationLevelId] = useState('');
+  const [newRole,             setNewRole]             = useState('');
 
-  const addLevelRole    = useAddLevelRole(user.id);
-  const removeLevelRole = useRemoveLevelRole(user.id);
+  const { data: educationLevels } = useEducationLevels();
+  const addLevelRole              = useAddLevelRole(user.id);
+  const removeLevelRole           = useRemoveLevelRole(user.id);
+
+  const educationLevelMap = new Map((educationLevels ?? []).map((el) => [el.id, el]));
 
   async function handleAdd() {
-    if (!newLevel || !newRole) return;
-    await addLevelRole.mutateAsync({ level: newLevel, role: newRole });
-    setNewLevel('');
+    if (!newEducationLevelId || !newRole) return;
+    await addLevelRole.mutateAsync({ educationLevelId: newEducationLevelId, role: newRole });
+    setNewEducationLevelId('');
     setNewRole('');
+  }
+
+  function levelDisplay(lr: LevelRole): string {
+    if (lr.educationLevelId) {
+      return educationLevelMap.get(lr.educationLevelId)?.name ?? lr.level;
+    }
+    return lr.level;
   }
 
   return (
@@ -123,7 +134,7 @@ function LevelRolesDialog({
                     key={lr.id}
                     className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border ${levelColors[lr.level] ?? 'bg-gray-100 text-gray-700'}`}
                   >
-                    <span className="opacity-70">{lr.level}</span>
+                    <span className="opacity-70">{levelDisplay(lr)}</span>
                     <span>·</span>
                     <span>{roleLabels[lr.role] ?? lr.role}</span>
                     {canManage && (
@@ -146,13 +157,13 @@ function LevelRolesDialog({
             <div className="space-y-2 border-t pt-3">
               <p className="text-xs font-medium text-muted-foreground">Agregar rol</p>
               <div className="flex gap-2">
-                <Select value={newLevel} onValueChange={setNewLevel}>
+                <Select value={newEducationLevelId} onValueChange={setNewEducationLevelId}>
                   <SelectTrigger className="flex-1 h-8 text-sm">
                     <SelectValue placeholder="Nivel" />
                   </SelectTrigger>
                   <SelectContent>
-                    {LEVELS.map((l) => (
-                      <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>
+                    {(educationLevels ?? []).map((el) => (
+                      <SelectItem key={el.id} value={el.id}>{el.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -172,7 +183,7 @@ function LevelRolesDialog({
                   size="sm"
                   className="h-8 px-2"
                   onClick={handleAdd}
-                  disabled={!newLevel || !newRole || addLevelRole.isPending}
+                  disabled={!newEducationLevelId || !newRole || addLevelRole.isPending}
                 >
                   <Plus className="h-4 w-4" />
                 </Button>
@@ -195,14 +206,17 @@ export function LevelRolesBadges({ levelRoles }: { levelRoles: LevelRole[] }) {
 
   return (
     <div className="flex flex-wrap gap-1 mt-1">
-      {levelRoles.map((lr) => (
-        <span
-          key={lr.id}
-          className={`inline-flex items-center text-xs px-1.5 py-0.5 rounded border font-medium ${levelColors[lr.level] ?? 'bg-gray-100 text-gray-700'}`}
-        >
-          {lr.level.charAt(0)}{lr.level.slice(1).toLowerCase()} · {roleLabels[lr.role] ?? lr.role}
-        </span>
-      ))}
+      {levelRoles.map((lr) => {
+        const displayName = lr.level.charAt(0).toUpperCase() + lr.level.slice(1).toLowerCase();
+        return (
+          <span
+            key={lr.id}
+            className={`inline-flex items-center text-xs px-1.5 py-0.5 rounded border font-medium ${levelColors[lr.level] ?? 'bg-gray-100 text-gray-700'}`}
+          >
+            {displayName} · {roleLabels[lr.role] ?? lr.role}
+          </span>
+        );
+      })}
     </div>
   );
 }
