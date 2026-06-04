@@ -72,6 +72,10 @@ export class AbilityFactory {
         cannot([Action.Create, Action.Update, Action.Delete], 'ClosingGrade');
         can(Action.Read,   'PendingSubject', inst);
         cannot([Action.Create, Action.Update, Action.Delete], 'PendingSubject');
+        can(Action.Read,   'EducationLevel', inst);
+        cannot([Action.Create, Action.Update, Action.Delete], 'EducationLevel');
+        can(Action.Read,   'LevelGrade',     inst);
+        cannot([Action.Create, Action.Update, Action.Delete], 'LevelGrade');
         can(Action.Read, 'Indicator', inst);
         cannot([Action.Create, Action.Update, Action.Delete], 'Indicator');
         can(Action.Manage, 'StudentObservation', inst);
@@ -108,6 +112,10 @@ export class AbilityFactory {
         cannot([Action.Create, Action.Update, Action.Delete], 'ClosingGrade');
         can(Action.Read,   'PendingSubject', inst);
         cannot([Action.Create, Action.Update, Action.Delete], 'PendingSubject');
+        can(Action.Read,   'EducationLevel', inst);
+        cannot([Action.Create, Action.Update, Action.Delete], 'EducationLevel');
+        can(Action.Read,   'LevelGrade',     inst);
+        cannot([Action.Create, Action.Update, Action.Delete], 'LevelGrade');
         can(Action.Read, 'Indicator', inst);
         cannot([Action.Create, Action.Update, Action.Delete], 'Indicator');
         can(Action.Manage, 'StudentObservation', inst);
