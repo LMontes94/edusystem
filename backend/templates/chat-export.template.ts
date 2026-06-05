@@ -3,6 +3,7 @@ export interface ChatExportData {
   creator: string;
   createdAt: string;
   level: string | null;
+  educationLevelName?: string | null;
   participants: { name: string; role: string }[];
   messages: { senderName: string; senderRole: string; content: string; sentAt: string }[];
   exportedAt: string;
@@ -28,9 +29,10 @@ function formatDate(iso: string): string {
 }
 
 export function chatExportTemplate(data: ChatExportData): string {
-  const levelLabel = data.level
-    ? { INICIAL: 'Inicial', PRIMARIA: 'Primaria', SECUNDARIA: 'Secundaria' }[data.level] ?? data.level
-    : 'General';
+  const levelLabel = data.educationLevelName
+    ?? (data.level
+      ? { INICIAL: 'Inicial', PRIMARIA: 'Primaria', SECUNDARIA: 'Secundaria' }[data.level] ?? data.level
+      : 'General');
 
   const roleLabel: Record<string, string> = {
     TEACHER: 'Docente',

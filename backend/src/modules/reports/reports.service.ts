@@ -14,7 +14,7 @@ import {
   AttendanceByPeriod,
 } from './report.types';
 import { computeTrayectoria } from './trayectoria.helper';
-import { aggregatePeriods, DEFAULT_AGGREGATION } from './report.aggregation';
+import { aggregatePeriods, getAggregationBySlug, DEFAULT_AGGREGATION } from './report.aggregation';
 import type { PeriodAggregationEntry } from './report.aggregation';
 import {
   secondaryGradesTemplate,
@@ -87,7 +87,7 @@ export class ReportsService {
   // ── Resolver agregación de períodos ──────────
   private async resolvePeriodAggregation(
     institutionId: string,
-    level: string,
+    levelSlug: string,
   ): Promise<PeriodAggregationEntry[]> {
     const institution = await this.prisma.institution.findUnique({
       where: { id: institutionId },
@@ -95,13 +95,14 @@ export class ReportsService {
     });
 
     const settings = (institution?.settings as any) ?? {};
-    const config = settings.reportPeriodAggregation?.[level];
+    const upperKey = levelSlug.toUpperCase();
+    const config = settings.reportPeriodAggregation?.[upperKey];
 
     if (Array.isArray(config) && config.length > 0) {
       return config;
     }
 
-    return DEFAULT_AGGREGATION[level] ?? DEFAULT_AGGREGATION.SECUNDARIA;
+    return getAggregationBySlug(levelSlug);
   }
 
   // ── Generar PDF desde HTML ────────────────────
@@ -363,7 +364,19 @@ export class ReportsService {
         include: {
           courseStudents: {
             where:   { status: 'ACTIVE', course: { schoolYearId } },
-            include: { course: true },
+            include: {
+              course: {
+                include: {
+                  levelGrade: {
+                    include: {
+                      educationLevel: {
+                        select: { id: true, name: true, slug: true },
+                      },
+                    },
+                  },
+                },
+              },
+            },
           },
         },
       }),
@@ -390,6 +403,7 @@ export class ReportsService {
     if (!student) throw new NotFoundException('Alumno no encontrado');
 
     const courseStudent = student.courseStudents[0];
+    const educationLevel = courseStudent?.course.levelGrade?.educationLevel;
 
     // Agrupar notas por materia y período
     const subjectMap = new Map<string, any>();
@@ -443,8 +457,11 @@ export class ReportsService {
             grade:    courseStudent.course.grade,
             division: courseStudent.course.division,
             level:    courseStudent.course.level,
+            educationLevel: educationLevel
+              ? { id: educationLevel.id, name: educationLevel.name, slug: educationLevel.slug }
+              : undefined,
           }
-        : { name: '—', grade: 0, division: '—', level: '—' },
+        : { name: '—', grade: 0, division: '—', level: '—', educationLevel: undefined },
       schoolYear: schoolYear!.year,
       periods:    schoolYear!.periods,
       subjects,
@@ -472,7 +489,19 @@ export class ReportsService {
           include: {
             courseStudents: {
               where:   { status: 'ACTIVE', course: { schoolYearId } },
-              include: { course: true },
+              include: {
+                course: {
+                  include: {
+                    levelGrade: {
+                      include: {
+                        educationLevel: {
+                          select: { id: true, name: true, slug: true },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
             },
             studentAssignments: {
               where:   { schoolYearId },
@@ -524,10 +553,12 @@ export class ReportsService {
     const courseStudent = student.courseStudents[0];
     if (!courseStudent) throw new NotFoundException('El alumno no está inscripto en ningún curso');
 
+    const educationLevel = courseStudent.course.levelGrade?.educationLevel;
     const sortedPeriods = schoolYear.periods;
 
     // Resolve period aggregation config
-    const aggregation = await this.resolvePeriodAggregation(institutionId, courseStudent.course.level);
+    const levelForAggregation = educationLevel?.slug ?? courseStudent.course.level.toLowerCase();
+    const aggregation = await this.resolvePeriodAggregation(institutionId, levelForAggregation);
 
     // Map courseSubjects by subjectId for quick lookup
     // Include RECURSE/EXEMPT subjects from studentAssignments (cross-course)
@@ -715,6 +746,9 @@ export class ReportsService {
         grade:    courseStudent.course.grade,
         division: courseStudent.course.division,
         level:    courseStudent.course.level,
+        educationLevel: educationLevel
+          ? { id: educationLevel.id, name: educationLevel.name, slug: educationLevel.slug }
+          : undefined,
       },
       schoolYear: schoolYear.year,
       variant: 'DEFAULT' as ReportVariant,
@@ -741,7 +775,19 @@ export class ReportsService {
           include: {
             courseStudents: {
               where:   { status: 'ACTIVE', course: { schoolYearId } },
-              include: { course: true },
+              include: {
+                course: {
+                  include: {
+                    levelGrade: {
+                      include: {
+                        educationLevel: {
+                          select: { id: true, name: true, slug: true },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
             },
           },
         }),
@@ -782,6 +828,8 @@ export class ReportsService {
 
     const courseStudent = student.courseStudents[0];
     if (!courseStudent) throw new NotFoundException('El alumno no está inscripto en ningún curso');
+
+    const educationLevel = courseStudent.course.levelGrade?.educationLevel;
 
     // Use the most recent period (or all periods) for indicators
     const latestPeriod = schoolYear.periods[schoolYear.periods.length - 1];
@@ -882,6 +930,9 @@ export class ReportsService {
         grade:    courseStudent.course.grade,
         division: courseStudent.course.division,
         level:    courseStudent.course.level,
+        educationLevel: educationLevel
+          ? { id: educationLevel.id, name: educationLevel.name, slug: educationLevel.slug }
+          : undefined,
       },
       schoolYear: schoolYear.year,
       variant: 'DEFAULT' as ReportVariant,
@@ -1114,7 +1165,19 @@ private async buildPendingData(
       include: {
         courseStudents: {
           where:   { courseId, status: 'ACTIVE' },
-          include: { course: true },
+          include: {
+            course: {
+              include: {
+                levelGrade: {
+                  include: {
+                    educationLevel: {
+                      select: { id: true, name: true, slug: true },
+                    },
+                  },
+                },
+              },
+            },
+          },
         },
       },
     }),
@@ -1140,8 +1203,9 @@ private async buildPendingData(
   if (!student) throw new NotFoundException('Alumno no encontrado');
  
   const courseStudent = student.courseStudents[0];
+  const educationLevel = courseStudent?.course.levelGrade?.educationLevel;
   const settings      = (institution?.settings as any) ?? {};
- 
+  
   return {
     student: {
       firstName:      student.firstName,
@@ -1154,8 +1218,11 @@ private async buildPendingData(
           grade:    courseStudent.course.grade,
           division: courseStudent.course.division,
           level:    courseStudent.course.level,
+          educationLevel: educationLevel
+            ? { id: educationLevel.id, name: educationLevel.name, slug: educationLevel.slug }
+            : undefined,
         }
-      : { name: '—', grade: 0, division: '—', level: '—' },
+      : { name: '—', grade: 0, division: '—', level: '—', educationLevel: undefined },
     schoolYear: schoolYear!.year,
     institution: {
       name:     institution!.name,

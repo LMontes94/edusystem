@@ -131,12 +131,20 @@ export class ChatService {
       throw new ForbiddenException('No tenés permisos para crear salas de chat');
     }
 
-    const resolvedLevel = await this.resolveRoomLevel(dto.participantIds ?? [], dto.courseId);
+    const resolvedLevel = await this.resolveRoomLevel(dto.participantIds ?? [], dto.courseId, institutionId);
+
+    if (!resolvedLevel?.educationLevelId) {
+      throw new BadRequestException(
+        `No se pudo resolver un EducationLevel válido para crear la sala (tipo=${dto.type}, curso=${dto.courseId ?? '—'}, participantes=${dto.participantIds?.length ?? 0})`,
+      );
+    }
 
     if (user.role === 'GUARDIAN') {
-      const roomLevel = resolvedLevel ?? 'PRIMARIA';
+      if (!resolvedLevel.educationLevelId) {
+        throw new ForbiddenException('No tenés permisos para iniciar conversaciones');
+      }
       const settings = await this.prisma.institutionLevelCommunicationSettings.findUnique({
-        where: { institutionId_level: { institutionId, level: roomLevel } },
+        where: { institutionId_educationLevelId: { institutionId, educationLevelId: resolvedLevel.educationLevelId } },
       });
       if (!settings?.guardianCanStartConversation) {
         throw new ForbiddenException('No tenés permisos para iniciar conversaciones');
@@ -169,7 +177,8 @@ export class ChatService {
             type: 'DIRECT',
             directRoomHash: roomHash,
             creatorId: user.id,
-            level: resolvedLevel,
+            level: resolvedLevel.level,
+            educationLevelId: resolvedLevel.educationLevelId,
             members: {
               create: [
                 { userId: user.id },
@@ -193,7 +202,7 @@ export class ChatService {
             roomId: room.id,
             actorId: user.id,
             action: 'CREATE_ROOM',
-            metadata: { type: room.type, participantCount: 2, level: resolvedLevel },
+            metadata: { type: room.type, participantCount: 2, level: resolvedLevel.level, educationLevelId: resolvedLevel.educationLevelId },
           },
         });
 
@@ -245,7 +254,8 @@ export class ChatService {
         type: 'GROUP',
         courseId: dto.courseId,
         creatorId: user.id,
-        level: resolvedLevel,
+        level: resolvedLevel.level,
+        educationLevelId: resolvedLevel.educationLevelId,
         members: {
           create: [
             { userId: user.id },
@@ -273,7 +283,8 @@ export class ChatService {
           type: room.type,
           name: room.name,
           participantCount: dto.participantIds?.length ?? 1,
-          level: resolvedLevel,
+          level: resolvedLevel.level,
+          educationLevelId: resolvedLevel.educationLevelId,
         },
       },
     });
@@ -684,29 +695,73 @@ export class ChatService {
 
   private async resolveRoomLevel(
     participantIds: string[],
-    courseId?: string,
-  ): Promise<Level | null> {
+    courseId: string | undefined,
+    institutionId: string,
+  ): Promise<{ level: Level | null; educationLevelId: string | null }> {
     if (courseId) {
       const course = await this.prisma.course.findUnique({
         where: { id: courseId },
-        select: { level: true },
+        select: {
+          level: true,
+          institutionId: true,
+          levelGrade: {
+            select: {
+              educationLevel: { select: { id: true } },
+            },
+          },
+        },
       });
-      return course?.level ?? null;
+      if (course) {
+        let educationLevelId = course.levelGrade?.educationLevel?.id ?? null;
+        if (!educationLevelId && course.level) {
+          const eduLevel = await this.prisma.educationLevel.findFirst({
+            where: { institutionId: course.institutionId, slug: course.level.toLowerCase() },
+            select: { id: true },
+          });
+          educationLevelId = eduLevel?.id ?? null;
+        }
+        return { level: course.level, educationLevelId };
+      }
+      return { level: null, educationLevelId: null };
     }
 
     const levelRoles = await this.prisma.userLevelRole.findMany({
       where: { userId: { in: participantIds } },
-      select: { level: true },
+      select: {
+        level: true,
+        educationLevel: { select: { id: true } },
+      },
     });
 
     const levels = [...new Set(levelRoles.map((lr) => lr.level))];
 
-    if (levels.length === 0) return null;
-    if (levels.length === 1) return levels[0];
+    if (levels.length === 0) return { level: null, educationLevelId: null };
+    if (levels.length > 1) {
+      throw new BadRequestException(
+        'No se pueden crear conversaciones entre múltiples niveles educativos',
+      );
+    }
 
-    throw new BadRequestException(
-      'No se pueden crear conversaciones entre múltiples niveles educativos',
-    );
+    let educationLevelId: string | null = null;
+    const uniqueEducationLevelIds = [
+      ...new Set(levelRoles.map((lr) => lr.educationLevel?.id).filter(Boolean)),
+    ];
+    if (uniqueEducationLevelIds.length === 1) {
+      educationLevelId = uniqueEducationLevelIds[0]!;
+    }
+
+    if (!educationLevelId && levels[0]) {
+      const eduLevel = await this.prisma.educationLevel.findFirst({
+        where: { institutionId, slug: levels[0].toLowerCase() },
+        select: { id: true },
+      });
+      educationLevelId = eduLevel?.id ?? null;
+    }
+
+    return {
+      level: levels[0],
+      educationLevelId,
+    };
   }
 
   async addMembers(
@@ -726,15 +781,18 @@ export class ChatService {
 
     const room = await this.prisma.chatRoom.findUnique({
       where: { id: roomId },
-      select: { institutionId: true, level: true },
+      select: { institutionId: true, level: true, educationLevelId: true },
     });
     if (!room || room.institutionId !== institutionId) {
       throw new NotFoundException('Sala no encontrada');
     }
 
     if (user.role === 'GUARDIAN') {
+      if (!room.educationLevelId) {
+        throw new ForbiddenException('No tenés permisos para agregar participantes');
+      }
       const settings = await this.prisma.institutionLevelCommunicationSettings.findUnique({
-        where: { institutionId_level: { institutionId, level: room.level ?? 'PRIMARIA' } },
+        where: { institutionId_educationLevelId: { institutionId, educationLevelId: room.educationLevelId } },
       });
       if (!settings?.guardianCanAddParticipants) {
         throw new ForbiddenException('No tenés permisos para agregar participantes');
@@ -819,6 +877,9 @@ export class ChatService {
             },
           },
         },
+        educationLevel: {
+          select: { id: true, name: true, slug: true },
+        },
       },
     });
 
@@ -828,6 +889,7 @@ export class ChatService {
       creator: room.creator,
       createdAt: room.createdAt,
       level: room.level,
+      educationLevel: room.educationLevel,
       participants: room.members,
     };
   }
@@ -855,14 +917,20 @@ export class ChatService {
             },
           },
         },
+        educationLevel: {
+          select: { id: true, name: true, slug: true },
+        },
       },
     });
 
     if (!room) throw new NotFoundException('Sala no encontrada');
 
     if (user.role === 'GUARDIAN') {
+      if (!room.educationLevelId) {
+        throw new ForbiddenException('No tenés permisos para exportar conversaciones');
+      }
       const settings = await this.prisma.institutionLevelCommunicationSettings.findUnique({
-        where: { institutionId_level: { institutionId, level: room.level ?? 'PRIMARIA' } },
+        where: { institutionId_educationLevelId: { institutionId, educationLevelId: room.educationLevelId } },
       });
       if (!settings?.guardianCanExportPdf) {
         throw new ForbiddenException('No tenés permisos para exportar conversaciones');
@@ -900,6 +968,7 @@ export class ChatService {
         : 'Desconocido',
       createdAt: room.createdAt.toISOString(),
       level: room.level,
+      educationLevelName: room.educationLevel?.name ?? null,
       participants,
       messages: messagesData,
       exportedAt: new Date().toISOString(),

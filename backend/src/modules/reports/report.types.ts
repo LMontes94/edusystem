@@ -63,6 +63,11 @@ export interface RiteReport {
     grade:    number;
     division: string;
     level:    string;
+    educationLevel?: {
+      id: string;
+      name: string;
+      slug: string;
+    };
   };
   schoolYear: number;
   variant: ReportVariant;
@@ -82,6 +87,11 @@ export interface ValoracionReport {
     grade:    number;
     division: string;
     level:    string;
+    educationLevel?: {
+      id: string;
+      name: string;
+      slug: string;
+    };
   };
   schoolYear: number;
   variant: ReportVariant;
@@ -106,6 +116,11 @@ export interface SecondaryGradeReport {
     grade:    number;
     division: string;
     level:    string;
+    educationLevel?: {
+      id: string;
+      name: string;
+      slug: string;
+    };
   };
   schoolYear: number;
   periods: {

@@ -32,7 +32,9 @@ export function GenerateReportTab() {
   });
 
   const filteredCourses = (courses ?? []).filter(
-    (c: any) => c.level === EDUCATION_LEVEL_TO_COURSE_LEVEL[REPORT_TYPES[reportType].educationLevel]
+    (c: any) =>
+      (c.levelGrade?.educationLevel?.slug ?? c.level?.toLowerCase())
+      === REPORT_TYPES[reportType].educationLevel.toLowerCase(),
   );
 
   const activeStudents = courseDetail?.courseStudents

@@ -95,11 +95,11 @@ export function ViewParticipantsDialog({ roomId, open, onOpenChange }: ViewParti
 
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <span>Creado: {new Date(data.createdAt).toLocaleDateString('es-AR')}</span>
-                {data.level && (
+                {(data.educationLevel?.name ?? data.level) && (
                   <>
                     <span>·</span>
                     <Badge variant="outline" className="text-[10px]">
-                      {levelLabel[data.level] ?? data.level}
+                      {data.educationLevel?.name ?? levelLabel[data.level!] ?? data.level}
                     </Badge>
                   </>
                 )}

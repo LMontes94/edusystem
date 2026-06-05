@@ -33,6 +33,17 @@ export const DEFAULT_AGGREGATION: Record<string, PeriodAggregationEntry[]> = {
   INICIAL:    DEFAULT_PRIMARIA_AGGREGATION,
 };
 
+const SLUG_TO_LEVEL: Record<string, string> = {
+  inicial:    'INICIAL',
+  primaria:   'PRIMARIA',
+  secundaria: 'SECUNDARIA',
+};
+
+export function getAggregationBySlug(slug: string): PeriodAggregationEntry[] {
+  const level = SLUG_TO_LEVEL[slug];
+  return DEFAULT_AGGREGATION[level] ?? DEFAULT_AGGREGATION.SECUNDARIA;
+}
+
 export function aggregatePeriods(
   input: AggregateInput,
   sortedPeriods: { id: string; order: number }[],

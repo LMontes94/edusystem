@@ -84,6 +84,11 @@ export interface MembersResponse {
   } | null;
   createdAt: string;
   level: string | null;
+  educationLevel?: {
+    id: string;
+    name: string;
+    slug: string;
+  } | null;
   participants: (ChatRoomMember & {
     role: string;
     addedBy?: { firstName: string; lastName: string } | null;

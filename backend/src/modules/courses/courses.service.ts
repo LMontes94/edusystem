@@ -135,6 +135,8 @@ export class CoursesService {
         type: 'GROUP',
         name: `${dto.name} - ${levelGrade.displayOrder}° ${dto.division}`,
         courseId: course.id,
+        level: levelGrade.educationLevel.slug.toUpperCase() as any,
+        educationLevelId: levelGrade.educationLevelId,
       },
     });
 

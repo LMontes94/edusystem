@@ -353,12 +353,12 @@ model User {
    id               String   @id @default(uuid())
    userId           String   @map("user_id")
    level            Level    // INICIAL | PRIMARIA | SECUNDARIA
-   educationLevelId String?  @map("education_level_id")
-   role             Role     // TEACHER | PRECEPTOR | etc.
-   createdAt        DateTime @default(now()) @map("created_at")
+    educationLevelId String   @map("education_level_id")
+    role             Role     // TEACHER | PRECEPTOR | etc.
+    createdAt        DateTime @default(now()) @map("created_at")
 
-   user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-   educationLevel EducationLevel? @relation(fields: [educationLevelId], references: [id], onDelete: Restrict)
+    user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+    educationLevel EducationLevel @relation(fields: [educationLevelId], references: [id], onDelete: Restrict)
 
    @@unique([userId, level, role])
    @@unique([userId, educationLevelId, role])
@@ -722,12 +722,12 @@ model ChatRoom {
   createdAt       DateTime     @default(now()) @map("created_at")
   creatorId       String?      @map("creator_id")
   level           Level?       @map("level")
-  educationLevelId String?     @map("education_level_id")
+  educationLevelId String      @map("education_level_id")
 
   institution Institution                  @relation(fields: [institutionId], references: [id])
   course      Course?                      @relation(fields: [courseId], references: [id])
   creator     User?                        @relation("ChatRoomCreator", fields: [creatorId], references: [id])
-  educationLevel EducationLevel?           @relation(fields: [educationLevelId], references: [id], onDelete: Restrict)
+  educationLevel EducationLevel            @relation(fields: [educationLevelId], references: [id], onDelete: Restrict)
   members     ChatRoomMember[]
   messages    ChatMessage[]
   auditLogs   ChatAuditLog[]
@@ -759,7 +759,7 @@ model InstitutionLevelCommunicationSettings {
   id                             String   @id @default(uuid())
   institutionId                  String   @map("institution_id")
   level                          Level
-  educationLevelId               String?  @map("education_level_id")
+  educationLevelId               String   @map("education_level_id")
   guardianCanStartConversation   Boolean  @default(false) @map("guardian_can_start_conversation")
   guardianCanAddParticipants     Boolean  @default(false) @map("guardian_can_add_participants")
   guardianCanExportPdf           Boolean  @default(false) @map("guardian_can_export_pdf")
@@ -767,9 +767,9 @@ model InstitutionLevelCommunicationSettings {
   updatedAt                      DateTime @updatedAt @map("updated_at")
 
   institution    Institution    @relation(fields: [institutionId], references: [id], onDelete: Cascade)
-  educationLevel EducationLevel? @relation(fields: [educationLevelId], references: [id], onDelete: Restrict)
+  educationLevel EducationLevel @relation(fields: [educationLevelId], references: [id], onDelete: Restrict)
 
-  @@unique([institutionId, level])
+  @@unique([institutionId, educationLevelId])
   @@index([institutionId])
   @@index([educationLevelId])
   @@map("institution_level_communication_settings")
