@@ -5,6 +5,7 @@ import { AppModule } from './app.module';
 import { WorkerAppModule } from './worker-app.module';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
 import { RedisIoAdapter } from './common/adapters/redis-io.adapter';
+import { AcademicStructureValidator } from './common/validators/academic-structure.validator';
 
 const logger = new Logger('Bootstrap');
 
@@ -66,6 +67,21 @@ async function bootstrap() {
   await app.listen(port);
   logger.log(`API corriendo en http://localhost:${port}/api/v1`);
   logger.log(`Modo: ${isDev ? 'desarrollo' : 'producción'}`);
+
+  try {
+    const results = await app.get(AcademicStructureValidator).validateAll();
+    const unhealthy = results.filter((r) => r.status !== 'HEALTHY');
+    if (unhealthy.length > 0) {
+      logger.warn(`Academic Structure: ${unhealthy.length} institution(s) INCOMPLETE/INVALID`);
+      unhealthy.forEach((r) =>
+        logger.warn(`  ${r.institutionName}: EducationLevels=${r.educationLevels}/${r.expectedEducationLevels}, LevelGrades=${r.levelGrades}/${r.expectedLevelGrades} [${r.status}]`),
+      );
+    } else {
+      logger.log(`Academic Structure: ${results.length} institution(s) HEALTHY`);
+    }
+  } catch (err) {
+    logger.error('Academic Structure validation failed', err);
+  }
 }
 
 bootstrap().catch((err) => {

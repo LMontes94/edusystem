@@ -39,7 +39,7 @@ import { GuardiansModule } from './modules/guardians/guardians.module';
 import { ClosingGradesModule } from './modules/closing-grades/closing-grades.module';
 import { PendingSubjectsModule } from './modules/pending-subjects/pending-subjects.module';
 import { EducationLevelsModule } from './modules/education-levels/education-levels.module';
-
+import { AcademicStructureValidator } from './common/validators/academic-structure.validator';
 
 @Module({
   imports: [
@@ -89,6 +89,7 @@ import { EducationLevelsModule } from './modules/education-levels/education-leve
        provide:  APP_GUARD,
        useClass: OnLeaveGuard,
     },
+    AcademicStructureValidator,
   ],
 })
 

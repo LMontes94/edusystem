@@ -11,12 +11,14 @@ import {
 } from './dto/institution.dto';
 import { randomBytes } from 'crypto';
 import { StorageService } from '../storage/storage.service';
+import { AcademicStructureFactory } from '../education-levels/services/academic-structure.factory';
 @Injectable()
 export class InstitutionsService {
   private readonly logger = new Logger(InstitutionsService.name);
   constructor(
          private readonly prisma:   PrismaService,
          private readonly storage:  StorageService,
+         private readonly academicStructureFactory: AcademicStructureFactory,
      ) {}
 
   // ── Crear institución + primer ADMIN ──────────
@@ -60,6 +62,9 @@ export class InstitutionsService {
         data: { institutionId: institution.id },
       });
       this.logger.log(`Chat policy creado para institución: ${institution.id}`);
+
+      await this.academicStructureFactory.provision(tx, institution.id);
+      this.logger.log(`Estructura académica creada para institución: ${institution.id}`);
 
       return {
         institution,

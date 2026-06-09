@@ -18,7 +18,8 @@
     "test:e2e": "jest --config ./test/jest-e2e.json --runInBand",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
-    "prisma:seed": "ts-node prisma/seed.ts"
+    "prisma:seed": "ts-node prisma/seed.ts",
+    "academic:check": "ts-node scripts/academic-structure-check.ts"
   },
   "prisma": {
     "seed": "ts-node --project tsconfig.json prisma/seed.ts"

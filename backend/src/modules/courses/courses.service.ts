@@ -5,6 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { Level } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RequestUser } from '../../common/decorators/current-user.decorator';
 import {
@@ -15,9 +16,72 @@ import {
   CreatePeriodDto,
 } from './dto/course.dto';
 
+type ResolvedCourseLevel = {
+  levelGradeId: string;
+  educationLevelId: string;
+  level: Level;
+  grade: number;
+};
+
 @Injectable()
 export class CoursesService {
   constructor(private readonly prisma: PrismaService) {}
+
+  private async resolveLevelGrade(
+    params: { levelGradeId?: string; level?: string; grade?: number },
+    institutionId: string,
+  ): Promise<ResolvedCourseLevel> {
+    if (params.levelGradeId) {
+      const lg = await this.prisma.levelGrade.findFirst({
+        where: {
+          id: params.levelGradeId,
+          educationLevel: { institutionId },
+        },
+        include: {
+          educationLevel: { select: { id: true, slug: true } },
+        },
+      });
+      if (!lg) {
+        throw new BadRequestException('LevelGrade no válido');
+      }
+      return {
+        levelGradeId: lg.id,
+        educationLevelId: lg.educationLevel.id,
+        level: lg.educationLevel.slug.toUpperCase() as Level,
+        grade: lg.displayOrder,
+      };
+    }
+
+    if (params.level !== undefined && params.grade !== undefined) {
+      const lg = await this.prisma.levelGrade.findFirst({
+        where: {
+          displayOrder: params.grade,
+          status: 'ACTIVE',
+          educationLevel: {
+            slug: params.level.toLowerCase(),
+            institutionId,
+            status: 'ACTIVE',
+          },
+        },
+        include: {
+          educationLevel: { select: { id: true, slug: true } },
+        },
+      });
+      if (!lg) {
+        throw new BadRequestException(
+          'El nivel/grado especificado no existe, está inactivo o no pertenece a la institución',
+        );
+      }
+      return {
+        levelGradeId: lg.id,
+        educationLevelId: lg.educationLevel.id,
+        level: lg.educationLevel.slug.toUpperCase() as Level,
+        grade: lg.displayOrder,
+      };
+    }
+
+    throw new BadRequestException('Se requiere levelGradeId o (level + grade)');
+  }
 
   // ── School Years ─────────────────────────────
   async findAllSchoolYears(institutionId: string) {
@@ -103,27 +167,15 @@ export class CoursesService {
     });
     if (!schoolYear) throw new NotFoundException('Año lectivo no encontrado');
 
-    const levelGrade = await this.prisma.levelGrade.findFirst({
-      where: {
-        id: dto.levelGradeId,
-        status: 'ACTIVE',
-        educationLevel: { institutionId, status: 'ACTIVE' },
-      },
-      include: { educationLevel: { select: { slug: true } } },
-    });
-    if (!levelGrade) {
-      throw new BadRequestException(
-        'El nivel/grado especificado no existe, está inactivo o no pertenece a la institución',
-      );
-    }
+    const resolved = await this.resolveLevelGrade(dto, institutionId);
 
     const course = await this.prisma.course.create({
       data: {
         name: dto.name,
         division: dto.division,
-        levelGradeId: dto.levelGradeId,
-        level: levelGrade.educationLevel.slug.toUpperCase() as any,
-        grade: levelGrade.displayOrder,
+        levelGradeId: resolved.levelGradeId,
+        level: resolved.level,
+        grade: resolved.grade,
         schoolYearId: dto.schoolYearId,
         institutionId,
       },
@@ -133,10 +185,10 @@ export class CoursesService {
       data: {
         institutionId,
         type: 'GROUP',
-        name: `${dto.name} - ${levelGrade.displayOrder}° ${dto.division}`,
+        name: `${dto.name} - ${resolved.grade}° ${dto.division}`,
         courseId: course.id,
-        level: levelGrade.educationLevel.slug.toUpperCase() as any,
-        educationLevelId: levelGrade.educationLevelId,
+        level: resolved.level,
+        educationLevelId: resolved.educationLevelId,
       },
     });
 
@@ -150,23 +202,11 @@ export class CoursesService {
     if (dto.name !== undefined) data.name = dto.name;
     if (dto.division !== undefined) data.division = dto.division;
 
-    if (dto.levelGradeId !== undefined) {
-      const levelGrade = await this.prisma.levelGrade.findFirst({
-        where: {
-          id: dto.levelGradeId,
-          status: 'ACTIVE',
-          educationLevel: { institutionId, status: 'ACTIVE' },
-        },
-        include: { educationLevel: { select: { slug: true } } },
-      });
-      if (!levelGrade) {
-        throw new BadRequestException(
-          'El nivel/grado especificado no existe, está inactivo o no pertenece a la institución',
-        );
-      }
-      data.levelGradeId = dto.levelGradeId;
-      data.level = levelGrade.educationLevel.slug.toUpperCase() as any;
-      data.grade = levelGrade.displayOrder;
+    if (dto.levelGradeId !== undefined || dto.level !== undefined || dto.grade !== undefined) {
+      const resolved = await this.resolveLevelGrade(dto, institutionId);
+      data.levelGradeId = resolved.levelGradeId;
+      data.level = resolved.level;
+      data.grade = resolved.grade;
     }
 
     return this.prisma.course.update({ where: { id }, data });

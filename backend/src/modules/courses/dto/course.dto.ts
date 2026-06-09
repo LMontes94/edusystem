@@ -9,19 +9,39 @@ export const CreateSchoolYearSchema = z.object({
 export type CreateSchoolYearDto = z.infer<typeof CreateSchoolYearSchema>;
 
 // ── Course ────────────────────────────────────
+const LevelSlug = z.enum(['INICIAL', 'PRIMARIA', 'SECUNDARIA']);
+
 export const CreateCourseSchema = z.object({
   schoolYearId: z.string().uuid(),
   name: z.string().min(1).max(100),
   division: z.string().max(10),
-  levelGradeId: z.string().uuid(),
-}).strict();
+  level: LevelSlug.optional(),
+  grade: z.number().int().min(1).max(12).optional(),
+  levelGradeId: z.string().uuid().optional(),
+}).refine(
+  (data) =>
+    data.levelGradeId !== undefined ||
+    (data.level !== undefined && data.grade !== undefined),
+  { message: 'Se requiere levelGradeId o (level + grade)' },
+);
 export type CreateCourseDto = z.infer<typeof CreateCourseSchema>;
 
 export const UpdateCourseSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   division: z.string().max(10).optional(),
+  level: LevelSlug.optional(),
+  grade: z.number().int().min(1).max(12).optional(),
   levelGradeId: z.string().uuid().optional(),
-}).strict();
+}).strict().refine(
+  (data) => {
+    const hasLevel = data.level !== undefined;
+    const hasGrade = data.grade !== undefined;
+    if (data.levelGradeId !== undefined) return true;
+    if (!hasLevel && !hasGrade) return true;
+    return hasLevel && hasGrade;
+  },
+  { message: 'Debe enviar levelGradeId o level y grade juntos' },
+);
 export type UpdateCourseDto = z.infer<typeof UpdateCourseSchema>;
 
 // ── Assign Teacher to Subject ─────────────────
