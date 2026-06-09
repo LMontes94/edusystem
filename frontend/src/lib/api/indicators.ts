@@ -32,7 +32,7 @@ export function useLevelGrades() {
           grades.push({ ...lg, educationLevel: { id: el.id, name: el.name, slug: el.slug } });
         }
       }
-      return grades.sort((a, b) => a.displayOrder - b.displayOrder);
+      return grades;
     },
     staleTime: 5 * 60 * 1000,
   });
