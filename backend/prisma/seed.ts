@@ -111,7 +111,11 @@ async function main() {
     return map[n] ?? 'to';
   };
   const levelGradeNames: { slug: string; grade: number }[] = [];
-  for (let g = 1; g <= 5; g++) levelGradeNames.push({ slug: 'secundaria', grade: g });
+  for (const [level, max] of [['inicial', 3], ['primaria', 6], ['secundaria', 5]] as const) {
+    for (let g = 1; g <= max; g++) {
+      levelGradeNames.push({ slug: level, grade: g });
+    }
+  }
 
   const levelGrades = await Promise.all(
     levelGradeNames.map(({ slug, grade }) => {
@@ -126,7 +130,12 @@ async function main() {
       });
     }),
   );
-  const lgByGrade = Object.fromEntries(levelGrades.map((lg) => [lg.displayOrder, lg.id]));
+  const lgByKey = Object.fromEntries(
+    levelGrades.map((lg) => {
+      const el = educLevels.find((e) => e.id === lg.educationLevelId)!;
+      return [`${el.slug}_${lg.displayOrder}`, lg.id];
+    }),
+  );
   console.log(`✅ ${levelGrades.length} LevelGrades creados (${levelGradeNames.map((l) => `${l.slug}/${l.grade}`).join(', ')})\n`);
 
   // ── Contraseñas ──────────────────────────────
@@ -323,7 +332,7 @@ async function main() {
       grade:         3,
       division:      'A',
       level:         'SECUNDARIA',
-      levelGradeId:  lgByGrade[3],
+      levelGradeId:  lgByKey['secundaria_3'],
     } as any,
   });
 
@@ -335,7 +344,7 @@ async function main() {
       grade:         4,
       division:      'B',
       level:         'SECUNDARIA',
-      levelGradeId:  lgByGrade[4],
+      levelGradeId:  lgByKey['secundaria_4'],
     } as any,
   });
 
