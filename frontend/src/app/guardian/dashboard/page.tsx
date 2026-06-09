@@ -135,7 +135,9 @@ function ChildDashboardCard({ child, activeSchoolYearId }: { child: any; activeS
         </CardTitle>
         {course && (
           <p className="text-xs text-muted-foreground">
-            {course.course.grade}° {course.course.division} — {course.course.name}
+            {course.course.levelGrade?.displayOrder ??
+  course.course.grade}
+° {course.course.division} — {course.course.name}
           </p>
         )}
       </CardHeader>

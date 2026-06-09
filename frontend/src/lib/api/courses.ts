@@ -12,13 +12,24 @@ import { exportToCSV } from '@/lib/helpers/export.csv';
 type ExportFormat = 'csv' | 'xlsx';
 
 export interface Course {
-  id:           string;
-  name:         string;
-  grade:        number;
-  division:     string;
-  level:        string;
+  id:            string;
+  name:          string;
+  grade:         number;
+  division:      string;
+  level:         string;
+  levelGradeId?: string;
+  levelGrade?:   {
+    id:           string;
+    name:         string;
+    displayOrder: number;
+    educationLevel?: {
+      id:   string;
+      slug: string;
+      name: string;
+    };
+  };
   schoolYearId: string;
-  schoolYear:   { year: number; isActive: boolean };
+  schoolYear:   { id: string; year: number; isActive: boolean };
   _count?:      { courseStudents: number; courseSubjects: number };
 }
 

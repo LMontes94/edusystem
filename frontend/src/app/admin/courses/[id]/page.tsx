@@ -34,7 +34,9 @@ export default function CourseDetailPage() {
   );
 
   const activeStudents = course.courseStudents?.filter((cs: any) => cs.status === 'ACTIVE') ?? [];
-  const isSecondary = course.level === 'SECUNDARIA';
+  const isSecondary =
+    course.levelGrade?.educationLevel?.slug?.toUpperCase() === 'SECUNDARIA' ||
+    course.level === 'SECUNDARIA';
 
   return (
     <div className="space-y-6 max-w-4xl">
@@ -47,7 +49,9 @@ export default function CourseDetailPage() {
         <div className="flex-1">
           <h1 className="text-xl font-semibold">{course.name}</h1>
           <p className="text-sm text-muted-foreground">
-            {levelLabel[course.level] ?? course.level} · Año {course.schoolYear.year}
+            {course.levelGrade?.educationLevel?.name ??
+  levelLabel[course.level] ??
+  course.level} · Año {course.schoolYear.year}
           </p>
         </div>
         <div className="flex items-center gap-2">

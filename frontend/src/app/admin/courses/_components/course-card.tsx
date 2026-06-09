@@ -18,8 +18,10 @@ export function CourseCard({ course }: Props) {
             <div className="min-w-0">
               <p className="font-semibold truncate">{course.name}</p>
               <div className="flex items-center gap-2 mt-1">
-                <span className={`text-xs font-medium px-1.5 py-0.5 rounded ${levelColor[course.level] ?? 'bg-gray-100 text-gray-700'}`}>
-                  {levelLabel[course.level] ?? course.level}
+                <span className={`text-xs font-medium px-1.5 py-0.5 rounded ${levelColor[course.levelGrade?.educationLevel?.slug?.toUpperCase() ?? course.level] ?? 'bg-gray-100 text-gray-700'}`}>
+                  {course.levelGrade?.educationLevel?.name ??
+                    levelLabel[course.level] ??
+                    course.level}
                 </span>
                 <span className="text-xs text-muted-foreground">
                   {course.schoolYear?.year}

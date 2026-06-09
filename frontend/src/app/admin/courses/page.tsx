@@ -16,7 +16,10 @@ export default function CoursesPage() {
 
   const filtered = courses?.filter((c) => {
     const q = search.toLowerCase();
-    return c.name.toLowerCase().includes(q) || c.level.toLowerCase().includes(q);
+    return (
+      c.name.toLowerCase().includes(q) ||
+      (c.levelGrade?.educationLevel?.slug ?? c.level?.toLowerCase()).includes(q)
+    );
   });
 
   return (

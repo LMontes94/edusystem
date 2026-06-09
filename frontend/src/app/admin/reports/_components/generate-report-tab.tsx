@@ -11,7 +11,7 @@ import { ReportFilters } from './report-filters';
 import { ReportIndividualSection } from './report-individual-section';
 import { ReportBulkSection } from './report-bulk-section';
 import type { ReportType } from '@/features/reports/types';
-import { REPORT_TYPES, EDUCATION_LEVEL_TO_COURSE_LEVEL } from '@/features/reports/types';
+import { REPORT_TYPES } from '@/features/reports/types';
 
 export function GenerateReportTab() {
   const [selectedCourse, setSelectedCourse] = useState('');

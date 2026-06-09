@@ -454,9 +454,9 @@ export class ReportsService {
       course: courseStudent
         ? {
             name:     courseStudent.course.name,
-            grade:    courseStudent.course.grade,
+            grade:    courseStudent.course.levelGrade?.displayOrder ?? courseStudent.course.grade,
             division: courseStudent.course.division,
-            level:    courseStudent.course.level,
+            level:    courseStudent.course.levelGrade?.educationLevel.slug.toUpperCase() ?? courseStudent.course.level,
             educationLevel: educationLevel
               ? { id: educationLevel.id, name: educationLevel.name, slug: educationLevel.slug }
               : undefined,
@@ -743,9 +743,9 @@ export class ReportsService {
       },
       course: {
         name:     courseStudent.course.name,
-        grade:    courseStudent.course.grade,
+        grade:    courseStudent.course.levelGrade?.displayOrder ?? courseStudent.course.grade,
         division: courseStudent.course.division,
-        level:    courseStudent.course.level,
+        level:    courseStudent.course.levelGrade?.educationLevel.slug.toUpperCase() ?? courseStudent.course.level,
         educationLevel: educationLevel
           ? { id: educationLevel.id, name: educationLevel.name, slug: educationLevel.slug }
           : undefined,
@@ -927,9 +927,9 @@ export class ReportsService {
       },
       course: {
         name:     courseStudent.course.name,
-        grade:    courseStudent.course.grade,
+        grade:    courseStudent.course.levelGrade?.displayOrder ?? courseStudent.course.grade,
         division: courseStudent.course.division,
-        level:    courseStudent.course.level,
+        level:    courseStudent.course.levelGrade?.educationLevel.slug.toUpperCase() ?? courseStudent.course.level,
         educationLevel: educationLevel
           ? { id: educationLevel.id, name: educationLevel.name, slug: educationLevel.slug }
           : undefined,
@@ -958,6 +958,13 @@ export class ReportsService {
                   include: {
                     subject: true,
                     teacher: { select: { firstName: true, lastName: true } },
+                  },
+                },
+                levelGrade: {
+                  include: {
+                    educationLevel: {
+                      select: { id: true, slug: true, name: true },
+                    },
                   },
                 },
               },
@@ -1071,7 +1078,7 @@ export class ReportsService {
     course: courseStudent
       ? {
           name:     courseStudent.course.name,
-          grade:    courseStudent.course.grade,
+          grade:    courseStudent.course.levelGrade?.displayOrder ?? courseStudent.course.grade,
           division: courseStudent.course.division,
         }
       : { name: '—', grade: 0, division: '—' },
@@ -1215,9 +1222,9 @@ private async buildPendingData(
     course: courseStudent
       ? {
           name:     courseStudent.course.name,
-          grade:    courseStudent.course.grade,
+          grade:    courseStudent.course.levelGrade?.displayOrder ?? courseStudent.course.grade,
           division: courseStudent.course.division,
-          level:    courseStudent.course.level,
+          level:    courseStudent.course.levelGrade?.educationLevel.slug.toUpperCase() ?? courseStudent.course.level,
           educationLevel: educationLevel
             ? { id: educationLevel.id, name: educationLevel.name, slug: educationLevel.slug }
             : undefined,
@@ -1276,7 +1283,19 @@ private async buildPendingData(
       include: {
         courseStudents: {
           where:   { status: 'ACTIVE' },
-          include: { course: true },
+          include: {
+            course: {
+              include: {
+                levelGrade: {
+                  include: {
+                    educationLevel: {
+                      select: { id: true, slug: true, name: true },
+                    },
+                  },
+                },
+              },
+            },
+          },
           take:    1,
         },
       },
@@ -1299,7 +1318,7 @@ private async buildPendingData(
       documentNumber: student.documentNumber,
     },
     course: course
-      ? { name: course.name, grade: course.grade, division: course.division }
+      ? { name: course.name, grade: course.levelGrade?.displayOrder ?? course.grade, division: course.division }
       : { name: '—', grade: 0, division: '—' },
     convivencias: convivencias.map((c) => ({
       date:   c.date.toISOString(),

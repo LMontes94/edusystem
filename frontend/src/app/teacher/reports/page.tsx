@@ -10,7 +10,7 @@ import { ReportFilters } from '@/app/admin/reports/_components/report-filters';
 import { ReportIndividualSection } from '@/app/admin/reports/_components/report-individual-section';
 import { ReportBulkSection } from '@/app/admin/reports/_components/report-bulk-section';
 import type { ReportType } from '@/features/reports/types';
-import { REPORT_TYPES, EDUCATION_LEVEL_TO_COURSE_LEVEL } from '@/features/reports/types';
+import { REPORT_TYPES } from '@/features/reports/types';
 
 export default function TeacherReportsPage() {
   const { data: session } = useAppSession();

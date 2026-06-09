@@ -11,23 +11,35 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Plus }        from 'lucide-react';
 import { useCreateCourse }  from '@/lib/api/courses';
 import { useSchoolYears }   from '@/lib/api/courses';
+import { useEducationLevels } from '@/lib/api/user-level-roles';
 import { createCourseSchema, CreateCourseForm } from './courses.types';
 
 export function CreateCourseDialog() {
   const [open, setOpen] = useState(false);
+  const [selectedEducationLevelId, setSelectedEducationLevelId] = useState('');
 
-  const createCourse      = useCreateCourse();
+  const createCourse          = useCreateCourse();
   const { data: schoolYears } = useSchoolYears();
+  const { data: educationLevels = [] } = useEducationLevels();
+
+  const selectedEducLevel = selectedEducationLevelId
+    ? (educationLevels as any[]).find((el: any) => el.id === selectedEducationLevelId)
+    : null;
+  const levelGrades = (selectedEducLevel?.levelGrades ?? []) as any[];
+  const sortedLevelGrades = [...levelGrades].sort(
+    (a: any, b: any) => a.displayOrder - b.displayOrder,
+  );
 
   const form = useForm<CreateCourseForm>({
     resolver: zodResolver(createCourseSchema),
-    defaultValues: { name: '', grade: 1, division: 'A', level: 'PRIMARIA' },
+    defaultValues: { name: '', division: 'A', levelGradeId: undefined as any },
   });
 
   async function onSubmit(data: CreateCourseForm) {
     await createCourse.mutateAsync(data);
     setOpen(false);
     form.reset();
+    setSelectedEducationLevelId('');
   }
 
   return (
@@ -76,45 +88,62 @@ export function CreateCourseDialog() {
               )}
             />
 
+            <FormField control={form.control} name="division"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>División</FormLabel>
+                  <FormControl><Input placeholder="A" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
             <div className="grid grid-cols-2 gap-4">
-              <FormField control={form.control} name="grade"
+              <FormItem>
+                <FormLabel>Nivel</FormLabel>
+                <Select
+                  onValueChange={(v) => {
+                    setSelectedEducationLevelId(v);
+                    form.resetField('levelGradeId');
+                  }}
+                  value={selectedEducationLevelId}
+                >
+                  <FormControl>
+                    <SelectTrigger><SelectValue placeholder="Seleccioná un nivel..." /></SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {(educationLevels as any[]).map((el: any) => (
+                      <SelectItem key={el.id} value={el.id}>
+                        {el.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </FormItem>
+
+              <FormField control={form.control} name="levelGradeId"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Grado</FormLabel>
-                    <FormControl><Input type="number" min={1} max={12} {...field} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField control={form.control} name="division"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>División</FormLabel>
-                    <FormControl><Input placeholder="A" {...field} /></FormControl>
+                    <Select onValueChange={field.onChange} value={field.value} disabled={!selectedEducationLevelId}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Seleccioná un grado..." />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {sortedLevelGrades.map((lg: any) => (
+                          <SelectItem key={lg.id} value={lg.id}>
+                            {lg.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
               />
             </div>
-
-            <FormField control={form.control} name="level"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Nivel</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="INICIAL">Inicial</SelectItem>
-                      <SelectItem value="PRIMARIA">Primaria</SelectItem>
-                      <SelectItem value="SECUNDARIA">Secundaria</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
 
             <div className="flex justify-end gap-2">
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>

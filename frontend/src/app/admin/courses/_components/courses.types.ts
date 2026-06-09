@@ -7,14 +7,27 @@ export interface SchoolYear {
   isActive: boolean;
 }
 
+export interface LevelGrade {
+  id:           string;
+  name:         string;
+  displayOrder: number;
+  educationLevel?: {
+    id:   string;
+    slug: string;
+    name: string;
+  };
+}
+
 export interface Course {
-  id:         string;
-  name:       string;
-  grade:      number;
-  division:   string;
-  level:      string;
-  schoolYear: SchoolYear;
-  _count:     { courseStudents: number; courseSubjects: number };
+  id:            string;
+  name:          string;
+  grade:         number;
+  division:      string;
+  level:         string;
+  levelGradeId?: string;
+  levelGrade?:   LevelGrade;
+  schoolYear:    SchoolYear;
+  _count?:       { courseStudents: number; courseSubjects: number };
 }
 
 export interface Period {
@@ -43,9 +56,8 @@ export const levelColor: Record<string, string> = {
 export const createCourseSchema = z.object({
   schoolYearId: z.string().min(1, 'Requerido'),
   name:         z.string().min(1, 'Requerido'),
-  grade:        z.coerce.number().int().min(1).max(12),
   division:     z.string().min(1, 'Requerido'),
-  level:        z.enum(['INICIAL', 'PRIMARIA', 'SECUNDARIA']),
+  levelGradeId: z.string().uuid('Debe seleccionar un grado'),
 });
 export type CreateCourseForm = z.infer<typeof createCourseSchema>;
 

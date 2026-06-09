@@ -50,7 +50,7 @@ export function GuardianStudentSelector({
             (cs) => cs.status === 'ACTIVE',
           );
           const label = course
-            ? `${child.firstName} ${child.lastName} — ${course.course.grade}° ${course.course.division}`
+            ? `${child.firstName} ${child.lastName} — ${(course.course as any).levelGrade?.displayOrder ?? course.course.grade}° ${course.course.division}`
             : `${child.firstName} ${child.lastName}`;
           return (
             <SelectItem key={child.id} value={child.id}>

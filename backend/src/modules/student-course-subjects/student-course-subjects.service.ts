@@ -24,7 +24,7 @@ export class StudentCourseSubjectsService {
         include: {
           subject: { select: { id: true, name: true, code: true } },
           teacher: { select: { id: true, firstName: true, lastName: true } },
-          course:  { select: { id: true, name: true, grade: true, division: true } },
+          course:  { select: { id: true, name: true, grade: true, division: true, levelGrade: { select: { id: true, displayOrder: true, name: true } } } },
         },
       },
       schoolYear: { select: { id: true, year: true } },
@@ -56,6 +56,9 @@ export class StudentCourseSubjectsService {
                   },
                 },
                 schoolYear: { select: { id: true, year: true } },
+                levelGrade: {
+                  select: { id: true, displayOrder: true, name: true },
+                },
               },
             },
           },
@@ -95,7 +98,7 @@ export class StudentCourseSubjectsService {
             course: {
               id:       cs.course.id,
               name:     cs.course.name,
-              grade:    cs.course.grade,
+              grade:    cs.course.levelGrade?.displayOrder ?? cs.course.grade,
               division: cs.course.division,
             },
           },
