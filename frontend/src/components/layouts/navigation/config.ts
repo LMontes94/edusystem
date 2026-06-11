@@ -4,7 +4,7 @@ import {
   ClipboardList, ClipboardCheck, ListChecks,
   FileText, Megaphone, BookText, Star, Clock,
   ShieldAlert, DoorOpenIcon, CalendarIcon,
-  SportShoe, Dumbbell,
+  SportShoe, Dumbbell, Layers,
 } from 'lucide-react';
 
 const adminNav: NavigationConfig = {
@@ -17,6 +17,7 @@ const adminNav: NavigationConfig = {
         { name: 'Alumnos', href: '/admin/students', icon: GraduationCap },
         { name: 'Cursos', href: '/admin/courses', icon: BookOpen },
         { name: 'Materias', href: '/admin/subjects', icon: BookOpen },
+        { name: 'Estructura Académica', href: '/admin/academic-structure', icon: Layers },
       ],
     },
     {
