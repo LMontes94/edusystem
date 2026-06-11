@@ -735,7 +735,19 @@ export class ChatService {
 
     const levels = [...new Set(levelRoles.map((lr) => lr.level))];
 
-    if (levels.length === 0) return { level: null, educationLevelId: null };
+    if (levels.length === 0) {
+      const defaultLevel = await this.prisma.educationLevel.findFirst({
+        where: { institutionId },
+        orderBy: { displayOrder: 'asc' },
+        select: { id: true },
+      });
+
+      if (defaultLevel) {
+        return { level: null, educationLevelId: defaultLevel.id };
+      }
+
+      return { level: null, educationLevelId: null };
+    }
     if (levels.length > 1) {
       throw new BadRequestException(
         'No se pueden crear conversaciones entre múltiples niveles educativos',
