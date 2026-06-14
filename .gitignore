@@ -35,6 +35,7 @@ out/
 # El cliente generado NO (se regenera con prisma generate)
 backend/node_modules/.prisma/
 backend/src/generated/
+backend/prisma/schema.full.prisma
 
 # ── Logs ─────────────────────────────────────
 *.log
