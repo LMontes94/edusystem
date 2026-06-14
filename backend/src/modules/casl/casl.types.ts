@@ -33,6 +33,8 @@ export type Subjects =
   | 'IndicatorEvaluation'
   | 'EducationLevel'
   | 'LevelGrade'
+  | 'PromotionResult'
+  | 'PromotionExecution'
   | 'all';
 
 export type AppAbility = MongoAbility<[Action, Subjects]>;

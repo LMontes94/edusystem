@@ -39,6 +39,7 @@ import { GuardiansModule } from './modules/guardians/guardians.module';
 import { ClosingGradesModule } from './modules/closing-grades/closing-grades.module';
 import { PendingSubjectsModule } from './modules/pending-subjects/pending-subjects.module';
 import { EducationLevelsModule } from './modules/education-levels/education-levels.module';
+import { PromotionModule } from './modules/promotion/promotion.module';
 import { AcademicStructureValidator } from './common/validators/academic-structure.validator';
 
 @Module({
@@ -83,6 +84,7 @@ import { AcademicStructureValidator } from './common/validators/academic-structu
     ClosingGradesModule,
     PendingSubjectsModule,
     EducationLevelsModule,
+    PromotionModule,
   ],
   providers:[
     {

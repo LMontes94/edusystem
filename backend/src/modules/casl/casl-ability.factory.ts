@@ -79,6 +79,8 @@ export class AbilityFactory {
         can(Action.Read, 'Indicator', inst);
         cannot([Action.Create, Action.Update, Action.Delete], 'Indicator');
         can(Action.Manage, 'StudentObservation', inst);
+        can(Action.Read, 'PromotionResult', inst);
+        cannot([Action.Create, Action.Update, Action.Delete], 'PromotionResult');
         cannot(Action.Delete, 'User');
         break;
       }
@@ -119,6 +121,8 @@ export class AbilityFactory {
         can(Action.Read, 'Indicator', inst);
         cannot([Action.Create, Action.Update, Action.Delete], 'Indicator');
         can(Action.Manage, 'StudentObservation', inst);
+        can(Action.Read, 'PromotionResult', inst);
+        cannot([Action.Create, Action.Update, Action.Delete], 'PromotionResult');
         break;
       }
 
@@ -160,6 +164,8 @@ export class AbilityFactory {
         cannot(Action.Delete, 'StudentObservation');
         can([Action.Create, Action.Read, Action.Update], 'IndicatorEvaluation', inst);
         cannot(Action.Delete, 'IndicatorEvaluation');
+        can(Action.Read, 'PromotionResult', inst);
+        cannot([Action.Create, Action.Update, Action.Delete], 'PromotionResult');
         cannot([Action.Create, Action.Update, Action.Delete], 'User');
         cannot([Action.Create, Action.Update, Action.Delete], 'Student');
         cannot(Action.Manage, 'Institution');
