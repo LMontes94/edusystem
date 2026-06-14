@@ -159,45 +159,64 @@ enum LevelGradeStatus {
   INACTIVE
 }
 
+enum SchoolYearStatus {
+  PLANNING
+  ACTIVE
+  CLOSED
+}
+
+enum PromotionOutcome {
+  PROMOTED
+  RETAINED
+  GRADUATED
+}
+
+enum PromotionStatus {
+  PREVIEWED
+  EXECUTING
+  COMPLETED
+}
+
 // ──────────────────────────────────────────────
 // MULTI-TENANCY — INSTITUCIÓN
 // ──────────────────────────────────────────────
 
 model Institution {
-  id        String            @id @default(uuid())
-  name      String            @db.VarChar(200)
-  domain    String?           @unique @db.VarChar(100) // ej: colegio.edu.ar
-  logoUrl   String?           @map("logo_url")
-  address   String?           @db.VarChar(300)
-  phone     String?           @db.VarChar(20)
-  plan      PlanType          @default(FREE)
-  status    InstitutionStatus @default(TRIAL)
-  trialEndsAt DateTime?       @map("trial_ends_at")
-  settings  Json?             // configuraciones propias por institución (colores, idioma, etc.)
-  createdAt DateTime          @default(now()) @map("created_at")
-  updatedAt DateTime          @updatedAt @map("updated_at")
-  deletedAt DateTime?         @map("deleted_at")
+  id          String            @id @default(uuid())
+  name        String            @db.VarChar(200)
+  domain      String?           @unique @db.VarChar(100) // ej: colegio.edu.ar
+  logoUrl     String?           @map("logo_url")
+  address     String?           @db.VarChar(300)
+  phone       String?           @db.VarChar(20)
+  plan        PlanType          @default(FREE)
+  status      InstitutionStatus @default(TRIAL)
+  trialEndsAt DateTime?         @map("trial_ends_at")
+  settings    Json? // configuraciones propias por institución (colores, idioma, etc.)
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
+  deletedAt   DateTime?         @map("deleted_at")
 
-  users         User[]
-  students      Student[]
-  courses       Course[]
-  subjects      Subject[]
-  schoolYears   SchoolYear[]
-  announcements Announcement[]
-  chatRooms     ChatRoom[]
-  auditLogs     AuditLog[]
-  invitations   Invitation[]
-  pendingSubjects PendingSubject[]
-  convivencias Convivencia[]
-  justifications  Justification[]
-  absenceRecords  AbsenceRecord[]
-  spaces       Space[]
-  spaceReservations SpaceReservation[]
-  sports      Sport[]
-  sportGroups SportGroup[]
-  chatPolicy  InstitutionChatPolicy?
+  users                      User[]
+  students                   Student[]
+  courses                    Course[]
+  subjects                   Subject[]
+  schoolYears                SchoolYear[]
+  announcements              Announcement[]
+  chatRooms                  ChatRoom[]
+  auditLogs                  AuditLog[]
+  invitations                Invitation[]
+  pendingSubjects            PendingSubject[]
+  convivencias               Convivencia[]
+  justifications             Justification[]
+  absenceRecords             AbsenceRecord[]
+  spaces                     Space[]
+  spaceReservations          SpaceReservation[]
+  sports                     Sport[]
+  sportGroups                SportGroup[]
+  chatPolicy                 InstitutionChatPolicy?
   levelCommunicationSettings InstitutionLevelCommunicationSettings[]
-  educationLevels EducationLevel[]
+  educationLevels            EducationLevel[]
+  PromotionResult            PromotionResult[]
 
   @@index([domain])
   @@index([status])
@@ -209,19 +228,19 @@ model Institution {
 // ──────────────────────────────────────────────
 
 model EducationLevel {
-  id            String   @id @default(uuid())
-  institutionId String   @map("institution_id")
-  slug          String   @db.VarChar(50)
-  name          String   @db.VarChar(100)
-  displayOrder  Int      @default(0) @map("display_order")
+  id            String               @id @default(uuid())
+  institutionId String               @map("institution_id")
+  slug          String               @db.VarChar(50)
+  name          String               @db.VarChar(100)
+  displayOrder  Int                  @default(0) @map("display_order")
   status        EducationLevelStatus @default(ACTIVE)
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+  createdAt     DateTime             @default(now()) @map("created_at")
+  updatedAt     DateTime             @updatedAt @map("updated_at")
 
-  institution Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
-  levelGrades LevelGrade[]
-  userLevelRoles UserLevelRole[]
-  chatRooms ChatRoom[]
+  institution                Institution                             @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  levelGrades                LevelGrade[]
+  userLevelRoles             UserLevelRole[]
+  chatRooms                  ChatRoom[]
   levelCommunicationSettings InstitutionLevelCommunicationSettings[]
 
   @@unique([institutionId, name])
@@ -231,47 +250,55 @@ model EducationLevel {
 }
 
 model LevelGrade {
-  id              String   @id @default(uuid())
-  educationLevelId String  @map("education_level_id")
-  name            String   @db.VarChar(100)
-  displayOrder    Int      @default(0) @map("display_order")
-  status          LevelGradeStatus @default(ACTIVE)
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
+  id               String           @id @default(uuid())
+  educationLevelId String           @map("education_level_id")
+  name             String           @db.VarChar(100)
+  displayOrder     Int              @default(0) @map("display_order")
+  status           LevelGradeStatus @default(ACTIVE)
 
-  educationLevel EducationLevel @relation(fields: [educationLevelId], references: [id], onDelete: Restrict)
-  courses        Course[]
-  indicators     Indicator[]
+  // Progression
+  nextLevelGradeId String? @map("next_level_grade_id")
+  isGraduating     Boolean @default(false) @map("is_graduating")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  educationLevel      EducationLevel @relation(fields: [educationLevelId], references: [id], onDelete: Restrict)
+  courses             Course[]
+  indicators          Indicator[]
+  nextLevelGrade      LevelGrade?    @relation("LevelGradeProgression", fields: [nextLevelGradeId], references: [id])
+  previousLevelGrades LevelGrade[]   @relation("LevelGradeProgression")
 
   @@unique([educationLevelId, name])
   @@index([educationLevelId])
+  @@index([nextLevelGradeId])
   @@map("level_grades")
 }
 
 model InstitutionChatPolicy {
-  id                                  String   @id @default(uuid())
-  institutionId                       String   @unique @map("institution_id")
+  id            String @id @default(uuid())
+  institutionId String @unique @map("institution_id")
 
-  guardiansCanMessageTeachers        Boolean  @default(true) @map("guardians_can_message_teachers")
-  guardiansCanMessageDirectors       Boolean  @default(true) @map("guardians_can_message_directors")
-  guardiansCanMessageSecretariat      Boolean  @default(true) @map("guardians_can_message_secretariat")
-  guardiansCanMessageAdmin            Boolean  @default(true) @map("guardians_can_message_admin")
+  guardiansCanMessageTeachers    Boolean @default(true) @map("guardians_can_message_teachers")
+  guardiansCanMessageDirectors   Boolean @default(true) @map("guardians_can_message_directors")
+  guardiansCanMessageSecretariat Boolean @default(true) @map("guardians_can_message_secretariat")
+  guardiansCanMessageAdmin       Boolean @default(true) @map("guardians_can_message_admin")
 
-  teachersCanMessageGuardians         Boolean  @default(true) @map("teachers_can_message_guardians")
-  teachersCanMessageOtherTeachers     Boolean  @default(false) @map("teachers_can_message_other_teachers")
-  teachersCanMessageStudents          Boolean  @default(false) @map("teachers_can_message_students")
+  teachersCanMessageGuardians     Boolean @default(true) @map("teachers_can_message_guardians")
+  teachersCanMessageOtherTeachers Boolean @default(false) @map("teachers_can_message_other_teachers")
+  teachersCanMessageStudents      Boolean @default(false) @map("teachers_can_message_students")
 
-  studentsCanMessageTeachers          Boolean  @default(false) @map("students_can_message_teachers")
-  studentsCanMessageOtherStudents     Boolean  @default(false) @map("students_can_message_other_students")
-  studentsCanCreateRooms              Boolean  @default(false) @map("students_can_create_rooms")
+  studentsCanMessageTeachers      Boolean @default(false) @map("students_can_message_teachers")
+  studentsCanMessageOtherStudents Boolean @default(false) @map("students_can_message_other_students")
+  studentsCanCreateRooms          Boolean @default(false) @map("students_can_create_rooms")
 
-  requireModerationForNewRooms        Boolean  @default(false) @map("require_moderation_for_new_rooms")
-  allowAnonymousReporting            Boolean  @default(false) @map("allow_anonymous_reporting")
+  requireModerationForNewRooms Boolean @default(false) @map("require_moderation_for_new_rooms")
+  allowAnonymousReporting      Boolean @default(false) @map("allow_anonymous_reporting")
 
-  createdAt                           DateTime @default(now()) @map("created_at")
-  updatedAt                           DateTime @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-  institution                         Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  institution Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
 
   @@index([institutionId])
   @@map("institution_chat_policies")
@@ -279,14 +306,14 @@ model InstitutionChatPolicy {
 
 // Nuevo: invitaciones para onboarding de nuevos usuarios
 model Invitation {
-  id            String   @id @default(uuid())
-  institutionId String   @map("institution_id")
-  email         String   @db.VarChar(200)
+  id            String    @id @default(uuid())
+  institutionId String    @map("institution_id")
+  email         String    @db.VarChar(200)
   role          Role
-  token         String   @unique @db.VarChar(512)
-  expiresAt     DateTime @map("expires_at")
+  token         String    @unique @db.VarChar(512)
+  expiresAt     DateTime  @map("expires_at")
   acceptedAt    DateTime? @map("accepted_at")
-  createdAt     DateTime @default(now()) @map("created_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
 
   institution Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
 
@@ -300,72 +327,72 @@ model Invitation {
 // ──────────────────────────────────────────────
 
 model User {
-  id            String     @id @default(uuid())
-  institutionId String?    @map("institution_id") // null solo para SUPER_ADMIN
-  email         String     
-  passwordHash  String     @map("password_hash")
-  role          Role
-  status        UserStatus @default(ACTIVE)
-  firstName     String     @map("first_name") @db.VarChar(100)
-  lastName      String     @map("last_name") @db.VarChar(100)
-  phone         String?    @db.VarChar(20)
-  avatarUrl     String?    @map("avatar_url")
-  lastLoginAt   DateTime?  @map("last_login_at")
-  leaveStartDate DateTime?  @map("leave_start_date")  
-  createdAt     DateTime   @default(now()) @map("created_at")
-  updatedAt     DateTime   @updatedAt @map("updated_at")
-  deletedAt     DateTime?  @map("deleted_at")
+  id             String     @id @default(uuid())
+  institutionId  String?    @map("institution_id") // null solo para SUPER_ADMIN
+  email          String
+  passwordHash   String     @map("password_hash")
+  role           Role
+  status         UserStatus @default(ACTIVE)
+  firstName      String     @map("first_name") @db.VarChar(100)
+  lastName       String     @map("last_name") @db.VarChar(100)
+  phone          String?    @db.VarChar(20)
+  avatarUrl      String?    @map("avatar_url")
+  lastLoginAt    DateTime?  @map("last_login_at")
+  leaveStartDate DateTime?  @map("leave_start_date")
+  createdAt      DateTime   @default(now()) @map("created_at")
+  updatedAt      DateTime   @updatedAt @map("updated_at")
+  deletedAt      DateTime?  @map("deleted_at")
 
-  institution         Institution?    @relation(fields: [institutionId], references: [id])
-  refreshTokens       RefreshToken[]
-  pushTokens          PushToken[]
-  teacherSubjects     CourseSubject[] @relation("TeacherSubjects")
-  announcements       Announcement[]
-  sentMessages        ChatMessage[]
-  chatRoomMembers     ChatRoomMember[] @relation("ChatRoomMemberUser")
-  notifications       Notification[]
-  guardianLinks       Guardian[]
-  attendancesRecorded Attendance[]    @relation("RecordedBy")
-  auditLogs           AuditLog[]
-  observations StudentObservation[]
-  convivencias Convivencia[]
-  justificationReviews Justification[] @relation("JustificationReviewer")
-  levelRoles UserLevelRole[]
-  spaceReservations SpaceReservation[]
-  sportGroupsAsTeacher SportGroupTeacher[]
+  institution               Institution?           @relation(fields: [institutionId], references: [id])
+  refreshTokens             RefreshToken[]
+  pushTokens                PushToken[]
+  teacherSubjects           CourseSubject[]        @relation("TeacherSubjects")
+  announcements             Announcement[]
+  sentMessages              ChatMessage[]
+  chatRoomMembers           ChatRoomMember[]       @relation("ChatRoomMemberUser")
+  notifications             Notification[]
+  guardianLinks             Guardian[]
+  attendancesRecorded       Attendance[]           @relation("RecordedBy")
+  auditLogs                 AuditLog[]
+  observations              StudentObservation[]
+  convivencias              Convivencia[]
+  justificationReviews      Justification[]        @relation("JustificationReviewer")
+  levelRoles                UserLevelRole[]
+  spaceReservations         SpaceReservation[]
+  sportGroupsAsTeacher      SportGroupTeacher[]
   subjectAssignmentsCreated StudentCourseSubject[] @relation("SubjectAssignedBy")
-  messageReads ChatMessageRead[]
-  chatRoomsCreated ChatRoom[] @relation("ChatRoomCreator")
-  addedMembers ChatRoomMember[] @relation("ChatRoomMemberAddedBy")
-  chatAuditLogs ChatAuditLog[]
-  closingGradesClosed  ClosingGrade[] @relation("ClosedBy")
-  closingGradesReopened ClosingGrade[] @relation("ReopenedBy")
-  
-  @@unique([email, institutionId])
+  messageReads              ChatMessageRead[]
+  chatRoomsCreated          ChatRoom[]             @relation("ChatRoomCreator")
+  addedMembers              ChatRoomMember[]       @relation("ChatRoomMemberAddedBy")
+  chatAuditLogs             ChatAuditLog[]
+  closingGradesClosed       ClosingGrade[]         @relation("ClosedBy")
+  closingGradesReopened     ClosingGrade[]         @relation("ReopenedBy")
+  PromotionResult           PromotionResult[]
 
+  @@unique([email, institutionId])
   @@index([role])
   @@index([email])
   @@index([institutionId])
   @@map("users")
 }
 
- model UserLevelRole {
-   id               String   @id @default(uuid())
-   userId           String   @map("user_id")
-   level            Level    // INICIAL | PRIMARIA | SECUNDARIA
-    educationLevelId String   @map("education_level_id")
-    role             Role     // TEACHER | PRECEPTOR | etc.
-    createdAt        DateTime @default(now()) @map("created_at")
+model UserLevelRole {
+  id               String   @id @default(uuid())
+  userId           String   @map("user_id")
+  level            Level // INICIAL | PRIMARIA | SECUNDARIA
+  educationLevelId String   @map("education_level_id")
+  role             Role // TEACHER | PRECEPTOR | etc.
+  createdAt        DateTime @default(now()) @map("created_at")
 
-    user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-    educationLevel EducationLevel @relation(fields: [educationLevelId], references: [id], onDelete: Restrict)
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  educationLevel EducationLevel @relation(fields: [educationLevelId], references: [id], onDelete: Restrict)
 
-   @@unique([userId, level, role])
-   @@unique([userId, educationLevelId, role])
-   @@index([userId])
-   @@index([educationLevelId])
-   @@map("user_level_roles")
- }
+  @@unique([userId, level, role])
+  @@unique([userId, educationLevelId, role])
+  @@index([userId])
+  @@index([educationLevelId])
+  @@map("user_level_roles")
+}
 
 model RefreshToken {
   id         String    @id @default(uuid())
@@ -403,11 +430,11 @@ model PushToken {
 // Esto complementa la lógica en NestJS (guards + CASL).
 
 model Permission {
-  id        String  @id @default(uuid())
+  id        String @id @default(uuid())
   role      Role
-  action    String  @db.VarChar(50)  // CREATE, READ, UPDATE, DELETE, EXPORT
-  resource  String  @db.VarChar(50)  // Grade, Attendance, Course, Student, etc.
-  condition Json?   // condición dinámica: { "teacherId": "{{userId}}" }
+  action    String @db.VarChar(50) // CREATE, READ, UPDATE, DELETE, EXPORT
+  resource  String @db.VarChar(50) // Grade, Attendance, Course, Student, etc.
+  condition Json? // condición dinámica: { "teacherId": "{{userId}}" }
 
   @@unique([role, action, resource])
   @@index([role])
@@ -419,25 +446,36 @@ model Permission {
 // ──────────────────────────────────────────────
 
 model SchoolYear {
-  id            String   @id @default(uuid())
-  institutionId String   @map("institution_id")
-  year          Int      @db.SmallInt
-  startDate     DateTime @map("start_date") @db.Date
-  endDate       DateTime @map("end_date") @db.Date
-  isActive      Boolean  @default(false) @map("is_active")
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+  id                    String            @id @default(uuid())
+  institutionId         String            @map("institution_id")
+  year                  Int               @db.SmallInt
+  startDate             DateTime          @map("start_date") @db.Date
+  endDate               DateTime          @map("end_date") @db.Date
+  isActive              Boolean           @default(false) @map("is_active")
+  status                SchoolYearStatus? @map("status")
+  promotionStatus       PromotionStatus?  @map("promotion_status")
+  promotionLockedAt     DateTime?         @map("promotion_locked_at")
+  promotionHeartbeatAt  DateTime?         @map("promotion_heartbeat_at")
+  promotionSummary      Json?             @map("promotion_summary")
+  promotionSummaryStale Boolean           @default(false) @map("promotion_summary_stale")
+  createdAt             DateTime          @default(now()) @map("created_at")
+  updatedAt             DateTime          @updatedAt @map("updated_at")
 
-  institution Institution @relation(fields: [institutionId], references: [id])
-  courses     Course[]
-  periods     Period[]
-  indicators  Indicator[]
-  pendingSubjects PendingSubject[]
-  sportGroups SportGroup[]
+  institution               Institution            @relation(fields: [institutionId], references: [id])
+  courses                   Course[]
+  periods                   Period[]
+  indicators                Indicator[]
+  pendingSubjects           PendingSubject[]
+  sportGroups               SportGroup[]
   studentSubjectAssignments StudentCourseSubject[]
 
-  @@unique([institutionId, year]) // cada institución tiene su propio ciclo lectivo
+  // Promotion relations
+  promotionsFrom PromotionResult[] @relation("PromotionFromSchoolYear")
+  promotionsTo   PromotionResult[] @relation("PromotionToSchoolYear")
+
+  @@unique([institutionId, year])
   @@index([institutionId])
+  @@index([promotionStatus], map: "school_years_promotion_status_idx")
   @@map("school_years")
 }
 
@@ -453,17 +491,17 @@ model Course {
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 
-  institution    Institution     @relation(fields: [institutionId], references: [id])
-  schoolYear     SchoolYear      @relation(fields: [schoolYearId], references: [id])
-  levelGrade     LevelGrade?     @relation(fields: [levelGradeId], references: [id], onDelete: Restrict)
+  institution    Institution          @relation(fields: [institutionId], references: [id])
+  schoolYear     SchoolYear           @relation(fields: [schoolYearId], references: [id])
+  levelGrade     LevelGrade?          @relation(fields: [levelGradeId], references: [id], onDelete: Restrict)
   courseStudents CourseStudent[]
   courseSubjects CourseSubject[]
   announcements  Announcement[]
   attendances    Attendance[]
   chatRooms      ChatRoom[]
-  observations StudentObservation[]
-  convivencias Convivencia[]
-  absenceRecords  AbsenceRecord[]
+  observations   StudentObservation[]
+  convivencias   Convivencia[]
+  absenceRecords AbsenceRecord[]
 
   @@index([institutionId])
   @@index([schoolYearId])
@@ -482,11 +520,11 @@ model Subject {
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 
-  institution    Institution    @relation(fields: [institutionId], references: [id])
-  courseSubjects CourseSubject[]
-  indicators  Indicator[]
+  institution     Institution          @relation(fields: [institutionId], references: [id])
+  courseSubjects  CourseSubject[]
+  indicators      Indicator[]
   pendingSubjects PendingSubject[]
-  observations StudentObservation[]
+  observations    StudentObservation[]
 
   @@unique([institutionId, code]) // código único por institución (antes era global)
   @@index([institutionId])
@@ -501,13 +539,13 @@ model CourseSubject {
   hoursPerWeek Int?     @map("hours_per_week") @db.SmallInt
   createdAt    DateTime @default(now()) @map("created_at")
 
-  course   Course  @relation(fields: [courseId], references: [id])
-  subject  Subject @relation(fields: [subjectId], references: [id])
-  teacher  User    @relation("TeacherSubjects", fields: [teacherId], references: [id])
-  grades   Grade[]
-  syllabuses Syllabus[]
+  course             Course                 @relation(fields: [courseId], references: [id])
+  subject            Subject                @relation(fields: [subjectId], references: [id])
+  teacher            User                   @relation("TeacherSubjects", fields: [teacherId], references: [id])
+  grades             Grade[]
+  syllabuses         Syllabus[]
   studentAssignments StudentCourseSubject[]
-  closingGrades ClosingGrade[]
+  closingGrades      ClosingGrade[]
 
   @@unique([courseId, subjectId])
   @@index([teacherId]) // índice clave para ABAC: filtrar materias del docente
@@ -533,20 +571,21 @@ model Student {
   updatedAt      DateTime  @updatedAt @map("updated_at")
   deletedAt      DateTime? @map("deleted_at")
 
-  institution    Institution     @relation(fields: [institutionId], references: [id])
-  courseStudents CourseStudent[]
-  grades         Grade[]
-  attendances    Attendance[]
-  guardians      Guardian[]
+  institution          Institution            @relation(fields: [institutionId], references: [id])
+  courseStudents       CourseStudent[]
+  grades               Grade[]
+  attendances          Attendance[]
+  guardians            Guardian[]
   indicatorEvaluations IndicatorEvaluation[]
-  observations StudentObservation[]
-  pendingSubjects PendingSubject[]
-  convivencias Convivencia[]
-  justifications  Justification[]
-  absenceRecords  AbsenceRecord[]
-  sportGroups SportGroupStudent[]
-  studentAssignments StudentCourseSubject[]
-  closingGrades ClosingGrade[]
+  observations         StudentObservation[]
+  pendingSubjects      PendingSubject[]
+  convivencias         Convivencia[]
+  justifications       Justification[]
+  absenceRecords       AbsenceRecord[]
+  sportGroups          SportGroupStudent[]
+  studentAssignments   StudentCourseSubject[]
+  closingGrades        ClosingGrade[]
+  promotionResults     PromotionResult[]
 
   @@unique([institutionId, documentNumber]) // DNI único por institución (no global)
   @@index([institutionId])
@@ -564,8 +603,68 @@ model CourseStudent {
   course  Course  @relation(fields: [courseId], references: [id])
   student Student @relation(fields: [studentId], references: [id])
 
+  // Promotion relations (back-references, one-to-many)
+  promotionResultsFrom PromotionResult[] @relation("PromotionFromCourseStudent")
+  promotionResultsTo   PromotionResult[] @relation("PromotionToCourseStudent")
+
   @@unique([courseId, studentId])
   @@map("course_students")
+}
+
+// ──────────────────────────────────────────────
+// PROMOTION
+// ──────────────────────────────────────────────
+
+model PromotionResult {
+  id String @id @default(uuid())
+
+  // Tenant isolation
+  institutionId String @map("institution_id")
+
+  // Identities
+  studentId        String  @map("student_id")
+  fromSchoolYearId String  @map("from_school_year_id")
+  toSchoolYearId   String? @map("to_school_year_id")
+
+  // CourseStudent traceability
+  fromCourseStudentId String  @map("from_course_student_id")
+  toCourseStudentId   String? @map("to_course_student_id")
+
+  // LevelGrade trajectory
+  fromLevelGradeId String? @map("from_level_grade_id")
+  toLevelGradeId   String? @map("to_level_grade_id")
+
+  // Outcome
+  result PromotionOutcome
+
+  // Snapshots
+  criteria           Json
+  evaluationSnapshot Json @default("{}") @map("evaluation_snapshot")
+
+  // Override metadata
+  reason     String? @db.VarChar(500)
+  isOverride Boolean @default(false) @map("is_override")
+
+  // Audit
+  decidedById String   @map("decided_by_id")
+  decidedAt   DateTime @default(now()) @map("decided_at")
+
+  // Relations
+  student           Student        @relation(fields: [studentId], references: [id])
+  institution       Institution    @relation(fields: [institutionId], references: [id])
+  fromSchoolYear    SchoolYear     @relation("PromotionFromSchoolYear", fields: [fromSchoolYearId], references: [id])
+  toSchoolYear      SchoolYear?    @relation("PromotionToSchoolYear", fields: [toSchoolYearId], references: [id], onDelete: SetNull)
+  fromCourseStudent CourseStudent  @relation("PromotionFromCourseStudent", fields: [fromCourseStudentId], references: [id])
+  toCourseStudent   CourseStudent? @relation("PromotionToCourseStudent", fields: [toCourseStudentId], references: [id], onDelete: SetNull)
+  decidedBy         User           @relation(fields: [decidedById], references: [id])
+
+  @@index([institutionId])
+  @@index([studentId])
+  @@index([studentId, fromSchoolYearId])
+  @@index([fromSchoolYearId])
+  @@index([toSchoolYearId])
+  @@index([result])
+  @@map("promotion_results")
 }
 
 model Guardian {
@@ -599,13 +698,13 @@ model Period {
   endDate      DateTime   @map("end_date") @db.Date
   createdAt    DateTime   @default(now()) @map("created_at")
 
-  schoolYear SchoolYear @relation(fields: [schoolYearId], references: [id])
-  grades     Grade[]
+  schoolYear           SchoolYear            @relation(fields: [schoolYearId], references: [id])
+  grades               Grade[]
   indicatorEvaluations IndicatorEvaluation[]
-  observations StudentObservation[]
-  syllabuses Syllabus[]
-  closingGrades ClosingGrade[]
-  
+  observations         StudentObservation[]
+  syllabuses           Syllabus[]
+  closingGrades        ClosingGrade[]
+
   @@map("periods")
 }
 
@@ -625,10 +724,10 @@ model Grade {
   courseSubject CourseSubject @relation(fields: [courseSubjectId], references: [id])
   period        Period        @relation(fields: [periodId], references: [id])
 
+  @@unique([studentId, courseSubjectId, periodId, type, date])
   @@index([studentId])
   @@index([periodId])
   @@index([courseSubjectId])
-  @@unique([studentId, courseSubjectId, periodId, type, date])
   @@map("grades")
 }
 
@@ -647,11 +746,11 @@ model ClosingGrade {
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
 
-  student       Student       @relation(fields: [studentId], references: [id])
-  courseSubject CourseSubject @relation(fields: [courseSubjectId], references: [id])
-  period        Period        @relation(fields: [periodId], references: [id])
-  closedBy      User?         @relation("ClosedBy", fields: [closedById], references: [id])
-  reopenedBy    User?             @relation("ReopenedBy", fields: [reopenedById], references: [id])
+  student        Student         @relation(fields: [studentId], references: [id])
+  courseSubject  CourseSubject   @relation(fields: [courseSubjectId], references: [id])
+  period         Period          @relation(fields: [periodId], references: [id])
+  closedBy       User?           @relation("ClosedBy", fields: [closedById], references: [id])
+  reopenedBy     User?           @relation("ReopenedBy", fields: [reopenedById], references: [id])
   pendingSubject PendingSubject?
 
   @@unique([studentId, courseSubjectId, periodId])
@@ -661,15 +760,15 @@ model ClosingGrade {
 }
 
 model Attendance {
-  id            String           @id @default(uuid())
-  studentId     String           @map("student_id")
-  courseId      String           @map("course_id")
-  sportGroupId  String?          @map("sport_group_id")
-  date          DateTime         @db.Date
-  status        AttendanceStatus
-  arrivalTime   DateTime?        @map("arrival_time") @db.Time
-  recordedById  String           @map("recorded_by_id")
-  createdAt     DateTime         @default(now()) @map("created_at")
+  id           String           @id @default(uuid())
+  studentId    String           @map("student_id")
+  courseId     String           @map("course_id")
+  sportGroupId String?          @map("sport_group_id")
+  date         DateTime         @db.Date
+  status       AttendanceStatus
+  arrivalTime  DateTime?        @map("arrival_time") @db.Time
+  recordedById String           @map("recorded_by_id")
+  createdAt    DateTime         @default(now()) @map("created_at")
 
   student             Student        @relation(fields: [studentId], references: [id])
   course              Course         @relation(fields: [courseId], references: [id])
@@ -712,25 +811,25 @@ model Announcement {
 }
 
 model ChatRoom {
-  id              String       @id @default(uuid())
-  institutionId   String       @map("institution_id")
-  type            ChatRoomType
-  name            String?      @db.VarChar(100)
-  courseId        String?      @map("course_id")
-  directRoomHash  String?      @unique @map("direct_room_hash")
-  lastMessageAt   DateTime?    @map("last_message_at")
-  createdAt       DateTime     @default(now()) @map("created_at")
-  creatorId       String?      @map("creator_id")
-  level           Level?       @map("level")
-  educationLevelId String      @map("education_level_id")
+  id               String       @id @default(uuid())
+  institutionId    String       @map("institution_id")
+  type             ChatRoomType
+  name             String?      @db.VarChar(100)
+  courseId         String?      @map("course_id")
+  directRoomHash   String?      @unique @map("direct_room_hash")
+  lastMessageAt    DateTime?    @map("last_message_at")
+  createdAt        DateTime     @default(now()) @map("created_at")
+  creatorId        String?      @map("creator_id")
+  level            Level?       @map("level")
+  educationLevelId String       @map("education_level_id")
 
-  institution Institution                  @relation(fields: [institutionId], references: [id])
-  course      Course?                      @relation(fields: [courseId], references: [id])
-  creator     User?                        @relation("ChatRoomCreator", fields: [creatorId], references: [id])
-  educationLevel EducationLevel            @relation(fields: [educationLevelId], references: [id], onDelete: Restrict)
-  members     ChatRoomMember[]
-  messages    ChatMessage[]
-  auditLogs   ChatAuditLog[]
+  institution    Institution      @relation(fields: [institutionId], references: [id])
+  course         Course?          @relation(fields: [courseId], references: [id])
+  creator        User?            @relation("ChatRoomCreator", fields: [creatorId], references: [id])
+  educationLevel EducationLevel   @relation(fields: [educationLevelId], references: [id], onDelete: Restrict)
+  members        ChatRoomMember[]
+  messages       ChatMessage[]
+  auditLogs      ChatAuditLog[]
 
   @@index([institutionId])
   @@index([lastMessageAt])
@@ -756,15 +855,15 @@ model ChatRoomMember {
 }
 
 model InstitutionLevelCommunicationSettings {
-  id                             String   @id @default(uuid())
-  institutionId                  String   @map("institution_id")
-  level                          Level
-  educationLevelId               String   @map("education_level_id")
-  guardianCanStartConversation   Boolean  @default(false) @map("guardian_can_start_conversation")
-  guardianCanAddParticipants     Boolean  @default(false) @map("guardian_can_add_participants")
-  guardianCanExportPdf           Boolean  @default(false) @map("guardian_can_export_pdf")
-  createdAt                      DateTime @default(now()) @map("created_at")
-  updatedAt                      DateTime @updatedAt @map("updated_at")
+  id                           String   @id @default(uuid())
+  institutionId                String   @map("institution_id")
+  level                        Level
+  educationLevelId             String   @map("education_level_id")
+  guardianCanStartConversation Boolean  @default(false) @map("guardian_can_start_conversation")
+  guardianCanAddParticipants   Boolean  @default(false) @map("guardian_can_add_participants")
+  guardianCanExportPdf         Boolean  @default(false) @map("guardian_can_export_pdf")
+  createdAt                    DateTime @default(now()) @map("created_at")
+  updatedAt                    DateTime @updatedAt @map("updated_at")
 
   institution    Institution    @relation(fields: [institutionId], references: [id], onDelete: Cascade)
   educationLevel EducationLevel @relation(fields: [educationLevelId], references: [id], onDelete: Restrict)
@@ -849,9 +948,9 @@ model Indicator {
   order        Int      @default(0)
   createdAt    DateTime @default(now()) @map("created_at")
 
-  subject     Subject    @relation(fields: [subjectId], references: [id])
-  schoolYear  SchoolYear @relation(fields: [schoolYearId], references: [id])
-  levelGrade  LevelGrade? @relation(fields: [levelGradeId], references: [id], onDelete: Restrict)
+  subject     Subject               @relation(fields: [subjectId], references: [id])
+  schoolYear  SchoolYear            @relation(fields: [schoolYearId], references: [id])
+  levelGrade  LevelGrade?           @relation(fields: [levelGradeId], references: [id], onDelete: Restrict)
   evaluations IndicatorEvaluation[]
 
   @@index([levelGradeId])
@@ -864,28 +963,28 @@ model IndicatorEvaluation {
   indicatorId String   @map("indicator_id")
   studentId   String   @map("student_id")
   periodId    String   @map("period_id")
-  value       String   // 'achieved' | 'in-progress' | 'not-achieved'
+  value       String // 'achieved' | 'in-progress' | 'not-achieved'
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  indicator   Indicator @relation(fields: [indicatorId], references: [id])
-  student     Student   @relation(fields: [studentId], references: [id])
-  period      Period    @relation(fields: [periodId], references: [id])
+  indicator Indicator @relation(fields: [indicatorId], references: [id])
+  student   Student   @relation(fields: [studentId], references: [id])
+  period    Period    @relation(fields: [periodId], references: [id])
 
   @@unique([indicatorId, studentId, periodId])
   @@map("indicator_evaluations")
 }
 
 model StudentObservation {
-  id           String   @id @default(uuid())
-  studentId    String   @map("student_id")
-  periodId     String   @map("period_id")
-  courseId     String   @map("course_id")
-  subjectId    String?  @map("subject_id")
-  authorId     String   @map("author_id")
-  observation  String
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  id          String   @id @default(uuid())
+  studentId   String   @map("student_id")
+  periodId    String   @map("period_id")
+  courseId    String   @map("course_id")
+  subjectId   String?  @map("subject_id")
+  authorId    String   @map("author_id")
+  observation String
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
   student Student  @relation(fields: [studentId], references: [id])
   period  Period   @relation(fields: [periodId], references: [id])
@@ -909,10 +1008,10 @@ model AuditLog {
   institutionId String      @map("institution_id")
   userId        String      @map("user_id")
   action        AuditAction
-  resource      String      @db.VarChar(50)  // "Grade", "Attendance", "User", etc.
+  resource      String      @db.VarChar(50) // "Grade", "Attendance", "User", etc.
   resourceId    String      @map("resource_id")
-  before        Json?       // estado anterior (para UPDATE/DELETE)
-  after         Json?       // estado nuevo (para CREATE/UPDATE)
+  before        Json? // estado anterior (para UPDATE/DELETE)
+  after         Json? // estado nuevo (para CREATE/UPDATE)
   ipAddress     String?     @map("ip_address") @db.VarChar(45)
   userAgent     String?     @map("user_agent") @db.VarChar(500)
   createdAt     DateTime    @default(now()) @map("created_at")
@@ -945,52 +1044,52 @@ model Syllabus {
 }
 
 model PendingSubject {
-  id              String                    @id @default(uuid())
-  studentId       String                    @map("student_id")
-  subjectId       String                    @map("subject_id")
-  institutionId   String                    @map("institution_id")
-  schoolYearId    String                    @map("school_year_id")
-  initialSabers   String?                   @map("initial_sabers")
-  march           String?
-  august          String?
-  november        String?
-  december        String?
-  february        String?
-  finalScore      String?                   @map("final_score")
-  closingSabers   String?                   @map("closing_sabers")
-  closingGradeId  String?                   @map("closing_grade_id")
-  status          PendingSubjectStatus      @default(ENROLLED) @map("status")
-  createdAt       DateTime                  @default(now()) @map("created_at")
-  updatedAt       DateTime                  @updatedAt @map("updated_at")
+  id             String               @id @default(uuid())
+  studentId      String               @map("student_id")
+  subjectId      String               @map("subject_id")
+  institutionId  String               @map("institution_id")
+  schoolYearId   String               @map("school_year_id")
+  initialSabers  String?              @map("initial_sabers")
+  march          String?
+  august         String?
+  november       String?
+  december       String?
+  february       String?
+  finalScore     String?              @map("final_score")
+  closingSabers  String?              @map("closing_sabers")
+  closingGradeId String?              @map("closing_grade_id")
+  status         PendingSubjectStatus @default(ENROLLED) @map("status")
+  createdAt      DateTime             @default(now()) @map("created_at")
+  updatedAt      DateTime             @updatedAt @map("updated_at")
 
-  student      Student      @relation(fields: [studentId], references: [id])
-  subject      Subject      @relation(fields: [subjectId], references: [id])
-  institution  Institution  @relation(fields: [institutionId], references: [id])
-  schoolYear   SchoolYear   @relation(fields: [schoolYearId], references: [id])
+  student      Student       @relation(fields: [studentId], references: [id])
+  subject      Subject       @relation(fields: [subjectId], references: [id])
+  institution  Institution   @relation(fields: [institutionId], references: [id])
+  schoolYear   SchoolYear    @relation(fields: [schoolYearId], references: [id])
   closingGrade ClosingGrade? @relation(fields: [closingGradeId], references: [id])
 
+  @@unique([closingGradeId])
   @@index([studentId])
   @@index([schoolYearId])
-  @@unique([closingGradeId])
   @@map("pending_subjects")
 }
 
 model Convivencia {
-  id            String   @id @default(uuid())
-  institutionId String   @map("institution_id")
-  studentId     String   @map("student_id")
-  courseId      String   @map("course_id")
-  authorId      String   @map("author_id")
-  type          String   // 'observation' | 'warning' | 'reprimand' | 'commendation' | 'suspension' | 'parent_meeting'
-  date          DateTime @db.Date
+  id            String    @id @default(uuid())
+  institutionId String    @map("institution_id")
+  studentId     String    @map("student_id")
+  courseId      String    @map("course_id")
+  authorId      String    @map("author_id")
+  type          String // 'observation' | 'warning' | 'reprimand' | 'commendation' | 'suspension' | 'parent_meeting'
+  date          DateTime  @db.Date
   reason        String
   savedAt       DateTime? @map("saved_at")
-  sentToParent  Boolean  @default(false) @map("sent_to_parent")
+  sentToParent  Boolean   @default(false) @map("sent_to_parent")
   sentAt        DateTime? @map("sent_at")
   readAt        DateTime? @map("read_at")
   deletedAt     DateTime? @map("deleted_at")
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
 
   institution Institution @relation(fields: [institutionId], references: [id])
   student     Student     @relation(fields: [studentId], references: [id])
@@ -1001,35 +1100,35 @@ model Convivencia {
 }
 
 model Justification {
-  id           String   @id @default(uuid())
-  attendanceId String   @unique @map("attendance_id")
-  studentId    String   @map("student_id")
-  institutionId String  @map("institution_id")
-  reason       String
-  fileUrl      String?  @map("file_url")
-  source       String   @default("manual") // 'manual' | 'parent_app'
-  status       String   @default("approved") // 'pending' | 'approved' | 'rejected'
-  reviewedBy   String?  @map("reviewed_by")
-  reviewedAt   DateTime? @map("reviewed_at")
-  createdAt    DateTime @default(now()) @map("created_at")
+  id            String    @id @default(uuid())
+  attendanceId  String    @unique @map("attendance_id")
+  studentId     String    @map("student_id")
+  institutionId String    @map("institution_id")
+  reason        String
+  fileUrl       String?   @map("file_url")
+  source        String    @default("manual") // 'manual' | 'parent_app'
+  status        String    @default("approved") // 'pending' | 'approved' | 'rejected'
+  reviewedBy    String?   @map("reviewed_by")
+  reviewedAt    DateTime? @map("reviewed_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
 
-  attendance   Attendance  @relation("AttendanceJustification", fields: [attendanceId], references: [id])
-  student      Student     @relation(fields: [studentId], references: [id])
-  institution  Institution @relation(fields: [institutionId], references: [id])
-  reviewer     User?       @relation("JustificationReviewer", fields: [reviewedBy], references: [id])
+  attendance  Attendance  @relation("AttendanceJustification", fields: [attendanceId], references: [id])
+  student     Student     @relation(fields: [studentId], references: [id])
+  institution Institution @relation(fields: [institutionId], references: [id])
+  reviewer    User?       @relation("JustificationReviewer", fields: [reviewedBy], references: [id])
 
   @@map("justifications")
 }
 
 model AbsenceRecord {
-  id            String   @id @default(uuid())
-  studentId     String   @map("student_id")
-  courseId      String   @map("course_id")
-  institutionId String   @map("institution_id")
-  absenceCount  Int      @map("absence_count")
-  threshold     Int      // umbral que disparó el acta
-  generatedAt   DateTime @default(now()) @map("generated_at")
-  sentToParent  Boolean  @default(false) @map("sent_to_parent")
+  id            String    @id @default(uuid())
+  studentId     String    @map("student_id")
+  courseId      String    @map("course_id")
+  institutionId String    @map("institution_id")
+  absenceCount  Int       @map("absence_count")
+  threshold     Int // umbral que disparó el acta
+  generatedAt   DateTime  @default(now()) @map("generated_at")
+  sentToParent  Boolean   @default(false) @map("sent_to_parent")
   sentAt        DateTime? @map("sent_at")
   readAt        DateTime? @map("read_at")
 
@@ -1039,7 +1138,6 @@ model AbsenceRecord {
 
   @@map("absence_records")
 }
-
 
 model Space {
   id            String    @id @default(cuid())
@@ -1082,53 +1180,53 @@ model SpaceReservation {
 }
 
 model Sport {
-  id            String       @id @default(cuid())
-  institutionId String       @map("institution_id")
-  name          String       
-  deletedAt     DateTime?    @map("deleted_at")
-  createdAt     DateTime     @default(now()) @map("created_at")
-  updatedAt     DateTime     @updatedAt @map("updated_at")
+  id            String    @id @default(cuid())
+  institutionId String    @map("institution_id")
+  name          String
+  deletedAt     DateTime? @map("deleted_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
 
-  institution   Institution  @relation(fields: [institutionId], references: [id])
-  groups        SportGroup[]
+  institution Institution  @relation(fields: [institutionId], references: [id])
+  groups      SportGroup[]
 
   @@map("sports")
 }
 
 model SportGroup {
-  id            String    @id @default(cuid())
-  institutionId String    @map("institution_id")
-  sportId       String    @map("sport_id")
-  schoolYearId  String    @map("school_year_id")
-  name          String    
+  id            String @id @default(cuid())
+  institutionId String @map("institution_id")
+  sportId       String @map("sport_id")
+  schoolYearId  String @map("school_year_id")
+  name          String
 
-  institution   Institution         @relation(fields: [institutionId], references: [id])
-  sport         Sport               @relation(fields: [sportId], references: [id])
-  schoolYear    SchoolYear          @relation(fields: [schoolYearId], references: [id])
-  teachers      SportGroupTeacher[]
-  students      SportGroupStudent[]
-  attendances   Attendance[]
+  institution Institution         @relation(fields: [institutionId], references: [id])
+  sport       Sport               @relation(fields: [sportId], references: [id])
+  schoolYear  SchoolYear          @relation(fields: [schoolYearId], references: [id])
+  teachers    SportGroupTeacher[]
+  students    SportGroupStudent[]
+  attendances Attendance[]
 
   @@map("sport_groups")
 }
 
 model SportGroupTeacher {
-  sportGroupId  String   @map("sport_group_id")
-  userId        String   @map("user_id")
+  sportGroupId String @map("sport_group_id")
+  userId       String @map("user_id")
 
-  sportGroup    SportGroup @relation(fields: [sportGroupId], references: [id])
-  user          User       @relation(fields: [userId], references: [id])
+  sportGroup SportGroup @relation(fields: [sportGroupId], references: [id])
+  user       User       @relation(fields: [userId], references: [id])
 
   @@id([sportGroupId, userId])
   @@map("sport_group_teachers")
 }
 
 model SportGroupStudent {
-  sportGroupId  String   @map("sport_group_id")
-  studentId     String   @map("student_id")
+  sportGroupId String @map("sport_group_id")
+  studentId    String @map("student_id")
 
-  sportGroup    SportGroup @relation(fields: [sportGroupId], references: [id])
-  student       Student    @relation(fields: [studentId], references: [id])
+  sportGroup SportGroup @relation(fields: [sportGroupId], references: [id])
+  student    Student    @relation(fields: [studentId], references: [id])
 
   @@id([sportGroupId, studentId])
   @@map("sport_group_students")
@@ -1143,9 +1241,9 @@ model StudentCourseSubject {
   createdById     String             @map("created_by_id")
   createdAt       DateTime           @default(now()) @map("created_at")
 
-  student       Student       @relation(fields: [studentId],       references: [id])
+  student       Student       @relation(fields: [studentId], references: [id])
   courseSubject CourseSubject @relation(fields: [courseSubjectId], references: [id])
-  schoolYear    SchoolYear    @relation(fields: [schoolYearId],    references: [id])
+  schoolYear    SchoolYear    @relation(fields: [schoolYearId], references: [id])
   createdBy     User          @relation("SubjectAssignedBy", fields: [createdById], references: [id])
 
   @@unique([studentId, courseSubjectId, schoolYearId])
