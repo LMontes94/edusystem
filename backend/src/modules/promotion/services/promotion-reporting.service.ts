@@ -1,4 +1,5 @@
-import { Injectable, BadRequestException, Logger } from '@nestjs/common';
+import { Injectable, BadRequestException, ForbiddenException, Logger } from '@nestjs/common';
+import { RequestUser } from '../../../common/decorators/current-user.decorator';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { EffectiveResultViewService } from '../utils/effective-result.view';
 import { ResultQueryDto } from '../dto/query-results.dto';
@@ -96,6 +97,7 @@ export class PromotionReportingService {
   async getStudentHistory(
     studentId: string,
     institutionId: string,
+    user: RequestUser,
   ): Promise<StudentPromotionHistory> {
     const student = await this.prisma.student.findFirst({
       where: { id: studentId, institutionId },
@@ -104,6 +106,15 @@ export class PromotionReportingService {
 
     if (!student) {
       throw new BadRequestException('STUDENT_NOT_FOUND');
+    }
+
+    if (user.role === 'GUARDIAN') {
+      const link = await this.prisma.guardian.findFirst({
+        where: { userId: user.id, studentId },
+      });
+      if (!link) {
+        throw new ForbiddenException('Solo podés ver el historial de tus hijos');
+      }
     }
 
     const results = await this.prisma.promotionResult.findMany({
@@ -119,8 +130,8 @@ export class PromotionReportingService {
       },
     });
 
-    const effectiveGraduation = await this.effectiveResultView.getEffectiveResultWithTenant(
-      studentId, '', institutionId,
+    const graduationResult = results.find(
+      (r) => r.result === 'GRADUATED',
     );
 
     return {
@@ -134,7 +145,7 @@ export class PromotionReportingService {
         reason: r.reason,
         decidedAt: r.decidedAt.toISOString(),
       })),
-      effectiveGraduationDate: null,
+      effectiveGraduationDate: graduationResult?.decidedAt.toISOString() ?? null,
     };
   }
 

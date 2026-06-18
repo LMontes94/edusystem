@@ -20,18 +20,6 @@ export class EffectiveResultViewService {
     `;
   }
 
-  async getEffectiveResult(studentId: string, fromSchoolYearId: string): Promise<any | null> {
-    const results = await this.prisma.$queryRaw`
-      SELECT *
-      FROM promotion_results
-      WHERE student_id = ${studentId}::uuid
-        AND from_school_year_id = ${fromSchoolYearId}::uuid
-      ORDER BY decided_at DESC, id DESC
-      LIMIT 1
-    `;
-    return (results as any[])[0] ?? null;
-  }
-
   async getEffectiveResultWithTenant(
     studentId: string,
     fromSchoolYearId: string,

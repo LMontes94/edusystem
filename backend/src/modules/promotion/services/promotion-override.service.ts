@@ -59,9 +59,13 @@ export class PromotionOverrideService {
       where: {
         studentId: dto.studentId,
         fromSchoolYearId: dto.fromSchoolYearId,
+        institutionId,
         isOverride: false,
       },
-      orderBy: { decidedAt: 'desc' },
+      orderBy: [
+        { decidedAt: 'desc' },
+        { id: 'desc' },
+      ],
     });
 
     if (priorResult) {
