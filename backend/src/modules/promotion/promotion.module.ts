@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bull';
 import { QUEUES } from '../../queues/queue.constants';
+import { PromotionController } from './promotion.controller';
 import { PromotionEngine } from './engine/promotion-engine';
 import { PromotionPreviewService } from './services/promotion-preview.service';
 import { PromotionExecutionService } from './services/promotion-execution.service';
@@ -15,6 +16,7 @@ import { DestinationResolver } from './utils/destination-resolver';
       { name: QUEUES.AUDIT },
     ),
   ],
+  controllers: [PromotionController],
   providers: [
     PromotionEngine,
     PromotionPreviewService,
