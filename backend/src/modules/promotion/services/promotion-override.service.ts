@@ -1,9 +1,10 @@
 import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
-import { Prisma } from '@prisma/client';
+import { Prisma, PromotionOutcome } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { EffectiveResultViewService } from '../utils/effective-result.view';
+import { DestinationResolver } from '../utils/destination-resolver';
 import { QUEUES, JOBS, JOB_OPTIONS } from '../../../queues/queue.constants';
 import { CreateOverrideDto } from '../dto/create-override.dto';
 import { OverrideResponse } from '../dto/preview-response.dto';
@@ -15,6 +16,7 @@ export class PromotionOverrideService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly effectiveResultView: EffectiveResultViewService,
+    private readonly destinationResolver: DestinationResolver,
     @InjectQueue(QUEUES.AUDIT) private readonly auditQueue: Queue,
   ) {}
 
@@ -94,21 +96,61 @@ export class PromotionOverrideService {
       ? (priorResult.criteria as Prisma.InputJsonValue)
       : (this.buildDefaultCriteria() as unknown as Prisma.InputJsonValue);
 
-    const toSchoolYearId = dto.toSchoolYearId
-      ? dto.toSchoolYearId
-      : await this.resolveToSchoolYearId(dto.fromSchoolYearId, institutionId);
+    // Resolve canonical destination based on the override result
+    const dest = await this.destinationResolver.resolveDestination(
+      dto.result as PromotionOutcome,
+      fromLevelGradeId,
+      dto.fromSchoolYearId,
+      institutionId,
+    );
+
+    const effectiveToSchoolYearId = dto.toSchoolYearId ?? dest.toSchoolYearId;
+    const effectiveToLevelGradeId = dest.toLevelGradeId;
+
+    // Resolve destination course — findOrCreateCourse stays outside transaction
+    // (matching ExecutionService pattern; orphaned Course is acceptable)
+    let courseId: string | undefined;
+    if (
+      (dto.result === 'PROMOTED' || dto.result === 'RETAINED') &&
+      effectiveToSchoolYearId &&
+      effectiveToLevelGradeId
+    ) {
+      courseId = await this.destinationResolver.findOrCreateCourse(
+        effectiveToSchoolYearId,
+        effectiveToLevelGradeId,
+        institutionId,
+      );
+    }
 
     const result = await this.prisma.$transaction(async (tx) => {
+      let toCourseStudentId: string | null = null;
+
+      // CourseStudent reconciliation inside transaction — atomic with PromotionResult
+      if (courseId) {
+        const existingCs = await (tx as any).courseStudent.findFirst({
+          where: { studentId: dto.studentId, courseId },
+        });
+
+        if (existingCs) {
+          toCourseStudentId = existingCs.id;
+        } else {
+          const courseStudent = await (tx as any).courseStudent.create({
+            data: { courseId, studentId: dto.studentId },
+          });
+          toCourseStudentId = courseStudent.id;
+        }
+      }
+
       const overrideResult = await tx.promotionResult.create({
         data: {
           institutionId,
           studentId: dto.studentId,
           fromSchoolYearId: dto.fromSchoolYearId,
-          toSchoolYearId,
+          toSchoolYearId: effectiveToSchoolYearId,
           fromCourseStudentId,
-          toCourseStudentId: null,
+          toCourseStudentId,
           fromLevelGradeId,
-          toLevelGradeId: fromLevelGradeId,
+          toLevelGradeId: effectiveToLevelGradeId,
           result: dto.result,
           criteria,
           evaluationSnapshot: {} as Prisma.InputJsonValue,
@@ -152,24 +194,6 @@ export class PromotionOverrideService {
       reason: dto.reason,
       decidedAt: result.decidedAt.toISOString(),
     };
-  }
-
-  private async resolveToSchoolYearId(
-    fromSchoolYearId: string,
-    institutionId: string,
-  ): Promise<string | null> {
-    const currentYear = await this.prisma.schoolYear.findUnique({
-      where: { id: fromSchoolYearId },
-      select: { year: true },
-    });
-    if (!currentYear) return null;
-
-    const nextYear = await this.prisma.schoolYear.findFirst({
-      where: { institutionId, year: currentYear.year + 1 },
-      select: { id: true },
-    });
-
-    return nextYear?.id ?? null;
   }
 
   private buildDefaultCriteria(): Record<string, unknown> {

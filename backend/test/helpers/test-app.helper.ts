@@ -25,13 +25,34 @@ export async function createTestApp(): Promise<INestApplication> {
 }
 
 export async function cleanDatabase(prisma: PrismaService) {
+  await prisma.promotionResult.deleteMany();
+  await prisma.spaceReservation.deleteMany();
+  await prisma.space.deleteMany();
+  await prisma.sportGroupTeacher.deleteMany();
+  await prisma.sportGroupStudent.deleteMany();
+  await prisma.sportGroup.deleteMany();
+  await prisma.sport.deleteMany();
+  await prisma.justification.deleteMany();
+  await prisma.absenceRecord.deleteMany();
+  await prisma.attendance.deleteMany();
+  await prisma.indicatorEvaluation.deleteMany();
+  await prisma.indicator.deleteMany();
+  await prisma.studentCourseSubject.deleteMany();
+  await prisma.pendingSubject.deleteMany();
+  await prisma.closingGrade.deleteMany();
+  await prisma.syllabus.deleteMany();
   await prisma.auditLog.deleteMany();
   await prisma.notification.deleteMany();
+  await prisma.chatMessageRead.deleteMany();
   await prisma.chatMessage.deleteMany();
   await prisma.chatRoomMember.deleteMany();
+  await prisma.chatAuditLog.deleteMany();
   await prisma.chatRoom.deleteMany();
-  await prisma.announcement.deleteMany();  
-  await prisma.attendance.deleteMany();
+  await prisma.announcement.deleteMany();
+  await prisma.institutionLevelCommunicationSettings.deleteMany();
+  await prisma.institutionChatPolicy.deleteMany();
+  await prisma.convivencia.deleteMany();
+  await prisma.studentObservation.deleteMany();
   await prisma.grade.deleteMany();
   await prisma.guardian.deleteMany();
   await prisma.courseStudent.deleteMany();
@@ -41,10 +62,14 @@ export async function cleanDatabase(prisma: PrismaService) {
   await prisma.subject.deleteMany();
   await prisma.schoolYear.deleteMany();
   await prisma.student.deleteMany();
+  await prisma.userLevelRole.deleteMany();
   await prisma.refreshToken.deleteMany();
-  await prisma.pushToken.deleteMany();    
+  await prisma.pushToken.deleteMany();
   await prisma.invitation.deleteMany();
   await prisma.user.deleteMany();
+  await prisma.levelGrade.updateMany({ data: { nextLevelGradeId: null } });
+  await prisma.levelGrade.deleteMany();
+  await prisma.educationLevel.deleteMany();
   await prisma.institution.deleteMany();
 }
 

@@ -18,11 +18,8 @@ export class PromotionReportingService {
     filters: ResultQueryDto,
     institutionId: string,
   ): Promise<any[]> {
-    const where = filters.includeHistory
-      ? this.buildRawWhere(filters, institutionId)
-      : this.buildEffectiveWhere(filters, institutionId);
-
     if (filters.includeHistory) {
+      const where = this.buildRawWhere(filters, institutionId);
       return this.prisma.promotionResult.findMany({
         where,
         orderBy: { decidedAt: 'desc' },
@@ -34,6 +31,11 @@ export class PromotionReportingService {
     return this.effectiveResultView.getEffectiveResults(
       filters.schoolYearId,
       institutionId,
+      {
+        studentId: filters.studentId,
+        result: filters.result,
+        isOverride: filters.isOverride,
+      },
     );
   }
 
@@ -51,6 +53,22 @@ export class PromotionReportingService {
 
     if (!schoolYear) {
       throw new BadRequestException('SCHOOL_YEAR_NOT_FOUND');
+    }
+
+    // Auto-recalculate if stale (e.g. after an override)
+    if (schoolYear.promotionSummary && schoolYear.promotionSummaryStale) {
+      await this.recalculateSummary(schoolYearId, institutionId);
+      const fresh = await this.prisma.schoolYear.findFirst({
+        where: { id: schoolYearId, institutionId },
+        select: {
+          promotionSummary: true,
+          promotionSummaryStale: true,
+        },
+      });
+      if (fresh) {
+        schoolYear.promotionSummary = fresh.promotionSummary;
+        schoolYear.promotionSummaryStale = fresh.promotionSummaryStale;
+      }
     }
 
     if (schoolYear.promotionSummary) {
@@ -197,10 +215,6 @@ export class PromotionReportingService {
         promotionSummaryStale: false,
       },
     });
-  }
-
-  private buildEffectiveWhere(filters: ResultQueryDto, institutionId: string): any {
-    return { institutionId };
   }
 
   private buildRawWhere(filters: ResultQueryDto, institutionId: string): any {
