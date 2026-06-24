@@ -1,10 +1,17 @@
 import { z } from 'zod';
+import type { PromotionSummary } from '@/types/promotion.types';
 
 // ── Tipos ─────────────────────────────────────
 export interface SchoolYear {
   id:       string;
   year:     number;
   isActive: boolean;
+  // Promoción
+  status?:               'PLANNING' | 'ACTIVE' | 'CLOSED';
+  promotionStatus?:      'PREVIEWED' | 'EXECUTING' | 'COMPLETED';
+  promotionSummary?:     PromotionSummary | null;
+  promotionSummaryStale?: boolean;
+  promotionLockedAt?:    string | null;
 }
 
 export interface LevelGrade {
