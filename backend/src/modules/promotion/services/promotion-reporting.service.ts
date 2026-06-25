@@ -20,12 +20,23 @@ export class PromotionReportingService {
   ): Promise<any[]> {
     if (filters.includeHistory) {
       const where = this.buildRawWhere(filters, institutionId);
-      return this.prisma.promotionResult.findMany({
+      const rows = await this.prisma.promotionResult.findMany({
         where,
         orderBy: { decidedAt: 'desc' },
         take: filters.limit,
         skip: (filters.page - 1) * filters.limit,
+        include: {
+          student: { select: { firstName: true, lastName: true } },
+          decidedBy: { select: { firstName: true, lastName: true } },
+        },
       });
+      return rows.map((r) => ({
+        ...r,
+        studentFullName: `${r.student.firstName} ${r.student.lastName}`,
+        decidedByName: `${r.decidedBy.firstName} ${r.decidedBy.lastName}`,
+        student: undefined,
+        decidedBy: undefined,
+      }));
     }
 
     return this.effectiveResultView.getEffectiveResults(

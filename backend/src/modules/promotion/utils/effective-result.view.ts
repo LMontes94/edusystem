@@ -19,6 +19,7 @@ export class EffectiveResultViewService {
     const hasFilters = filters && (filters.studentId || filters.result || filters.isOverride !== undefined);
 
     if (!hasFilters) {
+      // SYNC: If you modify the SELECT list here, update the filtered query below too
       return this.prisma.$queryRaw`
         SELECT DISTINCT ON (pr.student_id, pr.from_school_year_id)
           pr.id,
@@ -36,8 +37,12 @@ export class EffectiveResultViewService {
           pr.reason,
           pr.is_override               AS "isOverride",
           pr.decided_by_id             AS "decidedById",
-          pr.decided_at                AS "decidedAt"
+          pr.decided_at                AS "decidedAt",
+          COALESCE(s.first_name || ' ' || s.last_name, '—') AS "studentFullName",
+          COALESCE(u.first_name || ' ' || u.last_name, '—') AS "decidedByName"
         FROM promotion_results pr
+        LEFT JOIN students s ON s.id = pr.student_id
+        LEFT JOIN users u ON u.id = pr.decided_by_id
         WHERE pr.from_school_year_id = ${schoolYearId}
           AND pr.institution_id = ${institutionId}
         ORDER BY
@@ -69,6 +74,7 @@ export class EffectiveResultViewService {
 
     const whereClause = `WHERE ${outerConditions.join(' AND ')}`;
 
+    // SYNC: Keep the SELECT list and JOINs in sync with the unfiltered query above
     return this.prisma.$queryRawUnsafe(
       `
         SELECT * FROM (
@@ -88,8 +94,12 @@ export class EffectiveResultViewService {
             pr.reason,
             pr.is_override               AS "isOverride",
             pr.decided_by_id             AS "decidedById",
-            pr.decided_at                AS "decidedAt"
+            pr.decided_at                AS "decidedAt",
+            COALESCE(s.first_name || ' ' || s.last_name, '—') AS "studentFullName",
+            COALESCE(u.first_name || ' ' || u.last_name, '—') AS "decidedByName"
           FROM promotion_results pr
+          LEFT JOIN students s ON s.id = pr.student_id
+          LEFT JOIN users u ON u.id = pr.decided_by_id
           WHERE pr.from_school_year_id = $1
             AND pr.institution_id = $2
           ORDER BY pr.student_id, pr.from_school_year_id, pr.decided_at DESC, pr.id DESC

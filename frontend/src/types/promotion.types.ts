@@ -9,6 +9,7 @@ export interface PromotionResult {
   id: string;
   institutionId: string;
   studentId: string;
+  studentFullName: string;
   fromSchoolYearId: string;
   toSchoolYearId: string | null;
   fromCourseStudentId: string;
@@ -21,6 +22,7 @@ export interface PromotionResult {
   reason: string | null;
   isOverride: boolean;
   decidedById: string;
+  decidedByName: string;
   decidedAt: string;
 }
 

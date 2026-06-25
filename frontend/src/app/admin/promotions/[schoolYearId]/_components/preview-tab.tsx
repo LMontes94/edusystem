@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/table';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { usePromotionPreview } from '@/lib/api/promotion';
+import { StudentNameCell } from './student-name-cell';
 import type { StudentProjection, RuleResultProjection } from '@/types/promotion.types';
 
 const RESULT_CONFIG: Record<string, { label: string; variant: 'default' | 'secondary' }> = {
@@ -107,9 +108,8 @@ export function PreviewTab({ schoolYearId }: Props) {
                       </Button>
                     )}
                   </TableCell>
-                  <TableCell className="font-medium">
-                    {/* TODO Phase 7: onClick abre StudentHistorySheet */}
-                    <span>{student.studentFullName}</span>
+                  <TableCell>
+                    <StudentNameCell name={student.studentFullName} studentId={student.studentId} className="font-medium" />
                   </TableCell>
                   <TableCell>
                     <Badge variant={config?.variant ?? 'outline'}>

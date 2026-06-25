@@ -18,9 +18,10 @@ const CAN_EXECUTE_ROLES = ['ADMIN', 'DIRECTOR'];
 interface Props {
   schoolYear: SchoolYear;
   onExecute?: () => void;
+  onOverride?: () => void;
 }
 
-export function PromotionHeader({ schoolYear, onExecute }: Props) {
+export function PromotionHeader({ schoolYear, onExecute, onOverride }: Props) {
   const router = useRouter();
   const { data: session } = useAppSession();
   const isOnLeave = useIsOnLeave();
@@ -31,6 +32,7 @@ export function PromotionHeader({ schoolYear, onExecute }: Props) {
 
   const isExecuting = schoolYear.promotionStatus === 'EXECUTING';
   const showExecute = canExecute && schoolYear.promotionStatus !== 'COMPLETED';
+  const showOverride = canExecute && schoolYear.promotionStatus === 'COMPLETED';
 
   const { totalStudents, promoted, retained, graduated } =
     schoolYear.promotionSummary ?? {};
@@ -95,6 +97,12 @@ export function PromotionHeader({ schoolYear, onExecute }: Props) {
             ) : (
               'Ejecutar promoción'
             )}
+          </Button>
+        )}
+
+        {showOverride && (
+          <Button size="sm" variant="outline" onClick={onOverride}>
+            Cargar resultado manual
           </Button>
         )}
 
