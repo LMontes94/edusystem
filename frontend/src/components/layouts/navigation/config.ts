@@ -18,6 +18,7 @@ const adminNav: NavigationConfig = {
         { name: 'Cursos', href: '/admin/courses', icon: BookOpen },
         { name: 'Materias', href: '/admin/subjects', icon: BookOpen },
         { name: 'Estructura Académica', href: '/admin/academic-structure', icon: Layers },
+        { name: 'Promoción', href: '/admin/promotions', icon: GraduationCap },
       ],
     },
     {
