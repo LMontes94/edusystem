@@ -4,17 +4,33 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { ArrowLeft } from 'lucide-react';
+import { Loader2, ArrowLeft } from 'lucide-react';
 import { getStatusBadge } from '../../_components/promotions-columns';
+import { useAppSession } from '@/lib/hooks/use-app-session';
+import { useIsOnLeave } from '@/lib/hooks/use-is-on-leave';
 import type { SchoolYear } from '@/app/admin/courses/_components/courses.types';
+
+// SUPER_ADMIN queda fuera intencionalmente siguiendo el spec original de Phase 4.
+// En reports/permissions.ts y middleware.ts, SUPER_ADMIN sí tiene permisos administrativos
+// plenos — esto podría ser una inconsistencia real a validar con producto.
+const CAN_EXECUTE_ROLES = ['ADMIN', 'DIRECTOR'];
 
 interface Props {
   schoolYear: SchoolYear;
+  onExecute?: () => void;
 }
 
-export function PromotionHeader({ schoolYear }: Props) {
+export function PromotionHeader({ schoolYear, onExecute }: Props) {
   const router = useRouter();
+  const { data: session } = useAppSession();
+  const isOnLeave = useIsOnLeave();
+
   const badge = getStatusBadge(schoolYear.promotionStatus);
+  const currentRole = (session?.user as any)?.role ?? '';
+  const canExecute = CAN_EXECUTE_ROLES.includes(currentRole) && !isOnLeave;
+
+  const isExecuting = schoolYear.promotionStatus === 'EXECUTING';
+  const showExecute = canExecute && schoolYear.promotionStatus !== 'COMPLETED';
 
   const { totalStudents, promoted, retained, graduated } =
     schoolYear.promotionSummary ?? {};
@@ -65,10 +81,27 @@ export function PromotionHeader({ schoolYear }: Props) {
         </Card>
       </div>
 
-      {/* Stale warning */}
-      {schoolYear.promotionSummaryStale && (
-        <Badge variant="destructive">Resumen desactualizado</Badge>
-      )}
+      {/* Actions */}
+      <div className="flex items-center gap-2">
+        {showExecute && (
+          <Button
+            size="sm"
+            variant="default"
+            disabled={isExecuting}
+            onClick={onExecute}
+          >
+            {isExecuting ? (
+              <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" />Ejecutando…</>
+            ) : (
+              'Ejecutar promoción'
+            )}
+          </Button>
+        )}
+
+        {schoolYear.promotionSummaryStale && (
+          <Badge variant="destructive">Resumen desactualizado</Badge>
+        )}
+      </div>
     </div>
   );
 }

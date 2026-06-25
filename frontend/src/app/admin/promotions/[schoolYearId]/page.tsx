@@ -8,10 +8,12 @@ import { TABS, type TabId } from './_components/promotion-detail.types';
 import { PromotionHeader } from './_components/promotion-header';
 import { PreviewTab } from './_components/preview-tab';
 import { StatisticsTab } from './_components/statistics-tab';
+import { ExecuteDialog } from './_components/execute-dialog';
 
 export default function PromotionDetailPage() {
   const { schoolYearId } = useParams<{ schoolYearId: string }>();
   const [tab, setTab] = useState<TabId>('preview');
+  const [executeOpen, setExecuteOpen] = useState(false);
 
   const { data: schoolYears, isLoading } = useSchoolYears();
 
@@ -50,7 +52,7 @@ export default function PromotionDetailPage() {
 
   return (
     <div className="space-y-6">
-      <PromotionHeader schoolYear={schoolYear} />
+      <PromotionHeader schoolYear={schoolYear} onExecute={() => setExecuteOpen(true)} />
 
       {/* Tab bar */}
       <div className="flex gap-2 border-b pb-0">
@@ -74,6 +76,13 @@ export default function PromotionDetailPage() {
       {tab === 'statistics' && status !== undefined && (
         <StatisticsTab schoolYearId={schoolYearId} />
       )}
+
+      <ExecuteDialog
+        schoolYearId={schoolYearId}
+        schoolYear={schoolYear}
+        open={executeOpen}
+        onOpenChange={setExecuteOpen}
+      />
     </div>
   );
 }
