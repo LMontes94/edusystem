@@ -7,10 +7,14 @@ import {
 import { PrismaService } from '../../prisma/prisma.service';
 import { RequestUser } from '../../common/decorators/current-user.decorator';
 import { ClosePeriodDto, ReopenPeriodDto, ClosingGradeQueryDto } from './dto/closing-grade.dto';
+import { PromotionStaleHelper } from '../promotion/utils/promotion-stale.helper';
 
 @Injectable()
 export class ClosingGradesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly promotionStaleHelper: PromotionStaleHelper,
+  ) {}
 
   async findAll(institutionId: string, query: ClosingGradeQueryDto) {
     const where: any = {
@@ -35,6 +39,19 @@ export class ClosingGradesService {
     });
   }
 
+  /**
+   * SECURITY FINDING — CASL BYPASS via upsert
+   *
+   * TEACHER has `can(Action.Create, 'ClosingGrade')` but NOT `can(Action.Update, 'ClosingGrade')`.
+   * However, `prisma.closingGrade.upsert()` matches on the unique constraint
+   * `(studentId, courseSubjectId, periodId)` and overwrites the existing `closingScore`
+   * via the `update` branch — effectively performing an UPDATE without the Update permission.
+   *
+   * This means a TEACHER can re-close a period with a different score after ADMIN/DIRECTOR
+   * has already closed it, bypassing the intended authorization boundary.
+   *
+   * Not fixed in this change. Escalate to security/architecture review.
+   */
   async close(dto: ClosePeriodDto, user: RequestUser, institutionId: string) {
     const period = await this.prisma.period.findFirst({
       where: { id: dto.periodId, schoolYear: { institutionId } },
@@ -55,7 +72,7 @@ export class ClosingGradesService {
       throw new ForbiddenException('Solo podés cerrar períodos de tus propias materias');
     }
 
-    return this.prisma.closingGrade.upsert({
+    const result = await this.prisma.closingGrade.upsert({
       where: {
         studentId_courseSubjectId_periodId: {
           studentId:       dto.studentId,
@@ -79,6 +96,10 @@ export class ClosingGradesService {
         closedById:   user.id,
       },
     });
+
+    await this.promotionStaleHelper.markStaleIfCompleted(period.schoolYearId);
+
+    return result;
   }
 
   async reopen(
@@ -105,7 +126,7 @@ export class ClosingGradesService {
       throw new ForbiddenException('Solo ADMIN o DIRECTOR pueden reabrir períodos');
     }
 
-    return this.prisma.closingGrade.update({
+    const result = await this.prisma.closingGrade.update({
       where: {
         studentId_courseSubjectId_periodId: {
           studentId,
@@ -122,6 +143,16 @@ export class ClosingGradesService {
         closedById:    null,
       },
     });
+
+    const period = await this.prisma.period.findUnique({
+      where: { id: periodId },
+      select: { schoolYearId: true },
+    });
+    if (period?.schoolYearId) {
+      await this.promotionStaleHelper.markStaleIfCompleted(period.schoolYearId);
+    }
+
+    return result;
   }
 
   async isPeriodClosed(

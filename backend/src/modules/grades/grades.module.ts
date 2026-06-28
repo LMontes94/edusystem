@@ -5,6 +5,7 @@ import { GradesService } from './grades.service';
 import { QUEUES } from '../../queues/queue.constants';
 import { StudentCourseSubjectsModule } from '../student-course-subjects/student-course-subjects.module';
 import { ClosingGradesModule } from '../closing-grades/closing-grades.module';
+import { PromotionModule } from '../promotion/promotion.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { ClosingGradesModule } from '../closing-grades/closing-grades.module';
       { name: QUEUES.GRADES },
     ),StudentCourseSubjectsModule,
     ClosingGradesModule,
+    PromotionModule,
   ],
   controllers: [GradesController],
   providers: [GradesService],

@@ -3,6 +3,7 @@ import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
 import { PrismaService } from '../../prisma/prisma.service';
 import { PendingSubjectsService } from '../pending-subjects/pending-subjects.service';
+import { PromotionStaleHelper } from '../promotion/utils/promotion-stale.helper';
 import { QUEUES, JOBS, JOB_OPTIONS } from '../../queues/queue.constants';
 import type { RequestUser } from '../../common/decorators/current-user.decorator';
 import type { CreatePendingSubjectDto, UpdatePendingStatusDto, UpdatePendingProgressDto } from './dto/teacher.dto';
@@ -13,6 +14,7 @@ export class TeacherService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly pendingSubjectsService: PendingSubjectsService,
+    private readonly promotionStaleHelper: PromotionStaleHelper,
     @InjectQueue(QUEUES.AUDIT) private readonly auditQueue: Queue,
   ) {}
 
@@ -249,6 +251,8 @@ async updateSyllabus(
       JOB_OPTIONS.CRITICAL,
     ).catch((err) => this.logger.error('Audit dispatch failed', err));
 
+    await this.promotionStaleHelper.markStaleIfCompleted(cg.courseSubject.course.schoolYearId);
+
     return created;
   }
 
@@ -277,6 +281,8 @@ async updateSyllabus(
       },
       JOB_OPTIONS.CRITICAL,
     ).catch((err) => this.logger.error('Audit dispatch failed', err));
+
+    await this.promotionStaleHelper.markStaleIfCompleted(existing.schoolYearId);
 
     return updated;
   }
@@ -330,6 +336,8 @@ async updateSyllabus(
       JOB_OPTIONS.CRITICAL,
     ).catch((err) => this.logger.error('Audit dispatch failed', err));
 
+    await this.promotionStaleHelper.markStaleIfCompleted(existing.schoolYearId);
+
     return updated;
   }
 
@@ -354,6 +362,8 @@ async updateSyllabus(
       },
       JOB_OPTIONS.CRITICAL,
     ).catch((err) => this.logger.error('Audit dispatch failed', err));
+
+    await this.promotionStaleHelper.markStaleIfCompleted(existing.schoolYearId);
   }
 
   async getStudentPendingSubjects(studentId: string, schoolYearId: string, institutionId: string) {

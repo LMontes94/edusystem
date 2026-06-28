@@ -9,6 +9,7 @@ import { PromotionOverrideService } from './services/promotion-override.service'
 import { PromotionReportingService } from './services/promotion-reporting.service';
 import { EffectiveResultViewService } from './utils/effective-result.view';
 import { DestinationResolver } from './utils/destination-resolver';
+import { PromotionStaleHelper } from './utils/promotion-stale.helper';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { DestinationResolver } from './utils/destination-resolver';
     PromotionReportingService,
     EffectiveResultViewService,
     DestinationResolver,
+    PromotionStaleHelper,
   ],
   exports: [
     PromotionEngine,
@@ -34,6 +36,7 @@ import { DestinationResolver } from './utils/destination-resolver';
     PromotionReportingService,
     EffectiveResultViewService,
     DestinationResolver,
+    PromotionStaleHelper,
   ],
 })
 export class PromotionModule {}

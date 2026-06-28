@@ -3,12 +3,14 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { PrismaService }              from '../../prisma/prisma.service';
 import { RequestUser }                from '../../common/decorators/current-user.decorator';
 import { NotificationQueueService }   from '../notifications/notification-queue.service';
+import { PromotionStaleHelper } from '../promotion/utils/promotion-stale.helper';
 
 @Injectable()
 export class JustificationsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notifQueue: NotificationQueueService,
+    private readonly promotionStaleHelper: PromotionStaleHelper,
   ) {}
 
   // ── Justificar una inasistencia ───────────────
@@ -51,6 +53,14 @@ export class JustificationsService {
       }),
     ]);
 
+    const course = await this.prisma.course.findUnique({
+      where: { id: attendance.courseId },
+      select: { schoolYearId: true },
+    });
+    if (course?.schoolYearId) {
+      await this.promotionStaleHelper.markStaleIfCompleted(course.schoolYearId);
+    }
+
     return justification;
   }
 
@@ -81,6 +91,14 @@ export class JustificationsService {
         data:  { status: 'ABSENT' },
       }),
     ]);
+
+    const att = await this.prisma.attendance.findUnique({
+      where: { id: just.attendanceId },
+      select: { course: { select: { schoolYearId: true } } },
+    });
+    if (att?.course?.schoolYearId) {
+      await this.promotionStaleHelper.markStaleIfCompleted(att.course.schoolYearId);
+    }
   }
 
   // ── ACTAS DE INASISTENCIA ─────────────────────

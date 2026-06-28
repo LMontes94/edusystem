@@ -12,6 +12,7 @@ import { CreateGradeDto, UpdateGradeDto, GradeQueryDto } from './dto/grade.dto';
 import { QUEUES, JOBS, JOB_OPTIONS } from '../../queues/queue.constants';
 import { StudentCourseSubjectsService } from '../student-course-subjects/student-course-subjects.service';
 import { ClosingGradesService } from '../closing-grades/closing-grades.service';
+import { PromotionStaleHelper } from '../promotion/utils/promotion-stale.helper';
 
 @Injectable()
 export class GradesService {
@@ -19,6 +20,7 @@ export class GradesService {
     private readonly prisma: PrismaService,
     private readonly studentSubjectsService: StudentCourseSubjectsService,
     private readonly closingGradesService: ClosingGradesService,
+    private readonly promotionStaleHelper: PromotionStaleHelper,
     @InjectQueue(QUEUES.NOTIFICATIONS) private readonly notificationQueue: Queue,
     @InjectQueue(QUEUES.AUDIT)         private readonly auditQueue: Queue,
     @InjectQueue(QUEUES.GRADES)        private readonly gradeQueue: Queue,
@@ -234,6 +236,8 @@ export class GradesService {
     include: this.gradeIncludes(),
   });
 
+  await this.promotionStaleHelper.markStaleIfCompleted(courseSubject.course.schoolYearId);
+
   await Promise.all([
     this.notificationQueue.add(
       JOBS.GRADE_CREATED,
@@ -304,6 +308,14 @@ export class GradesService {
       ),
     ]);
 
+    const period = await this.prisma.period.findUnique({
+      where: { id: grade.periodId },
+      select: { schoolYearId: true },
+    });
+    if (period?.schoolYearId) {
+      await this.promotionStaleHelper.markStaleIfCompleted(period.schoolYearId);
+    }
+
     return updated;
   }
 
@@ -321,6 +333,14 @@ export class GradesService {
     if (closed) throw new BadRequestException('El período se encuentra cerrado');
 
     await this.prisma.grade.delete({ where: { id } });
+
+    const period = await this.prisma.period.findUnique({
+      where: { id: grade.periodId },
+      select: { schoolYearId: true },
+    });
+    if (period?.schoolYearId) {
+      await this.promotionStaleHelper.markStaleIfCompleted(period.schoolYearId);
+    }
   }
 
   async getAverage(studentId: string, periodId: string, user: RequestUser, institutionId: string) {

@@ -6,6 +6,7 @@ import {
 import { PrismaService } from '../../prisma/prisma.service';
 import { JustificationsService }    from './justifications.service';
 import { RequestUser } from '../../common/decorators/current-user.decorator';
+import { PromotionStaleHelper } from '../promotion/utils/promotion-stale.helper';
 import {
   CreateAttendanceDto,
   BulkAttendanceDto,
@@ -18,6 +19,7 @@ export class AttendanceService {
   constructor(
     private readonly prisma:                PrismaService,
     private readonly justificationsService: JustificationsService,
+    private readonly promotionStaleHelper:  PromotionStaleHelper,
   ) {}
 
   // ── Listar asistencias ───────────────────────
@@ -63,7 +65,7 @@ export class AttendanceService {
     });
     if (!student) throw new NotFoundException('Alumno no encontrado');
 
-    return this.prisma.attendance.upsert({
+    const attendance = await this.prisma.attendance.upsert({
       where: {
         studentId_courseId_date_sportGroupId: {
           studentId: dto.studentId,
@@ -86,6 +88,16 @@ export class AttendanceService {
       },
       include: this.attendanceIncludes(),
     });
+
+    const course = await this.prisma.course.findUnique({
+      where: { id: dto.courseId },
+      select: { schoolYearId: true },
+    });
+    if (course?.schoolYearId) {
+      await this.promotionStaleHelper.markStaleIfCompleted(course.schoolYearId);
+    }
+
+    return attendance;
   }
 
   // ── Carga masiva por curso ───────────────────
@@ -189,6 +201,14 @@ async bulkCreate(
     ),
   );
 
+  const course = await this.prisma.course.findUnique({
+    where: { id: dto.courseId },
+    select: { schoolYearId: true },
+  });
+  if (course?.schoolYearId) {
+    await this.promotionStaleHelper.markStaleIfCompleted(course.schoolYearId);
+  }
+
   return {
     total: results.length,
     date: dto.date,
@@ -203,11 +223,11 @@ async bulkCreate(
 
     const course = await this.prisma.course.findUnique({
       where: { id: attendance.courseId },
-      select: { institutionId: true },
+      select: { institutionId: true, schoolYearId: true },
     });
     await this.verifyCourseAccess(attendance.courseId, user, course!.institutionId);
 
-    return this.prisma.attendance.update({
+    const updated = await this.prisma.attendance.update({
       where: { id },
       data: {
         ...dto,
@@ -217,6 +237,12 @@ async bulkCreate(
       },
       include: this.attendanceIncludes(),
     });
+
+    if (course?.schoolYearId) {
+      await this.promotionStaleHelper.markStaleIfCompleted(course.schoolYearId);
+    }
+
+    return updated;
   }
 
   // ── Resumen de asistencia por alumno ─────────
